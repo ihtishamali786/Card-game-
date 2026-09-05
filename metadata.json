@@ -1,0 +1,6 @@
+{
+  "name": "Solitaire-Hyper Card Games",
+  "description": "Classic Klondike Solitaire card game featuring Draw 1 & Draw 3 modes, daily challenges, rich themes, customizable cards, statistics, and smooth controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
