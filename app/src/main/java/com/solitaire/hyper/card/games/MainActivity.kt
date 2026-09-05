@@ -32,6 +32,19 @@ import com.solitaire.hyper.card.games.ui.settings.SettingsScreen
 import com.solitaire.hyper.card.games.ui.stats.StatisticsScreen
 import com.solitaire.hyper.card.games.ui.theme.SolitaireHyperTheme
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
+import com.solitaire.hyper.card.games.ui.theme.SleekSlate100
+import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
+
 enum class Screen {
     HOME,
     GAME,
@@ -76,11 +89,58 @@ fun SolitaireAppNavigation(
     val context = LocalContext.current
     val activity = context as? Activity
     var currentScreen by remember { mutableStateOf(Screen.HOME) }
+    var previousScreen by remember { mutableStateOf<Screen?>(null) }
+    var showAppExitDialog by remember { mutableStateOf(false) }
+
     val userSettings by viewModel.userSettings.collectAsState()
     val hasSavedGame = !userSettings.savedGameJson.isNullOrBlank()
 
     LaunchedEffect(Unit) {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
+
+    // When on HOME screen and user presses back, ask for confirmation
+    if (currentScreen == Screen.HOME) {
+        BackHandler {
+            showAppExitDialog = true
+        }
+    }
+
+    if (showAppExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showAppExitDialog = false },
+            title = {
+                Text("Exit Solitaire?", fontWeight = FontWeight.Bold, color = SleekSlate100)
+            },
+            text = {
+                Text("Are you sure you want to close the game?", color = SleekSlate300, fontSize = 14.sp)
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showAppExitDialog = false
+                        activity?.finish()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500)
+                ) {
+                    Text("Exit", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAppExitDialog = false }) {
+                    Text("Cancel", color = SleekSlate300)
+                }
+            }
+        )
+    }
+
+    fun navigateTo(screen: Screen) {
+        previousScreen = currentScreen
+        currentScreen = screen
+    }
+
+    fun navigateBackFromSubScreen() {
+        currentScreen = previousScreen ?: Screen.HOME
     }
 
     Crossfade(targetState = currentScreen, label = "ScreenTransition") { screen ->
@@ -89,36 +149,51 @@ fun SolitaireAppNavigation(
                 hasSavedGame = hasSavedGame,
                 onContinueGame = {
                     viewModel.restoreSavedGameOrNew()
-                    currentScreen = Screen.GAME
+                    navigateTo(Screen.GAME)
                 },
                 onPlayDraw1 = {
                     viewModel.startNewGame(mode = GameMode.DRAW_1)
-                    currentScreen = Screen.GAME
+                    navigateTo(Screen.GAME)
                 },
                 onPlayDraw3 = {
                     viewModel.startNewGame(mode = GameMode.DRAW_3)
-                    currentScreen = Screen.GAME
+                    navigateTo(Screen.GAME)
                 },
                 onDailyChallenge = {
-                    currentScreen = Screen.DAILY_CHALLENGES
+                    navigateTo(Screen.DAILY_CHALLENGES)
                 },
                 onStatistics = {
-                    currentScreen = Screen.STATISTICS
+                    navigateTo(Screen.STATISTICS)
                 },
                 onCustomization = {
-                    currentScreen = Screen.CUSTOMIZATION
+                    navigateTo(Screen.CUSTOMIZATION)
                 },
                 onAchievements = {
-                    currentScreen = Screen.ACHIEVEMENTS
+                    navigateTo(Screen.ACHIEVEMENTS)
                 },
                 onSettings = {
-                    currentScreen = Screen.SETTINGS
+                    navigateTo(Screen.SETTINGS)
                 }
             )
             Screen.GAME -> GameScreen(
                 viewModel = viewModel,
                 onNavigateBack = {
                     currentScreen = Screen.HOME
+                },
+                onOpenSettings = {
+                    navigateTo(Screen.SETTINGS)
+                },
+                onOpenDaily = {
+                    navigateTo(Screen.DAILY_CHALLENGES)
+                },
+                onOpenThemes = {
+                    navigateTo(Screen.CUSTOMIZATION)
+                },
+                onOpenStats = {
+                    navigateTo(Screen.STATISTICS)
+                },
+                onOpenAchievements = {
+                    navigateTo(Screen.ACHIEVEMENTS)
                 }
             )
             Screen.DAILY_CHALLENGES -> DailyChallengeScreen(
@@ -129,25 +204,25 @@ fun SolitaireAppNavigation(
                         isDailyChallenge = true,
                         challengeDate = dateStr
                     )
-                    currentScreen = Screen.GAME
+                    navigateTo(Screen.GAME)
                 },
-                onBack = { currentScreen = Screen.HOME }
+                onBack = { navigateBackFromSubScreen() }
             )
             Screen.STATISTICS -> StatisticsScreen(
                 repository = repository,
-                onBack = { currentScreen = Screen.HOME }
+                onBack = { navigateBackFromSubScreen() }
             )
             Screen.CUSTOMIZATION -> CustomizationScreen(
                 userPrefs = userPrefs,
-                onBack = { currentScreen = Screen.HOME }
+                onBack = { navigateBackFromSubScreen() }
             )
             Screen.ACHIEVEMENTS -> AchievementsScreen(
                 achievementsFlow = repository.getAchievements(),
-                onBack = { currentScreen = Screen.HOME }
+                onBack = { navigateBackFromSubScreen() }
             )
             Screen.SETTINGS -> SettingsScreen(
                 userPrefs = userPrefs,
-                onBack = { currentScreen = Screen.HOME }
+                onBack = { navigateBackFromSubScreen() }
             )
         }
     }

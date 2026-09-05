@@ -18,30 +18,38 @@ android {
     applicationId = "com.solitaire.hyper.card.games"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "2.0"
+    versionCode = 3
+    versionName = "3.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
   signingConfigs {
     create("release") {
+      val releaseKeystore = file("${rootDir}/release-keystore.jks")
       val envKeystorePath = System.getenv("KEYSTORE_PATH")
-      val keystoreFile = if (!envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists()) {
-        file(envKeystorePath)
-      } else {
-        file("${rootDir}/debug.keystore")
+      val keystoreFile = when {
+        releaseKeystore.exists() -> releaseKeystore
+        !envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists() -> file(envKeystorePath)
+        else -> file("${rootDir}/debug.keystore")
       }
       storeFile = keystoreFile
 
-      val defaultPass = if (keystoreFile.name == "debug.keystore") "android" else (System.getenv("STORE_PASSWORD") ?: "android")
-      val pass = System.getenv("STORE_PASSWORD") ?: defaultPass
+      val pass = when {
+        keystoreFile == releaseKeystore -> "release123"
+        keystoreFile.name == "debug.keystore" -> "android"
+        else -> System.getenv("STORE_PASSWORD") ?: "android"
+      }
       storePassword = pass
-      val keyPass = System.getenv("KEY_PASSWORD") ?: pass
-      keyPassword = keyPass
+      keyPassword = when {
+        keystoreFile == releaseKeystore -> "release123"
+        else -> System.getenv("KEY_PASSWORD") ?: pass
+      }
 
       val envAlias = System.getenv("KEY_ALIAS")
-      if (!envAlias.isNullOrBlank()) {
+      if (keystoreFile == releaseKeystore) {
+        keyAlias = "release"
+      } else if (!envAlias.isNullOrBlank()) {
         keyAlias = envAlias
       } else if (keystoreFile.name == "debug.keystore") {
         keyAlias = "androiddebugkey"

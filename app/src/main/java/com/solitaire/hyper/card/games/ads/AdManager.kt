@@ -29,10 +29,10 @@ object AdManager {
     private const val PROD_APP_OPEN_ID = "ca-app-pub-2835586363285222/4092955494"
 
     // Official Google Test Ad Unit IDs
-    private const val TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
-    private const val TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
-    private const val TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
-    private const val TEST_APP_OPEN_ID = "ca-app-pub-3940256099942544/9257390722"
+    const val TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
+    const val TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
+    const val TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
+    const val TEST_APP_OPEN_ID = "ca-app-pub-3940256099942544/9257390722"
 
     val bannerAdUnitId: String
         get() = if (BuildConfig.DEBUG) TEST_BANNER_ID else PROD_BANNER_ID
@@ -48,9 +48,11 @@ object AdManager {
 
     private var interstitialAd: InterstitialAd? = null
     private var isInterstitialLoading = false
+    private var interstitialFallbackAttempted = false
 
     private var rewardedAd: RewardedAd? = null
     private var isRewardedLoading = false
+    private var rewardedFallbackAttempted = false
 
     private var isInitialized = false
 
@@ -88,6 +90,25 @@ object AdManager {
                         interstitialAd = null
                         isInterstitialLoading = false
                         Log.w(TAG, "Interstitial failed to load: ${error.message}")
+                        if (!interstitialFallbackAttempted && interstitialAdUnitId != TEST_INTERSTITIAL_ID) {
+                            interstitialFallbackAttempted = true
+                            Log.d(TAG, "Attempting fallback to test interstitial ad")
+                            val testRequest = AdRequest.Builder().build()
+                            InterstitialAd.load(
+                                context,
+                                TEST_INTERSTITIAL_ID,
+                                testRequest,
+                                object : InterstitialAdLoadCallback() {
+                                    override fun onAdLoaded(ad: InterstitialAd) {
+                                        interstitialAd = ad
+                                        Log.d(TAG, "Fallback test interstitial loaded")
+                                    }
+                                    override fun onAdFailedToLoad(err: LoadAdError) {
+                                        Log.w(TAG, "Fallback test interstitial failed: ${err.message}")
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -140,6 +161,25 @@ object AdManager {
                         rewardedAd = null
                         isRewardedLoading = false
                         Log.w(TAG, "Rewarded ad failed to load: ${error.message}")
+                        if (!rewardedFallbackAttempted && rewardedAdUnitId != TEST_REWARDED_ID) {
+                            rewardedFallbackAttempted = true
+                            Log.d(TAG, "Attempting fallback to test rewarded ad")
+                            val testRequest = AdRequest.Builder().build()
+                            RewardedAd.load(
+                                context,
+                                TEST_REWARDED_ID,
+                                testRequest,
+                                object : RewardedAdLoadCallback() {
+                                    override fun onAdLoaded(ad: RewardedAd) {
+                                        rewardedAd = ad
+                                        Log.d(TAG, "Fallback test rewarded ad loaded")
+                                    }
+                                    override fun onAdFailedToLoad(err: LoadAdError) {
+                                        Log.w(TAG, "Fallback test rewarded ad failed: ${err.message}")
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             )

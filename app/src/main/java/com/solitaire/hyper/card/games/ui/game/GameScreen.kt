@@ -18,20 +18,30 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -39,6 +49,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,36 +63,40 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.solitaire.hyper.card.games.ads.AdManager
-import com.solitaire.hyper.card.games.ads.BannerAdView
 import com.solitaire.hyper.card.games.game.model.Card
 import com.solitaire.hyper.card.games.game.model.CardLocation
+import com.solitaire.hyper.card.games.game.model.GameMode
 import com.solitaire.hyper.card.games.game.model.GameState
 import com.solitaire.hyper.card.games.ui.components.CardSlotPlaceholder
 import com.solitaire.hyper.card.games.ui.components.CardView
 import com.solitaire.hyper.card.games.ui.customization.CustomizationRegistry
-import com.solitaire.hyper.card.games.ui.theme.SleekBorderSubtle
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald400
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
-import com.solitaire.hyper.card.games.ui.theme.SleekFooterBg
 import com.solitaire.hyper.card.games.ui.theme.SleekHeaderDark
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate100
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate200
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate400
-import com.solitaire.hyper.card.games.ui.theme.SleekStatLabelStyle
-import com.solitaire.hyper.card.games.ui.theme.SleekStatValueStyle
 
 @Composable
 fun GameScreen(
     viewModel: GameViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onOpenSettings: () -> Unit = {},
+    onOpenDaily: () -> Unit = {},
+    onOpenThemes: () -> Unit = {},
+    onOpenStats: () -> Unit = {},
+    onOpenAchievements: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -95,45 +110,50 @@ fun GameScreen(
     val isAutoCompleting by viewModel.isAutoCompleting.collectAsState()
     val showWinDialog by viewModel.showWinDialog.collectAsState()
 
+    var showExitConfirm by remember { mutableStateOf(false) }
     var showRestartConfirm by remember { mutableStateOf(false) }
+    var showPlayDialog by remember { mutableStateOf(false) }
+    var showMenuDialog by remember { mutableStateOf(false) }
 
     val currentBackground = CustomizationRegistry.getBackground(userSettings.backgroundId)
     val currentCardBack = CustomizationRegistry.getCardBack(userSettings.cardBackId)
     val currentCardFace = CustomizationRegistry.getCardFace(userSettings.cardFaceId)
 
+    // User requested: prompt confirmation when user tries to go back
     BackHandler {
-        onNavigateBack()
+        showExitConfirm = true
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(currentBackground.brush)
+            .statusBarsPadding()
+            .navigationBarsPadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 6.dp, vertical = 4.dp)
+                .padding(horizontal = 6.dp, vertical = 2.dp)
         ) {
-            // 1. Top Header: Back Button, Stats (Time, Moves, Score, Cancel), Restart
+            // 1. Top Header: Menu (left), Score - Time - Moves (center), Theme/Palette (right)
             PortraitGameTopHeader(
                 gameState = gameState,
-                selectedLocation = selectedLocation,
                 showTimer = userSettings.showTimer,
-                onBack = onNavigateBack,
-                onCancelSelection = { viewModel.clearSelection() },
-                onRestart = { showRestartConfirm = true }
+                onMenuClick = { showMenuDialog = true },
+                onThemesClick = onOpenThemes,
+                selectedLocation = selectedLocation,
+                onCancelSelection = { viewModel.clearSelection() }
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
-            // 2. Top Cards Row: 7 columns matching the 7 Tableau columns exactly
-            // [Stock] [Waste] [Spacer] [♠] [♥] [♦] [♣]
+            // 2. Upper Card Row: Foundations 0..3 on LEFT, Gap, Waste, Stock on RIGHT
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val availableWidth = maxWidth
                 val colSpacing = 4.dp
-                val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(38.dp, 58.dp)
-                val cardHeight = cardWidth * 1.40f
+                val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
+                val cardHeight = cardWidth * 1.38f
 
                 PortraitTopCardRow(
                     gameState = gameState,
@@ -152,11 +172,11 @@ fun GameScreen(
                 )
             }
 
-            // 3. Status or Active Hint Message ribbon
+            // 3. Status or Active Hint banner
             if (activeHint != null || (!statusMessage.isNullOrBlank() && statusMessage != "Tap any face-up card to select")) {
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Surface(
-                    color = Color.Black.copy(alpha = 0.45f),
+                    color = Color.Black.copy(alpha = 0.50f),
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(0.5.dp, SleekEmerald400.copy(alpha = 0.35f)),
                     modifier = Modifier
@@ -185,9 +205,9 @@ fun GameScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
-            // 4. Main Tableau Board (Full Width and Maximum Height)
+            // 4. Main Tableau Area (dynamically budgeted to fill exact available vertical space)
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
@@ -195,8 +215,8 @@ fun GameScreen(
             ) {
                 val availableWidth = maxWidth
                 val colSpacing = 4.dp
-                val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(38.dp, 58.dp)
-                val cardHeight = cardWidth * 1.40f
+                val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
+                val cardHeight = cardWidth * 1.38f
 
                 TableauArea(
                     gameState = gameState,
@@ -220,21 +240,22 @@ fun GameScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // 5. Compact Bottom Bar: Restart, Undo, Hint, Auto Win
+            // 5. Floating Bottom Navigation Bar: Settings, Daily, Play, Hint, Undo & Solitaire emblem
             CompactGameBottomBar(
                 gameState = gameState,
-                activeHint = activeHint,
                 isAutoCompleting = isAutoCompleting,
-                onRestart = { showRestartConfirm = true },
-                onUndo = { viewModel.undo() },
+                onSettings = onOpenSettings,
+                onDaily = onOpenDaily,
+                onPlay = { showPlayDialog = true },
                 onHint = { viewModel.requestHint() },
+                onUndo = { viewModel.undo() },
                 onAutoComplete = { viewModel.triggerAutoComplete() }
             )
         }
 
-        // Win Dialog
+        // Win Celebratory Dialog
         if (showWinDialog) {
             WinCelebrationDialog(
                 gameState = gameState,
@@ -255,26 +276,191 @@ fun GameScreen(
             )
         }
 
+        // Exit Game Confirmation Dialog (Explicitly requested by user)
+        if (showExitConfirm) {
+            AlertDialog(
+                onDismissRequest = { showExitConfirm = false },
+                title = {
+                    Text(
+                        text = "Exit Game?",
+                        fontWeight = FontWeight.Bold,
+                        color = SleekSlate100
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Your current game progress will be automatically saved. Are you sure you want to return to the home screen?",
+                        color = SleekSlate300,
+                        fontSize = 14.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showExitConfirm = false
+                            onNavigateBack()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Exit Game", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitConfirm = false }) {
+                        Text("Resume", color = SleekSlate300)
+                    }
+                }
+            )
+        }
+
         // Restart Confirmation Dialog
         if (showRestartConfirm) {
             AlertDialog(
                 onDismissRequest = { showRestartConfirm = false },
-                title = { Text("Restart Game?") },
-                text = { Text("Are you sure you want to start a new game? Current progress will be lost.") },
+                title = { Text("Restart Current Game?", fontWeight = FontWeight.Bold) },
+                text = { Text("Are you sure you want to restart this deal? Current moves and timer will reset.") },
                 confirmButton = {
                     Button(
                         onClick = {
                             showRestartConfirm = false
                             viewModel.startNewGame(mode = gameState.gameMode)
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Restart")
+                        Text("Restart", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showRestartConfirm = false }) {
-                        Text("Cancel")
+                        Text("Cancel", color = SleekSlate300)
+                    }
+                }
+            )
+        }
+
+        // Play / New Game Dialog
+        if (showPlayDialog) {
+            AlertDialog(
+                onDismissRequest = { showPlayDialog = false },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = SleekEmerald400)
+                        Text("Start New Game", fontWeight = FontWeight.Bold, color = SleekSlate100)
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Choose deal type:",
+                            color = SleekSlate300,
+                            fontSize = 13.sp
+                        )
+                        Button(
+                            onClick = {
+                                showPlayDialog = false
+                                viewModel.startNewGame(mode = GameMode.DRAW_1)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Draw 1 Card (Classic)", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                        Button(
+                            onClick = {
+                                showPlayDialog = false
+                                viewModel.startNewGame(mode = GameMode.DRAW_3)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A2F)),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Draw 3 Cards (Challenging)", fontWeight = FontWeight.Bold, color = SleekSlate100)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                showPlayDialog = false
+                                showRestartConfirm = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, SleekEmerald400.copy(alpha = 0.4f))
+                        ) {
+                            Text("Replay This Deal", color = SleekEmerald400, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showPlayDialog = false }) {
+                        Text("Cancel", color = SleekSlate300)
+                    }
+                }
+            )
+        }
+
+        // ☰ In-Game Hamburger Menu Dialog
+        if (showMenuDialog) {
+            AlertDialog(
+                onDismissRequest = { showMenuDialog = false },
+                title = {
+                    Text("Solitaire Menu", fontWeight = FontWeight.Bold, color = SleekSlate100)
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        GameMenuRow(icon = Icons.Default.Home, title = "Main Menu") {
+                            showMenuDialog = false
+                            showExitConfirm = true
+                        }
+                        GameMenuRow(icon = Icons.Default.PlayArrow, title = "New Deal") {
+                            showMenuDialog = false
+                            showPlayDialog = true
+                        }
+                        GameMenuRow(icon = Icons.Default.Refresh, title = "Replay Deal") {
+                            showMenuDialog = false
+                            showRestartConfirm = true
+                        }
+                        GameMenuRow(icon = Icons.Default.DateRange, title = "Daily Challenges") {
+                            showMenuDialog = false
+                            onOpenDaily()
+                        }
+                        GameMenuRow(icon = Icons.Default.BarChart, title = "Statistics") {
+                            showMenuDialog = false
+                            onOpenStats()
+                        }
+                        GameMenuRow(icon = Icons.Default.EmojiEvents, title = "Achievements") {
+                            showMenuDialog = false
+                            onOpenAchievements()
+                        }
+                        GameMenuRow(icon = Icons.Default.Palette, title = "Themes & Customization") {
+                            showMenuDialog = false
+                            onOpenThemes()
+                        }
+                        GameMenuRow(icon = Icons.Default.Settings, title = "Settings") {
+                            showMenuDialog = false
+                            onOpenSettings()
+                        }
+                        GameMenuRow(icon = Icons.Default.ExitToApp, title = "Exit Game", isDestructive = true) {
+                            showMenuDialog = false
+                            showExitConfirm = true
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showMenuDialog = false }) {
+                        Text("Close", color = SleekSlate300)
                     }
                 }
             )
@@ -283,98 +469,149 @@ fun GameScreen(
 }
 
 @Composable
+fun GameMenuRow(
+    icon: ImageVector,
+    title: String,
+    isDestructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        color = Color.Transparent,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = if (isDestructive) MaterialTheme.colorScheme.error else SleekEmerald400,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = title,
+                color = if (isDestructive) MaterialTheme.colorScheme.error else SleekSlate100,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+/**
+ * Top App Bar matching the screenshot:
+ * Left: Circular button with ☰ Menu
+ * Center: SCORE, TIME, MOVES vertical columns in crisp dark green capsule
+ * Right: Circular button with 🎨 Paint Palette with notification dot
+ */
+@Composable
 fun PortraitGameTopHeader(
     gameState: GameState,
-    selectedLocation: CardLocation?,
     showTimer: Boolean = true,
-    onBack: () -> Unit,
-    onCancelSelection: () -> Unit,
-    onRestart: () -> Unit
+    onMenuClick: () -> Unit,
+    onThemesClick: () -> Unit,
+    selectedLocation: CardLocation?,
+    onCancelSelection: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .padding(horizontal = 2.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Back Button
+        // Left: ☰ Menu Circular Button
         IconButton(
-            onClick = onBack,
+            onClick = onMenuClick,
             modifier = Modifier
-                .size(34.dp)
+                .size(36.dp)
                 .background(Color.Black.copy(alpha = 0.35f), CircleShape)
-                .testTag("back_button")
+                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                .testTag("menu_button")
         ) {
             Icon(
-                Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                Icons.Default.Menu,
+                contentDescription = "Menu",
                 tint = SleekSlate100,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
 
-        // Center Stats Capsule: Time, Moves, Score
+        // Center: Three neat stats columns: SCORE | TIME | MOVES
         Surface(
-            color = Color.Black.copy(alpha = 0.45f),
+            color = Color.Black.copy(alpha = 0.40f),
             shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.10f))
+            border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f))
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Time
+                // SCORE
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "SCORE",
+                        color = SleekSlate400,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+                    Text(
+                        text = "${gameState.score}",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // TIME
                 if (showTimer) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                         Text(
                             text = "TIME",
                             color = SleekSlate400,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
                         )
                         Text(
                             text = formatTime(gameState.elapsedTimeSeconds),
-                            color = SleekSlate100,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                // Moves
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                // MOVES
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
                         text = "MOVES",
                         color = SleekSlate400,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
                     )
                     Text(
                         text = "${gameState.moveCount}",
-                        color = SleekSlate100,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Score
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = "SCORE",
-                        color = SleekSlate400,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "${gameState.score}",
-                        color = SleekEmerald400,
-                        fontSize = 11.sp,
+                        color = Color.White,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
+                // Selection cancel pill if active
                 if (selectedLocation != null) {
                     Surface(
                         onClick = onCancelSelection,
@@ -387,31 +624,52 @@ fun PortraitGameTopHeader(
                             color = Color(0xFFFFE082),
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                         )
                     }
                 }
             }
         }
 
-        // Restart Quick Button
-        IconButton(
-            onClick = onRestart,
-            modifier = Modifier
-                .size(34.dp)
-                .background(Color.Black.copy(alpha = 0.35f), CircleShape)
-                .testTag("restart_header_button")
+        // Right: 🎨 Themes Palette Button with Notification Dot
+        Box(
+            modifier = Modifier.size(36.dp)
         ) {
-            Icon(
-                Icons.Default.Refresh,
-                contentDescription = "Restart",
-                tint = SleekSlate200,
-                modifier = Modifier.size(18.dp)
+            IconButton(
+                onClick = onThemesClick,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.35f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                    .testTag("themes_button")
+            ) {
+                Icon(
+                    Icons.Default.Palette,
+                    contentDescription = "Themes",
+                    tint = SleekSlate100,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            // Small red badge dot
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(Color(0xFFE53935), CircleShape)
+                    .border(1.dp, Color.White, CircleShape)
+                    .align(Alignment.TopEnd)
             )
         }
     }
 }
 
+/**
+ * Upper Card Area exactly matching the screenshot:
+ * - Left 4 columns (Cols 0, 1, 2, 3): 4 Foundation slots with faint "A" watermark inside!
+ * - Column 4: Empty space (aligns with Tableau Col 4)
+ * - Column 5: Waste Pile (aligns with Tableau Col 5)
+ * - Column 6: Stock Pile on FAR RIGHT (with red card back and remaining count badge "24")
+ */
 @Composable
 fun PortraitTopCardRow(
     gameState: GameState,
@@ -435,69 +693,7 @@ fun PortraitTopCardRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Col 0: Stock Pile
-        Box(
-            modifier = Modifier
-                .size(cardWidth, cardHeight)
-                .clickable(onClick = onStockClick)
-                .testTag("stock_pile")
-        ) {
-            if (gameState.stock.isNotEmpty()) {
-                CardView(
-                    card = gameState.stock.last().copy(isFaceUp = false),
-                    cardBack = cardBack,
-                    cardFace = cardFace,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(2.dp)
-                        .background(Color.Black.copy(alpha = 0.8f), RoundedCornerShape(3.dp))
-                        .padding(horizontal = 3.dp, vertical = 1.dp)
-                ) {
-                    Text(
-                        text = "${gameState.stock.size}",
-                        color = Color.White,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            } else {
-                CardSlotPlaceholder(iconSymbol = "↺", label = "RESET")
-            }
-        }
-
-        // Col 1: Waste Pile
-        Box(
-            modifier = Modifier
-                .size(cardWidth, cardHeight)
-                .testTag("waste_pile")
-        ) {
-            val wasteTop = gameState.waste.lastOrNull()
-            if (wasteTop != null) {
-                val isSelected = selectedLocation is CardLocation.Waste
-                val isHinted = activeHint?.from is CardLocation.Waste
-                CardView(
-                    card = wasteTop,
-                    cardBack = cardBack,
-                    cardFace = cardFace,
-                    isSelected = isSelected,
-                    isHinted = isHinted,
-                    onClick = onWasteClick,
-                    onDoubleClick = onWasteDoubleClick,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                CardSlotPlaceholder(label = "WASTE")
-            }
-        }
-
-        // Col 2: Spacer to maintain the exact 7-column grid matching Tableau
-        Box(modifier = Modifier.size(cardWidth, cardHeight))
-
-        // Cols 3, 4, 5, 6: The 4 Foundation Suit slots (♠, ♥, ♦, ♣)
-        val symbols = listOf("♠", "♥", "♦", "♣")
+        // Cols 0, 1, 2, 3: The 4 Foundation Suit slots [A] [A] [A] [A]
         for (i in 0 until 4) {
             val pile = gameState.foundations.getOrNull(i) ?: emptyList()
             val topCard = pile.lastOrNull()
@@ -525,16 +721,82 @@ fun PortraitTopCardRow(
                     )
                 } else {
                     CardSlotPlaceholder(
-                        iconSymbol = symbols[i],
+                        iconSymbol = "A",
                         label = if (isValidTarget) "MATCH" else null,
                         isValidTarget = isValidTarget
                     )
                 }
             }
         }
+
+        // Col 4: Empty space spacer (matches Tableau Column 4 directly below)
+        Box(modifier = Modifier.size(cardWidth, cardHeight))
+
+        // Col 5: Waste Pile (matches Tableau Column 5 directly below)
+        Box(
+            modifier = Modifier
+                .size(cardWidth, cardHeight)
+                .testTag("waste_pile")
+        ) {
+            val wasteTop = gameState.waste.lastOrNull()
+            if (wasteTop != null) {
+                val isSelected = selectedLocation is CardLocation.Waste
+                val isHinted = activeHint?.from is CardLocation.Waste
+                CardView(
+                    card = wasteTop,
+                    cardBack = cardBack,
+                    cardFace = cardFace,
+                    isSelected = isSelected,
+                    isHinted = isHinted,
+                    onClick = onWasteClick,
+                    onDoubleClick = onWasteDoubleClick,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                CardSlotPlaceholder()
+            }
+        }
+
+        // Col 6: Stock Pile on the FAR RIGHT (matches Tableau Column 6 directly below)
+        Box(
+            modifier = Modifier
+                .size(cardWidth, cardHeight)
+                .clickable(onClick = onStockClick)
+                .testTag("stock_pile")
+        ) {
+            if (gameState.stock.isNotEmpty()) {
+                CardView(
+                    card = gameState.stock.last().copy(isFaceUp = false),
+                    cardBack = cardBack,
+                    cardFace = cardFace,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(2.dp)
+                        .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                ) {
+                    Text(
+                        text = "${gameState.stock.size}",
+                        color = Color.White,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
+                CardSlotPlaceholder(iconSymbol = "↺", label = "DEAL")
+            }
+        }
     }
 }
 
+/**
+ * Tableau Area containing the 7 columns:
+ * Calculates vertical overlap dynamically based on available container height
+ * so cards NEVER extend beyond the screen boundaries.
+ */
 @Composable
 fun TableauArea(
     gameState: GameState,
@@ -593,11 +855,12 @@ fun TableauColumnView(
 ) {
     val isColumnValidTarget = validTargets.contains(CardLocation.Tableau(colIndex))
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .width(cardWidth)
             .fillMaxSize()
     ) {
+        val maxAvailH = maxHeight
         if (cards.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -611,6 +874,22 @@ fun TableauColumnView(
                 )
             }
         } else {
+            val totalCount = cards.size
+            val faceDownCount = cards.count { !it.isFaceUp }
+            val faceUpCount = maxOf(0, totalCount - faceDownCount)
+
+            // Dynamic compression so cards always stay inside bounds
+            val baseDownStep = 10.dp
+            val baseUpStep = 18.dp
+            val nominalTotalH = cardHeight + (baseDownStep * faceDownCount) + (baseUpStep * maxOf(0, faceUpCount - 1))
+
+            val compression = if (nominalTotalH > maxAvailH && nominalTotalH > cardHeight) {
+                ((maxAvailH - cardHeight) / (nominalTotalH - cardHeight)).coerceIn(0.45f, 1.0f)
+            } else 1.0f
+
+            val downStep = (baseDownStep * compression).coerceAtLeast(6.dp)
+            val upStep = (baseUpStep * compression).coerceAtLeast(10.dp)
+
             var yOffset = 0.dp
             for (cardIdx in cards.indices) {
                 val card = cards[cardIdx]
@@ -636,157 +915,158 @@ fun TableauColumnView(
                         .size(cardWidth, cardHeight)
                 )
 
-                // Dynamically offset next card: face-down cards closer together, face-up spaced out
-                yOffset += if (card.isFaceUp) 18.dp else 10.dp
+                yOffset += if (card.isFaceUp) upStep else downStep
             }
         }
     }
 }
 
+/**
+ * Floating Bottom Bar matching the screenshot:
+ * - Dark rounded pill container with:
+ *   ⚙ Settings | 📅 Daily | 🎴 Play | 💡 Hint | ↩ Undo
+ * - Followed by decorative: ❧ Solitaire ❧
+ */
 @Composable
 fun CompactGameBottomBar(
     gameState: GameState,
-    activeHint: com.solitaire.hyper.card.games.game.model.Hint?,
     isAutoCompleting: Boolean,
-    onRestart: () -> Unit,
-    onUndo: () -> Unit,
+    onSettings: () -> Unit,
+    onDaily: () -> Unit,
+    onPlay: () -> Unit,
     onHint: () -> Unit,
+    onUndo: () -> Unit,
     onAutoComplete: () -> Unit
 ) {
-    Surface(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(38.dp),
-        color = Color.Black.copy(alpha = 0.45f),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f))
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left: Restart Button
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+        // Auto Win button when ready
+        if (gameState.canAutoComplete) {
+            Button(
+                onClick = onAutoComplete,
+                enabled = !isAutoCompleting,
+                colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
-                    .clickable(onClick = onRestart)
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
-                    .testTag("restart_button")
+                    .fillMaxWidth(0.6f)
+                    .height(32.dp)
+                    .padding(bottom = 2.dp)
+                    .testTag("autocomplete_button")
             ) {
-                Icon(
-                    Icons.Default.Refresh,
-                    contentDescription = "Restart",
-                    tint = SleekSlate300,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(4.dp))
                 Text(
-                    text = "Restart",
-                    color = SleekSlate300,
+                    text = if (isAutoCompleting) "Finishing..." else "✨ AUTO WIN ✨",
+                    color = Color.White,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.ExtraBold
                 )
-            }
-
-            // Center: Hint message if active
-            if (activeHint != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Lightbulb,
-                        contentDescription = null,
-                        tint = SleekEmerald400,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = activeHint.description,
-                        color = SleekEmerald400,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1
-                    )
-                }
-            } else {
-                Spacer(Modifier.width(1.dp))
-            }
-
-            // Right: Undo, Hint, Auto Win
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Undo
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clickable(onClick = onUndo)
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
-                        .testTag("undo_button")
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Undo,
-                        contentDescription = "Undo",
-                        tint = SleekSlate100,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = "Undo",
-                        color = SleekSlate100,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Hint
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clickable(onClick = onHint)
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
-                        .testTag("hint_button")
-                ) {
-                    Icon(
-                        Icons.Default.Lightbulb,
-                        contentDescription = "Hint",
-                        tint = SleekEmerald400,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = "Hint",
-                        color = SleekEmerald400,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                // Auto Win
-                if (gameState.canAutoComplete) {
-                    Button(
-                        onClick = onAutoComplete,
-                        enabled = !isAutoCompleting,
-                        colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier
-                            .height(28.dp)
-                            .testTag("autocomplete_button")
-                    ) {
-                        Text(
-                            text = if (isAutoCompleting) "Finishing..." else "AUTO WIN",
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
             }
         }
+
+        // Floating rounded pill
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            color = Color.Black.copy(alpha = 0.55f),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(0.75.dp, Color.White.copy(alpha = 0.12f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Settings
+                BottomBarButton(
+                    icon = Icons.Default.Settings,
+                    label = "Settings",
+                    testTag = "bottom_settings",
+                    onClick = onSettings
+                )
+
+                // Daily
+                BottomBarButton(
+                    icon = Icons.Default.DateRange,
+                    label = "Daily",
+                    testTag = "bottom_daily",
+                    onClick = onDaily
+                )
+
+                // Play (Center main deal action)
+                BottomBarButton(
+                    icon = Icons.Default.PlayArrow,
+                    label = "Play",
+                    tint = SleekEmerald400,
+                    testTag = "bottom_play",
+                    onClick = onPlay
+                )
+
+                // Hint
+                BottomBarButton(
+                    icon = Icons.Default.Lightbulb,
+                    label = "Hint",
+                    testTag = "bottom_hint",
+                    onClick = onHint
+                )
+
+                // Undo
+                BottomBarButton(
+                    icon = Icons.AutoMirrored.Filled.Undo,
+                    label = "Undo",
+                    testTag = "bottom_undo",
+                    onClick = onUndo
+                )
+            }
+        }
+
+        // Subtle decorative brand title at bottom
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "❧  Solitaire  ❧",
+            color = Color.White.copy(alpha = 0.35f),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            fontFamily = FontFamily.Serif,
+            letterSpacing = 1.sp
+        )
+    }
+}
+
+@Composable
+fun BottomBarButton(
+    icon: ImageVector,
+    label: String,
+    tint: Color = SleekSlate200,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .testTag(testTag),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.height(1.dp))
+        Text(
+            text = label,
+            color = tint,
+            fontSize = 9.5.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -802,6 +1082,7 @@ fun WinCelebrationDialog(
             Button(
                 onClick = onNewGame,
                 colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.testTag("win_new_game_button")
             ) {
                 Text("Play Again", color = Color.White, fontWeight = FontWeight.Bold)
@@ -828,7 +1109,7 @@ fun WinCelebrationDialog(
                 ) {
                     Icon(
                         Icons.Default.Star,
-                        contentDescription = "Crown",
+                        contentDescription = "Victory",
                         tint = SleekHeaderDark,
                         modifier = Modifier.size(34.dp)
                     )
@@ -850,7 +1131,8 @@ fun WinCelebrationDialog(
                 Text(
                     text = "Congratulations! You conquered this Solitaire deal!",
                     fontSize = 14.sp,
-                    color = SleekSlate300
+                    color = SleekSlate300,
+                    textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.height(14.dp))
                 Surface(
