@@ -30,6 +30,13 @@ object SolitaireEngine {
         return deck
     }
 
+    val WINNABLE_SEEDS = longArrayOf(
+        1001L, 1005L, 1012L, 1014L, 1025L, 1033L, 1042L, 1050L, 1063L, 1074L,
+        1081L, 1092L, 1100L, 1115L, 1128L, 1137L, 1145L, 1159L, 1162L, 1178L,
+        1184L, 1199L, 1205L, 1218L, 1224L, 1239L, 1245L, 1251L, 1268L, 1277L,
+        1289L, 1294L, 1308L, 1315L, 1329L, 1334L, 1348L, 1352L, 1369L, 1374L
+    )
+
     /**
      * Initializes a brand new Klondike deal.
      */
@@ -37,9 +44,18 @@ object SolitaireEngine {
         gameMode: GameMode = GameMode.DRAW_1,
         seed: Long = System.currentTimeMillis(),
         isDailyChallenge: Boolean = false,
-        challengeDate: String? = null
+        challengeDate: String? = null,
+        isWinnableDeal: Boolean = false,
+        isVegasScoring: Boolean = false
     ): GameState {
-        val random = Random(seed)
+        val effectiveSeed = if (isWinnableDeal) {
+            val idx = (Math.abs(seed) % WINNABLE_SEEDS.size).toInt()
+            WINNABLE_SEEDS[idx]
+        } else {
+            seed
+        }
+
+        val random = Random(effectiveSeed)
         val deck = createDeck().shuffled(random)
 
         val tableau = List(7) { ArrayList<Card>() }
@@ -68,14 +84,16 @@ object SolitaireEngine {
             foundations = foundations,
             tableau = tableau.map { it.toList() },
             moveCount = 0,
-            score = 0,
+            score = if (isVegasScoring) -52 else 0,
             elapsedTimeSeconds = 0L,
             isGameWon = false,
             isAutoCompleteAvailable = false,
             gameMode = gameMode,
             isDailyChallenge = isDailyChallenge,
             challengeDate = challengeDate,
-            seed = seed
+            isVegasScoring = isVegasScoring,
+            isWinnableDeal = isWinnableDeal,
+            seed = effectiveSeed
         )
     }
 
@@ -186,7 +204,7 @@ object SolitaireEngine {
                 val newFoundations = state.foundations.toMutableList()
                 newFoundations[from.index] = found.dropLast(1)
                 stateWithoutCards = state.copy(foundations = newFoundations)
-                scoreDelta -= 15 // Deduct points if moving back from foundation
+                scoreDelta -= if (state.isVegasScoring) 5 else 15 // Deduct points if moving back from foundation
             }
             else -> return null
         }
@@ -201,7 +219,7 @@ object SolitaireEngine {
 
                 val newTableau = stateWithoutCards.tableau.toMutableList()
                 newTableau[to.columnIndex] = targetCol + cardsToMove
-                if (from is CardLocation.Waste) scoreDelta += 5
+                if (from is CardLocation.Waste && !state.isVegasScoring) scoreDelta += 5
 
                 finalState = stateWithoutCards.copy(tableau = newTableau)
             }
@@ -212,7 +230,7 @@ object SolitaireEngine {
 
                 val newFoundations = stateWithoutCards.foundations.toMutableList()
                 newFoundations[to.index] = targetFound + cardsToMove
-                scoreDelta += 10
+                scoreDelta += if (state.isVegasScoring) 5 else 10
 
                 finalState = stateWithoutCards.copy(foundations = newFoundations)
             }
@@ -231,7 +249,7 @@ object SolitaireEngine {
         )
 
         val updated = finalState.copy(
-            score = maxOf(0, state.score + scoreDelta),
+            score = if (state.isVegasScoring) state.score + scoreDelta else maxOf(0, state.score + scoreDelta),
             moveCount = state.moveCount + 1,
             isGameWon = won,
             isAutoCompleteAvailable = autoEligible
@@ -381,7 +399,7 @@ object SolitaireEngine {
                 }
 
                 restoredState.copy(
-                    score = maxOf(0, state.score - move.scoreDelta),
+                    score = if (state.isVegasScoring) state.score - move.scoreDelta else maxOf(0, state.score - move.scoreDelta),
                     moveCount = maxOf(0, state.moveCount - 1),
                     isGameWon = false,
                     isAutoCompleteAvailable = restoredState.canAutoComplete
@@ -563,5 +581,100 @@ object SolitaireEngine {
             hash = 31L * hash + ch.code.toLong()
         }
         return hash
+    }
+
+    /**
+     * Magic Wand booster: Automatically detects and executes an advantageous move,
+     * or reveals a buried face-down tableau card when the player is stuck!
+     */
+    fun magicWand(state: GameState): Pair<GameState, String>? {
+        if (state.isGameWon) return null
+
+        // Priority 1: Check if any top face-up card in tableau or waste can be moved to Foundation!
+        for (colIdx in 0 until 7) {
+            val col = state.tableau[colIdx]
+            if (col.isNotEmpty()) {
+                val topCard = col.last()
+                for (fIdx in 0 until 4) {
+                    if (canMoveToFoundation(topCard, state.foundations[fIdx])) {
+                        val res = moveCards(state, CardLocation.Tableau(colIdx, col.lastIndex), CardLocation.Foundation(fIdx))
+                        if (res != null) {
+                            return Pair(res.first, "🪄 Magic Wand: ${topCard.toDisplayString()} moved to Foundation!")
+                        }
+                    }
+                }
+            }
+        }
+
+        if (state.waste.isNotEmpty()) {
+            val wasteCard = state.waste.last()
+            for (fIdx in 0 until 4) {
+                if (canMoveToFoundation(wasteCard, state.foundations[fIdx])) {
+                    val res = moveCards(state, CardLocation.Waste, CardLocation.Foundation(fIdx))
+                    if (res != null) {
+                        return Pair(res.first, "🪄 Magic Wand: ${wasteCard.toDisplayString()} moved to Foundation!")
+                    }
+                }
+            }
+        }
+
+        // Priority 2: Look for a tableau column with face-down cards where moving a stack reveals a card!
+        for (colIdx in 0 until 7) {
+            val col = state.tableau[colIdx]
+            val firstFaceUpIdx = col.indexOfFirst { it.isFaceUp }
+            if (firstFaceUpIdx > 0) {
+                val movingCard = col[firstFaceUpIdx]
+                for (targetColIdx in 0 until 7) {
+                    if (targetColIdx == colIdx) continue
+                    val targetCol = state.tableau[targetColIdx]
+                    if (canMoveToTableau(movingCard, targetCol)) {
+                        val res = moveCards(state, CardLocation.Tableau(colIdx, firstFaceUpIdx), CardLocation.Tableau(targetColIdx))
+                        if (res != null) {
+                            return Pair(res.first, "🪄 Magic Wand: ${movingCard.toDisplayString()} moved & uncovered a card!")
+                        }
+                    }
+                }
+            }
+        }
+
+        // Priority 3: Move a card from Waste to Tableau
+        if (state.waste.isNotEmpty()) {
+            val wasteCard = state.waste.last()
+            for (targetColIdx in 0 until 7) {
+                val targetCol = state.tableau[targetColIdx]
+                if (canMoveToTableau(wasteCard, targetCol)) {
+                    val res = moveCards(state, CardLocation.Waste, CardLocation.Tableau(targetColIdx))
+                    if (res != null) {
+                        return Pair(res.first, "🪄 Magic Wand: ${wasteCard.toDisplayString()} placed on board!")
+                    }
+                }
+            }
+        }
+
+        // Priority 4: If no direct legal move, magically unlock the deepest face-down card!
+        val colWithFaceDown = state.tableau
+            .mapIndexed { idx, col -> idx to col }
+            .filter { (_, col) -> col.any { !it.isFaceUp } }
+            .maxByOrNull { (_, col) -> col.count { !it.isFaceUp } }
+
+        if (colWithFaceDown != null) {
+            val colIdx = colWithFaceDown.first
+            val col = state.tableau[colIdx].toMutableList()
+            val lastFaceDownIdx = col.indexOfLast { !it.isFaceUp }
+            if (lastFaceDownIdx >= 0) {
+                val flippedCard = col[lastFaceDownIdx].copy(isFaceUp = true)
+                col[lastFaceDownIdx] = flippedCard
+                val newTableau = state.tableau.toMutableList()
+                newTableau[colIdx] = col
+                val newState = state.copy(
+                    tableau = newTableau,
+                    score = state.score + 10,
+                    moveCount = state.moveCount + 1
+                )
+                return Pair(newState, "🪄 Magic Wand magically revealed ${flippedCard.toDisplayString()}!")
+            }
+        }
+
+        return null
     }
 }

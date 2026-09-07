@@ -56,6 +56,7 @@ fun CardView(
     isSelected: Boolean = false,
     isValidTarget: Boolean = false,
     isHinted: Boolean = false,
+    largePrint: Boolean = false,
     onClick: (() -> Unit)? = null,
     onDoubleClick: (() -> Unit)? = null
 ) {
@@ -110,7 +111,7 @@ fun CardView(
                 CardBackView(cardBack = cardBack)
             } else {
                 // Face-up card
-                CardFaceView(card = card, cardFace = cardFace)
+                CardFaceView(card = card, cardFace = cardFace, largePrint = largePrint)
             }
 
             // High-visibility selection indicator
@@ -155,10 +156,16 @@ fun CardView(
 @Composable
 fun CardFaceView(
     card: Card,
-    cardFace: CardFaceTheme
+    cardFace: CardFaceTheme,
+    largePrint: Boolean = false
 ) {
     val textColor = if (card.color == CardColor.RED) Color(0xFFD32F2F) else Color(0xFF1E2124)
     val fontFamily = if (cardFace.id == "VINTAGE" || cardFace.id == "ELEGANT") FontFamily.Serif else FontFamily.SansSerif
+
+    val cornerRankSize = if (largePrint) 14.sp else 11.sp
+    val cornerRankLineHeight = if (largePrint) 14.sp else 11.sp
+    val cornerSuitSize = if (largePrint) 12.sp else 10.sp
+    val cornerSuitLineHeight = if (largePrint) 12.sp else 10.sp
 
     Box(
         modifier = Modifier
@@ -176,16 +183,16 @@ fun CardFaceView(
             Text(
                 text = card.rank.display,
                 color = textColor,
-                fontSize = 11.sp,
+                fontSize = cornerRankSize,
                 fontWeight = FontWeight.Bold,
                 fontFamily = fontFamily,
-                lineHeight = 11.sp
+                lineHeight = cornerRankLineHeight
             )
             Text(
                 text = card.suit.symbol,
                 color = textColor,
-                fontSize = 10.sp,
-                lineHeight = 10.sp
+                fontSize = cornerSuitSize,
+                lineHeight = cornerSuitLineHeight
             )
         }
 
@@ -204,27 +211,27 @@ fun CardFaceView(
                             else -> "⚔"
                         },
                         color = textColor.copy(alpha = 0.85f),
-                        fontSize = 18.sp,
+                        fontSize = if (largePrint) 22.sp else 18.sp,
                         textAlign = TextAlign.Center
                     )
                     Text(
                         text = card.suit.symbol,
                         color = textColor.copy(alpha = 0.5f),
-                        fontSize = 10.sp
+                        fontSize = if (largePrint) 12.sp else 10.sp
                     )
                 }
             } else if (card.rank == Rank.ACE) {
                 Text(
                     text = card.suit.symbol,
                     color = textColor,
-                    fontSize = 22.sp,
+                    fontSize = if (largePrint) 26.sp else 22.sp,
                     textAlign = TextAlign.Center
                 )
             } else {
                 Text(
                     text = card.suit.symbol,
                     color = textColor.copy(alpha = 0.8f),
-                    fontSize = 15.sp,
+                    fontSize = if (largePrint) 18.sp else 15.sp,
                     textAlign = TextAlign.Center
                 )
             }
@@ -240,16 +247,16 @@ fun CardFaceView(
             Text(
                 text = card.suit.symbol,
                 color = textColor,
-                fontSize = 9.sp,
-                lineHeight = 9.sp
+                fontSize = if (largePrint) 11.sp else 9.sp,
+                lineHeight = if (largePrint) 11.sp else 9.sp
             )
             Text(
                 text = card.rank.display,
                 color = textColor,
-                fontSize = 10.sp,
+                fontSize = if (largePrint) 12.sp else 10.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = fontFamily,
-                lineHeight = 10.sp
+                lineHeight = if (largePrint) 12.sp else 10.sp
             )
         }
     }
@@ -383,6 +390,134 @@ fun CardBackView(cardBack: CardBackTheme) {
                         )
                     }
                 }
+            }
+            CardBackTheme.PatternType.HOLOGRAPHIC_3D -> {
+                val cx = w / 2
+                val cy = h / 2
+                val r = minOf(w, h) * 0.42f
+                // 3D holographic iridescent concentric rings
+                drawCircle(
+                    color = Color(0xFF00E5FF).copy(alpha = 0.35f),
+                    radius = r,
+                    center = Offset(cx, cy)
+                )
+                drawCircle(
+                    color = Color(0xFFFF007F).copy(alpha = 0.4f),
+                    radius = r * 0.72f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 2.dp.toPx())
+                )
+                drawCircle(
+                    color = Color(0xFF76FF03).copy(alpha = 0.6f),
+                    radius = r * 0.45f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 1.5.dp.toPx())
+                )
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.85f),
+                    radius = r * 0.2f,
+                    center = Offset(cx, cy)
+                )
+            }
+            CardBackTheme.PatternType.GOLD_FOIL_3D -> {
+                val cx = w / 2
+                val cy = h / 2
+                val r = minOf(w, h) * 0.38f
+                // Double luxury 24K gold frame
+                drawCircle(
+                    color = Color(0xFFFFD700).copy(alpha = 0.6f),
+                    radius = r,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 2.dp.toPx())
+                )
+                drawCircle(
+                    color = Color(0xFFFFE082).copy(alpha = 0.4f),
+                    radius = r * 0.78f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 1.2.dp.toPx())
+                )
+                // Center 3D embossed diamond
+                val dSize = r * 0.5f
+                drawLine(
+                    color = Color(0xFFFFD700),
+                    start = Offset(cx - dSize, cy),
+                    end = Offset(cx, cy - dSize),
+                    strokeWidth = 2.dp.toPx()
+                )
+                drawLine(
+                    color = Color(0xFFFFD700),
+                    start = Offset(cx, cy - dSize),
+                    end = Offset(cx + dSize, cy),
+                    strokeWidth = 2.dp.toPx()
+                )
+                drawLine(
+                    color = Color(0xFFFFD700),
+                    start = Offset(cx + dSize, cy),
+                    end = Offset(cx, cy + dSize),
+                    strokeWidth = 2.dp.toPx()
+                )
+                drawLine(
+                    color = Color(0xFFFFD700),
+                    start = Offset(cx, cy + dSize),
+                    end = Offset(cx - dSize, cy),
+                    strokeWidth = 2.dp.toPx()
+                )
+            }
+            CardBackTheme.PatternType.DRAGON_3D -> {
+                val cx = w / 2
+                val cy = h / 2
+                val r = minOf(w, h) * 0.38f
+                // Imperial dragon crimson and gold motif
+                drawCircle(
+                    color = Color(0xFFFFB300).copy(alpha = 0.5f),
+                    radius = r,
+                    center = Offset(cx, cy)
+                )
+                drawCircle(
+                    color = Color(0xFFD50000).copy(alpha = 0.7f),
+                    radius = r * 0.65f,
+                    center = Offset(cx, cy),
+                    style = Stroke(width = 2.5.dp.toPx())
+                )
+                // Dragon star emblem
+                val arm = r * 0.4f
+                drawLine(color = Color(0xFFFFD700), start = Offset(cx - arm, cy - arm), end = Offset(cx + arm, cy + arm), strokeWidth = 2.dp.toPx())
+                drawLine(color = Color(0xFFFFD700), start = Offset(cx + arm, cy - arm), end = Offset(cx - arm, cy + arm), strokeWidth = 2.dp.toPx())
+            }
+            CardBackTheme.PatternType.CYBERPUNK_3D -> {
+                val cx = w / 2
+                val cy = h / 2
+                // Cyberpunk neon neon glow matrix
+                val step = 6.dp.toPx()
+                var x = 0f
+                while (x < w) {
+                    drawLine(color = Color(0xFF00E5FF).copy(alpha = 0.2f), start = Offset(x, 0f), end = Offset(x, h), strokeWidth = 0.8.dp.toPx())
+                    x += step
+                }
+                drawRect(
+                    color = Color(0xFFFF007F).copy(alpha = 0.7f),
+                    topLeft = Offset(cx - 10.dp.toPx(), cy - 10.dp.toPx()),
+                    size = Size(20.dp.toPx(), 20.dp.toPx()),
+                    style = Stroke(width = 1.5.dp.toPx())
+                )
+            }
+            CardBackTheme.PatternType.CRYSTAL_3D -> {
+                val cx = w / 2
+                val cy = h / 2
+                val r = minOf(w, h) * 0.36f
+                // Faceted crystal refractive rays
+                for (angle in 0 until 8) {
+                    val rad = Math.toRadians(angle * 45.0)
+                    val ex = cx + (r * Math.cos(rad)).toFloat()
+                    val ey = cy + (r * Math.sin(rad)).toFloat()
+                    drawLine(
+                        color = Color(0xFF80D8FF).copy(alpha = 0.6f),
+                        start = Offset(cx, cy),
+                        end = Offset(ex, ey),
+                        strokeWidth = 1.2.dp.toPx()
+                    )
+                }
+                drawCircle(color = Color.White.copy(alpha = 0.8f), radius = 3.dp.toPx(), center = Offset(cx, cy))
             }
             else -> {
                 // Minimal decorative ring

@@ -43,6 +43,18 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
+import com.solitaire.hyper.card.games.ui.components.WinningCascadeCanvas
+import com.solitaire.hyper.card.games.ui.components.RulesDialog
+import com.solitaire.hyper.card.games.ads.AdManager
+import com.solitaire.hyper.card.games.ads.BannerAdView
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -72,7 +84,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.solitaire.hyper.card.games.ads.AdManager
 import com.solitaire.hyper.card.games.game.model.Card
 import com.solitaire.hyper.card.games.game.model.CardLocation
 import com.solitaire.hyper.card.games.game.model.GameMode
@@ -114,10 +125,16 @@ fun GameScreen(
     var showRestartConfirm by remember { mutableStateOf(false) }
     var showPlayDialog by remember { mutableStateOf(false) }
     var showMenuDialog by remember { mutableStateOf(false) }
+    var showRulesDialog by remember { mutableStateOf(false) }
+    var hasDoubledCoins by remember { mutableStateOf(false) }
 
     val currentBackground = CustomizationRegistry.getBackground(userSettings.backgroundId)
     val currentCardBack = CustomizationRegistry.getCardBack(userSettings.cardBackId)
     val currentCardFace = CustomizationRegistry.getCardFace(userSettings.cardFaceId)
+
+    if (showRulesDialog) {
+        RulesDialog(onDismiss = { showRulesDialog = false })
+    }
 
     // User requested: prompt confirmation when user tries to go back
     BackHandler {
@@ -148,7 +165,7 @@ fun GameScreen(
 
             Spacer(modifier = Modifier.height(3.dp))
 
-            // 2. Upper Card Row: Foundations 0..3 on LEFT, Gap, Waste, Stock on RIGHT
+            // 2. Upper Card Row: Foundations 0..3 on LEFT, Gap, Waste, Stock on RIGHT (or reversed if left-handed)
             BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val availableWidth = maxWidth
                 val colSpacing = 4.dp
@@ -165,10 +182,13 @@ fun GameScreen(
                     selectedLocation = selectedLocation,
                     validTargets = validTargets,
                     activeHint = activeHint,
+                    largePrint = userSettings.largePrintMode,
+                    leftHanded = userSettings.leftHandedMode,
                     onStockClick = { viewModel.onStockClicked() },
                     onWasteClick = { viewModel.onCardClicked(CardLocation.Waste) },
                     onWasteDoubleClick = { viewModel.onCardDoubleClicked(CardLocation.Waste) },
-                    onFoundationClick = { index -> viewModel.onFoundationClicked(index) }
+                    onFoundationClick = { index -> viewModel.onFoundationClicked(index) },
+                    onCardDrop = { from, to -> viewModel.onCardDropped(from, to) }
                 )
             }
 
@@ -228,6 +248,7 @@ fun GameScreen(
                     selectedLocation = selectedLocation,
                     validTargets = validTargets,
                     activeHint = activeHint,
+                    largePrint = userSettings.largePrintMode,
                     onCardClick = { colIdx, cardIdx ->
                         viewModel.onCardClicked(CardLocation.Tableau(colIdx, cardIdx))
                     },
@@ -236,33 +257,59 @@ fun GameScreen(
                     },
                     onEmptyColumnClick = { colIdx ->
                         viewModel.onEmptyColumnClicked(colIdx)
+                    },
+                    onCardDrop = { from, to ->
+                        viewModel.onCardDropped(from, to)
                     }
                 )
             }
 
             Spacer(modifier = Modifier.height(2.dp))
 
-            // 5. Floating Bottom Navigation Bar: Settings, Daily, Play, Hint, Undo & Solitaire emblem
+            // 5. Floating Bottom Navigation Bar: Settings, Magic Wand, Play, Hint, Undo & Solitaire emblem
             CompactGameBottomBar(
                 gameState = gameState,
                 isAutoCompleting = isAutoCompleting,
                 onSettings = onOpenSettings,
-                onDaily = onOpenDaily,
+                onMagicWand = { viewModel.useMagicWand() },
                 onPlay = { showPlayDialog = true },
                 onHint = { viewModel.requestHint() },
                 onUndo = { viewModel.undo() },
                 onAutoComplete = { viewModel.triggerAutoComplete() }
             )
+
+            // Bottom Banner Ad
+            BannerAdView(
+                isAdFree = userSettings.isAdFreeActive(),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
-        // Win Celebratory Dialog
+        // Win Celebratory Waterfall (Iconic Cascade Animation)
         if (showWinDialog) {
-            WinCelebrationDialog(
-                gameState = gameState,
-                onNewGame = {
-                    viewModel.dismissWinDialog()
+            WinningCascadeCanvas(
+                score = gameState.score,
+                timeSeconds = gameState.elapsedTimeSeconds,
+                moves = gameState.moveCount,
+                coinsEarned = 200,
+                hasDoubledCoins = hasDoubledCoins,
+                onWatchAdDouble = {
                     if (activity != null) {
-                        AdManager.showInterstitialIfReady(activity) {
+                        AdManager.showRewardedAd(
+                            activity = activity,
+                            onRewardEarned = {
+                                viewModel.awardDoubleWinCoins()
+                                hasDoubledCoins = true
+                            },
+                            onDismissOrFailed = {}
+                        )
+                    }
+                },
+                onPlayAgain = {
+                    viewModel.dismissWinDialog()
+                    hasDoubledCoins = false
+                    if (activity != null) {
+                        AdManager.showInterstitialIfReady(activity, isAdFree = userSettings.isAdFreeActive()) {
                             viewModel.startNewGame(mode = gameState.gameMode)
                         }
                     } else {
@@ -271,12 +318,23 @@ fun GameScreen(
                 },
                 onHome = {
                     viewModel.dismissWinDialog()
-                    onNavigateBack()
+                    hasDoubledCoins = false
+                    if (activity != null) {
+                        AdManager.showInterstitialIfReady(activity, isAdFree = userSettings.isAdFreeActive()) {
+                            onNavigateBack()
+                        }
+                    } else {
+                        onNavigateBack()
+                    }
+                },
+                onDismiss = {
+                    viewModel.dismissWinDialog()
+                    hasDoubledCoins = false
                 }
             )
         }
 
-        // Exit Game Confirmation Dialog (Explicitly requested by user)
+        // Exit Game Confirmation Dialog
         if (showExitConfirm) {
             AlertDialog(
                 onDismissRequest = { showExitConfirm = false },
@@ -291,7 +349,7 @@ fun GameScreen(
                     Text(
                         text = "Your current game progress will be automatically saved. Are you sure you want to return to the home screen?",
                         color = SleekSlate300,
-                        fontSize = 14.sp
+                        fontSize = 13.5.sp
                     )
                 },
                 confirmButton = {
@@ -303,7 +361,7 @@ fun GameScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Exit Game", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Exit to Menu", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
@@ -318,8 +376,8 @@ fun GameScreen(
         if (showRestartConfirm) {
             AlertDialog(
                 onDismissRequest = { showRestartConfirm = false },
-                title = { Text("Restart Current Game?", fontWeight = FontWeight.Bold) },
-                text = { Text("Are you sure you want to restart this deal? Current moves and timer will reset.") },
+                title = { Text("Restart Game?", fontWeight = FontWeight.Bold, color = SleekSlate100) },
+                text = { Text("Are you sure you want to restart this deal? Current moves and timer will reset.", color = SleekSlate300, fontSize = 13.5.sp) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -342,6 +400,9 @@ fun GameScreen(
 
         // Play / New Game Dialog
         if (showPlayDialog) {
+            var isWinnableChecked by remember { mutableStateOf(false) }
+            var isVegasChecked by remember { mutableStateOf(false) }
+
             AlertDialog(
                 onDismissRequest = { showPlayDialog = false },
                 title = {
@@ -350,41 +411,111 @@ fun GameScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(Icons.Default.PlayArrow, contentDescription = null, tint = SleekEmerald400)
-                        Text("Start New Game", fontWeight = FontWeight.Bold, color = SleekSlate100)
+                        Text("New Deal", fontWeight = FontWeight.Bold, color = SleekSlate100)
                     }
                 },
                 text = {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Choose deal type:",
+                            text = "Game Modes & Deals:",
                             color = SleekSlate300,
-                            fontSize = 13.sp
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
+
+                        // Winnable Deal Toggle Card
+                        Surface(
+                            onClick = { isWinnableChecked = !isWinnableChecked },
+                            color = if (isWinnableChecked) Color(0xFF1B3D2F) else Color.White.copy(alpha = 0.05f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, if (isWinnableChecked) SleekEmerald400 else Color.White.copy(alpha = 0.15f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "🏆 Winnable Deal",
+                                    color = if (isWinnableChecked) SleekEmerald400 else SleekSlate200,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    if (isWinnableChecked) "ON ✓" else "OFF",
+                                    color = if (isWinnableChecked) SleekEmerald400 else SleekSlate400,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Vegas Scoring Toggle Card
+                        Surface(
+                            onClick = { isVegasChecked = !isVegasChecked },
+                            color = if (isVegasChecked) Color(0xFF2C1E3D) else Color.White.copy(alpha = 0.05f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, if (isVegasChecked) Color(0xFFC084FC) else Color.White.copy(alpha = 0.15f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "🎰 Vegas Mode",
+                                    color = if (isVegasChecked) Color(0xFFC084FC) else SleekSlate200,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    if (isVegasChecked) "ON ✓" else "OFF",
+                                    color = if (isVegasChecked) Color(0xFFC084FC) else SleekSlate400,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(4.dp))
+
                         Button(
                             onClick = {
                                 showPlayDialog = false
-                                viewModel.startNewGame(mode = GameMode.DRAW_1)
+                                viewModel.startNewGame(
+                                    mode = GameMode.DRAW_1,
+                                    isWinnableDeal = isWinnableChecked,
+                                    isVegasScoring = isVegasChecked
+                                )
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Draw 1 Card (Classic)", fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Draw 1 Card", fontWeight = FontWeight.Bold, color = Color.White)
                         }
+
                         Button(
                             onClick = {
                                 showPlayDialog = false
-                                viewModel.startNewGame(mode = GameMode.DRAW_3)
+                                viewModel.startNewGame(
+                                    mode = GameMode.DRAW_3,
+                                    isWinnableDeal = isWinnableChecked,
+                                    isVegasScoring = isVegasChecked
+                                )
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A2F)),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Draw 3 Cards (Challenging)", fontWeight = FontWeight.Bold, color = SleekSlate100)
+                            Text("Draw 3 Cards", fontWeight = FontWeight.Bold, color = SleekSlate100)
                         }
+
                         OutlinedButton(
                             onClick = {
                                 showPlayDialog = false
@@ -430,6 +561,10 @@ fun GameScreen(
                         GameMenuRow(icon = Icons.Default.Refresh, title = "Replay Deal") {
                             showMenuDialog = false
                             showRestartConfirm = true
+                        }
+                        GameMenuRow(icon = Icons.Default.MenuBook, title = "Rules & How to Play") {
+                            showMenuDialog = false
+                            showRulesDialog = true
                         }
                         GameMenuRow(icon = Icons.Default.DateRange, title = "Daily Challenges") {
                             showMenuDialog = false
@@ -681,19 +816,18 @@ fun PortraitTopCardRow(
     selectedLocation: CardLocation?,
     validTargets: Set<CardLocation>,
     activeHint: com.solitaire.hyper.card.games.game.model.Hint?,
+    largePrint: Boolean = false,
+    leftHanded: Boolean = false,
     onStockClick: () -> Unit,
     onWasteClick: () -> Unit,
     onWasteDoubleClick: () -> Unit,
-    onFoundationClick: (Int) -> Unit
+    onFoundationClick: (Int) -> Unit,
+    onCardDrop: ((from: CardLocation, to: CardLocation) -> Unit)? = null
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = colSpacing),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Cols 0, 1, 2, 3: The 4 Foundation Suit slots [A] [A] [A] [A]
+    val density = androidx.compose.ui.platform.LocalDensity.current
+
+    // Foundation Piles composable block
+    val foundationPilesContent: @Composable () -> Unit = {
         for (i in 0 until 4) {
             val pile = gameState.foundations.getOrNull(i) ?: emptyList()
             val topCard = pile.lastOrNull()
@@ -716,6 +850,7 @@ fun PortraitTopCardRow(
                         isSelected = isSelected,
                         isValidTarget = isValidTarget,
                         isHinted = isHinted,
+                        largePrint = largePrint,
                         onClick = { onFoundationClick(i) },
                         modifier = Modifier.fillMaxSize()
                     )
@@ -728,11 +863,13 @@ fun PortraitTopCardRow(
                 }
             }
         }
+    }
 
-        // Col 4: Empty space spacer (matches Tableau Column 4 directly below)
-        Box(modifier = Modifier.size(cardWidth, cardHeight))
+    // Waste Pile with Drag-and-Drop capability
+    var wasteDragOffset by remember { mutableStateOf(Offset.Zero) }
+    var isDraggingWaste by remember { mutableStateOf(false) }
 
-        // Col 5: Waste Pile (matches Tableau Column 5 directly below)
+    val wastePileContent: @Composable () -> Unit = {
         Box(
             modifier = Modifier
                 .size(cardWidth, cardHeight)
@@ -742,22 +879,78 @@ fun PortraitTopCardRow(
             if (wasteTop != null) {
                 val isSelected = selectedLocation is CardLocation.Waste
                 val isHinted = activeHint?.from is CardLocation.Waste
+
                 CardView(
                     card = wasteTop,
                     cardBack = cardBack,
                     cardFace = cardFace,
                     isSelected = isSelected,
                     isHinted = isHinted,
-                    onClick = onWasteClick,
+                    largePrint = largePrint,
+                    onClick = if (!isDraggingWaste) onWasteClick else null,
                     onDoubleClick = onWasteDoubleClick,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .offset {
+                            if (isDraggingWaste) {
+                                IntOffset(wasteDragOffset.x.roundToInt(), wasteDragOffset.y.roundToInt())
+                            } else {
+                                IntOffset.Zero
+                            }
+                        }
+                        .zIndex(if (isDraggingWaste) 200f else 1f)
+                        .pointerInput(wasteTop.id) {
+                            detectDragGestures(
+                                onDragStart = {
+                                    isDraggingWaste = true
+                                    wasteDragOffset = Offset.Zero
+                                },
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    wasteDragOffset += dragAmount
+                                },
+                                onDragEnd = {
+                                    val dist = wasteDragOffset.getDistance()
+                                    if (dist < 14f) {
+                                        onWasteClick()
+                                    } else if (onCardDrop != null) {
+                                        val colStepPx = with(density) { (cardWidth + colSpacing).toPx() }
+                                        val wasteColIndex = if (leftHanded) 1 else 5
+                                        val colDelta = (wasteDragOffset.x / colStepPx).roundToInt()
+                                        val targetColIdx = (wasteColIndex + colDelta).coerceIn(0, 6)
+
+                                        val dragDownThreshold = with(density) { 40.dp.toPx() }
+                                        if (wasteDragOffset.y > dragDownThreshold) {
+                                            // Dropped into tableau
+                                            onCardDrop(CardLocation.Waste, CardLocation.Tableau(targetColIdx))
+                                        } else {
+                                            // Dropped towards foundation
+                                            val targetFIdx = if (leftHanded) {
+                                                (colDelta + 1 - 3).coerceIn(0, 3)
+                                            } else {
+                                                (5 + colDelta).coerceIn(0, 3)
+                                            }
+                                            onCardDrop(CardLocation.Waste, CardLocation.Foundation(targetFIdx))
+                                        }
+                                    }
+                                    isDraggingWaste = false
+                                    wasteDragOffset = Offset.Zero
+                                },
+                                onDragCancel = {
+                                    isDraggingWaste = false
+                                    wasteDragOffset = Offset.Zero
+                                }
+                            )
+                        }
                 )
             } else {
                 CardSlotPlaceholder()
             }
         }
+    }
 
-        // Col 6: Stock Pile on the FAR RIGHT (matches Tableau Column 6 directly below)
+    // Stock Pile block
+    val stockPileContent: @Composable () -> Unit = {
         Box(
             modifier = Modifier
                 .size(cardWidth, cardHeight)
@@ -769,6 +962,7 @@ fun PortraitTopCardRow(
                     card = gameState.stock.last().copy(isFaceUp = false),
                     cardBack = cardBack,
                     cardFace = cardFace,
+                    largePrint = largePrint,
                     modifier = Modifier.fillMaxSize()
                 )
                 Box(
@@ -790,12 +984,33 @@ fun PortraitTopCardRow(
             }
         }
     }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = colSpacing),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (leftHanded) {
+            // Left-Handed Mode: Stock & Waste on left, Foundations on right
+            stockPileContent()
+            wastePileContent()
+            Box(modifier = Modifier.size(cardWidth, cardHeight)) // Spacer
+            foundationPilesContent()
+        } else {
+            // Standard Mode: Foundations on left, Waste & Stock on right
+            foundationPilesContent()
+            Box(modifier = Modifier.size(cardWidth, cardHeight)) // Spacer
+            wastePileContent()
+            stockPileContent()
+        }
+    }
 }
 
 /**
  * Tableau Area containing the 7 columns:
- * Calculates vertical overlap dynamically based on available container height
- * so cards NEVER extend beyond the screen boundaries.
+ * Supports interactive drag-and-drop of cards and stacks, dynamic compression, and 1-tap moves.
  */
 @Composable
 fun TableauArea(
@@ -808,9 +1023,11 @@ fun TableauArea(
     selectedLocation: CardLocation?,
     validTargets: Set<CardLocation>,
     activeHint: com.solitaire.hyper.card.games.game.model.Hint?,
+    largePrint: Boolean = false,
     onCardClick: (colIdx: Int, cardIdx: Int) -> Unit,
     onCardDoubleClick: (colIdx: Int, cardIdx: Int) -> Unit,
-    onEmptyColumnClick: (colIdx: Int) -> Unit
+    onEmptyColumnClick: (colIdx: Int) -> Unit,
+    onCardDrop: (from: CardLocation, to: CardLocation) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -825,14 +1042,17 @@ fun TableauArea(
                 colIndex = colIdx,
                 cardWidth = cardWidth,
                 cardHeight = cardHeight,
+                colSpacing = colSpacing,
                 cardBack = cardBack,
                 cardFace = cardFace,
                 selectedLocation = selectedLocation,
                 validTargets = validTargets,
                 activeHint = activeHint,
+                largePrint = largePrint,
                 onCardClick = { cardIdx -> onCardClick(colIdx, cardIdx) },
                 onCardDoubleClick = { cardIdx -> onCardDoubleClick(colIdx, cardIdx) },
-                onEmptyClick = { onEmptyColumnClick(colIdx) }
+                onEmptyClick = { onEmptyColumnClick(colIdx) },
+                onCardDrop = onCardDrop
             )
         }
     }
@@ -844,16 +1064,24 @@ fun TableauColumnView(
     colIndex: Int,
     cardWidth: Dp,
     cardHeight: Dp,
+    colSpacing: Dp,
     cardBack: com.solitaire.hyper.card.games.ui.customization.CardBackTheme,
     cardFace: com.solitaire.hyper.card.games.ui.customization.CardFaceTheme,
     selectedLocation: CardLocation?,
     validTargets: Set<CardLocation>,
     activeHint: com.solitaire.hyper.card.games.game.model.Hint?,
+    largePrint: Boolean = false,
     onCardClick: (cardIdx: Int) -> Unit,
     onCardDoubleClick: (cardIdx: Int) -> Unit,
-    onEmptyClick: () -> Unit
+    onEmptyClick: () -> Unit,
+    onCardDrop: (from: CardLocation, to: CardLocation) -> Unit
 ) {
     val isColumnValidTarget = validTargets.contains(CardLocation.Tableau(colIndex))
+    val density = androidx.compose.ui.platform.LocalDensity.current
+
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    var isDragging by remember { mutableStateOf(false) }
+    var draggedFromCardIdx by remember { mutableStateOf<Int?>(null) }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -901,6 +1129,71 @@ fun TableauColumnView(
                         (activeHint.from as CardLocation.Tableau).columnIndex == colIndex &&
                         (activeHint.from as CardLocation.Tableau).cardIndex == cardIdx
 
+                val isThisCardInDrag = isDragging && draggedFromCardIdx != null && cardIdx >= draggedFromCardIdx!!
+                val currentCardOffset = if (isThisCardInDrag) {
+                    IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt())
+                } else {
+                    IntOffset.Zero
+                }
+                val zIndex = if (isThisCardInDrag) 150f + cardIdx else 1f + cardIdx
+
+                val baseModifier = Modifier
+                    .offset(y = yOffset)
+                    .offset { currentCardOffset }
+                    .zIndex(zIndex)
+                    .size(cardWidth, cardHeight)
+
+                val gestureModifier = if (card.isFaceUp) {
+                    baseModifier.pointerInput(card.id) {
+                        detectDragGestures(
+                            onDragStart = {
+                                isDragging = true
+                                draggedFromCardIdx = cardIdx
+                                dragOffset = Offset.Zero
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragOffset += dragAmount
+                            },
+                            onDragEnd = {
+                                val dist = dragOffset.getDistance()
+                                if (dist < 14f) {
+                                    onCardClick(cardIdx)
+                                } else {
+                                    val colStepPx = with(density) { (cardWidth + colSpacing).toPx() }
+                                    val colShift = (dragOffset.x / colStepPx).roundToInt()
+                                    val targetColIdx = (colIndex + colShift).coerceIn(0, 6)
+
+                                    val dragUpPx = with(density) { 55.dp.toPx() }
+                                    if (dragOffset.y < -dragUpPx && cardIdx == cards.lastIndex) {
+                                        // Dragged upwards to Foundation row
+                                        val targetFIdx = (colIndex + colShift).coerceIn(0, 3)
+                                        onCardDrop(
+                                            CardLocation.Tableau(colIndex, cardIdx),
+                                            CardLocation.Foundation(targetFIdx)
+                                        )
+                                    } else if (targetColIdx != colIndex) {
+                                        onCardDrop(
+                                            CardLocation.Tableau(colIndex, cardIdx),
+                                            CardLocation.Tableau(targetColIdx)
+                                        )
+                                    }
+                                }
+                                isDragging = false
+                                draggedFromCardIdx = null
+                                dragOffset = Offset.Zero
+                            },
+                            onDragCancel = {
+                                isDragging = false
+                                draggedFromCardIdx = null
+                                dragOffset = Offset.Zero
+                            }
+                        )
+                    }
+                } else {
+                    baseModifier
+                }
+
                 CardView(
                     card = card,
                     cardBack = cardBack,
@@ -908,11 +1201,10 @@ fun TableauColumnView(
                     isSelected = isSelected,
                     isValidTarget = isTarget,
                     isHinted = isHinted,
-                    onClick = { onCardClick(cardIdx) },
-                    onDoubleClick = { onCardDoubleClick(cardIdx) },
-                    modifier = Modifier
-                        .offset(y = yOffset)
-                        .size(cardWidth, cardHeight)
+                    largePrint = largePrint,
+                    onClick = if (!card.isFaceUp) { { onCardClick(cardIdx) } } else null,
+                    onDoubleClick = if (card.isFaceUp) { { onCardDoubleClick(cardIdx) } } else null,
+                    modifier = gestureModifier
                 )
 
                 yOffset += if (card.isFaceUp) upStep else downStep
@@ -924,7 +1216,7 @@ fun TableauColumnView(
 /**
  * Floating Bottom Bar matching the screenshot:
  * - Dark rounded pill container with:
- *   ⚙ Settings | 📅 Daily | 🎴 Play | 💡 Hint | ↩ Undo
+ *   ↩ Undo | 💡 Hint | 🎴 Play | 🪄 Magic Wand | ⚙ Settings
  * - Followed by decorative: ❧ Solitaire ❧
  */
 @Composable
@@ -932,7 +1224,7 @@ fun CompactGameBottomBar(
     gameState: GameState,
     isAutoCompleting: Boolean,
     onSettings: () -> Unit,
-    onDaily: () -> Unit,
+    onMagicWand: () -> Unit,
     onPlay: () -> Unit,
     onHint: () -> Unit,
     onUndo: () -> Unit,
@@ -982,20 +1274,20 @@ fun CompactGameBottomBar(
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Settings
+                // Undo
                 BottomBarButton(
-                    icon = Icons.Default.Settings,
-                    label = "Settings",
-                    testTag = "bottom_settings",
-                    onClick = onSettings
+                    icon = Icons.AutoMirrored.Filled.Undo,
+                    label = "Undo",
+                    testTag = "bottom_undo",
+                    onClick = onUndo
                 )
 
-                // Daily
+                // Hint
                 BottomBarButton(
-                    icon = Icons.Default.DateRange,
-                    label = "Daily",
-                    testTag = "bottom_daily",
-                    onClick = onDaily
+                    icon = Icons.Default.Lightbulb,
+                    label = "Hint",
+                    testTag = "bottom_hint",
+                    onClick = onHint
                 )
 
                 // Play (Center main deal action)
@@ -1007,20 +1299,21 @@ fun CompactGameBottomBar(
                     onClick = onPlay
                 )
 
-                // Hint
+                // Magic Wand
                 BottomBarButton(
-                    icon = Icons.Default.Lightbulb,
-                    label = "Hint",
-                    testTag = "bottom_hint",
-                    onClick = onHint
+                    icon = Icons.Default.AutoAwesome,
+                    label = "Magic",
+                    tint = Color(0xFFFFD54F),
+                    testTag = "bottom_magic",
+                    onClick = onMagicWand
                 )
 
-                // Undo
+                // Settings
                 BottomBarButton(
-                    icon = Icons.AutoMirrored.Filled.Undo,
-                    label = "Undo",
-                    testTag = "bottom_undo",
-                    onClick = onUndo
+                    icon = Icons.Default.Settings,
+                    label = "Settings",
+                    testTag = "bottom_settings",
+                    onClick = onSettings
                 )
             }
         }
@@ -1028,7 +1321,7 @@ fun CompactGameBottomBar(
         // Subtle decorative brand title at bottom
         Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = "❧  Solitaire  ❧",
+            text = "❧  SOLITAIRE  ❧",
             color = Color.White.copy(alpha = 0.35f),
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,

@@ -74,13 +74,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun startNewGame(
         mode: GameMode = GameMode.fromString(_userSettings.value.defaultDrawMode),
         isDailyChallenge: Boolean = false,
-        challengeDate: String? = null
+        challengeDate: String? = null,
+        isWinnableDeal: Boolean = false,
+        isVegasScoring: Boolean = _userSettings.value.vegasScoring
     ) {
         timerJob?.cancel()
         undoStack.clear()
         _selectedLocation.value = null
         _validTargets.value = emptySet()
-        _statusMessage.value = "Tap any face-up card to select"
+        _statusMessage.value = "Tap or drag card to play"
         _activeHint.value = null
         _isAutoCompleting.value = false
         _showWinDialog.value = false
@@ -96,13 +98,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             gameMode = mode,
             seed = seed,
             isDailyChallenge = isDailyChallenge,
-            challengeDate = challengeDate
+            challengeDate = challengeDate,
+            isWinnableDeal = isWinnableDeal,
+            isVegasScoring = isVegasScoring
         )
 
         _gameState.value = freshState
         saveActiveGame()
         startTimer()
-        soundManager.playCardFlip()
+        soundManager.playShuffle()
     }
 
     fun restoreSavedGameOrNew(defaultMode: GameMode = GameMode.DRAW_1) {
@@ -377,7 +381,49 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         val hint = SolitaireEngine.findHint(_gameState.value)
         _activeHint.value = hint
         if (hint != null) {
+            _statusMessage.value = "💡 Hint: ${hint.description}"
             soundManager.playCardMove()
+        } else {
+            _statusMessage.value = "No direct moves found"
+            soundManager.playInvalidMove()
+        }
+    }
+
+    fun useMagicWand() {
+        if (_gameState.value.isGameWon || _isAutoCompleting.value) return
+        val result = SolitaireEngine.magicWand(_gameState.value)
+        if (result != null) {
+            _gameState.value = result.first
+            _selectedLocation.value = null
+            _validTargets.value = emptySet()
+            _activeHint.value = null
+            _statusMessage.value = result.second
+            soundManager.playMagicWand()
+            checkWinOrSave()
+        } else {
+            soundManager.playInvalidMove()
+            _statusMessage.value = "No cards can be moved right now"
+        }
+    }
+
+    fun onCardDropped(from: CardLocation, to: CardLocation) {
+        if (_gameState.value.isGameWon || _isAutoCompleting.value) return
+        val moveResult = SolitaireEngine.moveCards(_gameState.value, from, to)
+        if (moveResult != null) {
+            _gameState.value = moveResult.first
+            undoStack.add(moveResult.second)
+            _selectedLocation.value = null
+            _validTargets.value = emptySet()
+            _activeHint.value = null
+            val isFoundation = to is CardLocation.Foundation
+            if (isFoundation) {
+                soundManager.playFoundationSnap()
+                _statusMessage.value = "✓ Matched to Foundation!"
+            } else {
+                soundManager.playCardMove()
+                _statusMessage.value = "✓ Moved card"
+            }
+            checkWinOrSave()
         } else {
             soundManager.playInvalidMove()
         }
@@ -423,7 +469,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             repository.recordGameFinished(_gameState.value, isWin = true, usedHints = usedHints)
+            userPrefs.addCoins(200) // Award 200 coins on victory
             userPrefs.saveGameJson(null) // Clear active game
+        }
+    }
+
+    fun awardDoubleWinCoins() {
+        viewModelScope.launch {
+            userPrefs.addCoins(400)
         }
     }
 

@@ -73,6 +73,25 @@ class SoundManager(private val context: Context) {
         triggerHaptic(durationMs = 30, amplitude = 50)
     }
 
+    fun playMagicWand() {
+        if (!soundEnabled) return
+        scope.launch {
+            // Magical shimmering chime: G5, B5, D6, G6
+            val chimeNotes = doubleArrayOf(783.99, 987.77, 1174.66, 1567.98)
+            synthesizeArpeggio(frequencies = chimeNotes, durationMs = 90, volume = 0.55)
+        }
+        triggerHaptic(durationMs = 45, amplitude = 90)
+    }
+
+    fun playShuffle() {
+        if (!soundEnabled) return
+        scope.launch {
+            synthesizeTone(frequency = 440.0, durationMs = 40, volume = 0.3)
+            synthesizeTone(frequency = 660.0, durationMs = 40, volume = 0.35)
+        }
+        triggerHaptic(durationMs = 25, amplitude = 40)
+    }
+
     private fun triggerHaptic(durationMs: Long, amplitude: Int = 50) {
         if (!vibrationEnabled || vibrator == null || !vibrator.hasVibrator()) return
         try {

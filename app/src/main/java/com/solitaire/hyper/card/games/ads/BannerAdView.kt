@@ -26,8 +26,14 @@ import com.google.android.gms.ads.LoadAdError
 
 @Composable
 fun BannerAdView(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isAdFree: Boolean = false
 ) {
+    if (isAdFree) {
+        // Ads removed via 1-Hour Ad-Free Pass!
+        return
+    }
+
     val containerShape = RoundedCornerShape(6.dp)
 
     if (LocalInspectionMode.current) {
@@ -103,4 +109,3 @@ fun BannerAdView(
         )
     }
 }
-

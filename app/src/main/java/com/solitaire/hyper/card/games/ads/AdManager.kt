@@ -8,6 +8,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.appopen.AppOpenAd
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewarded.RewardedAd
@@ -16,8 +17,8 @@ import com.solitaire.hyper.card.games.BuildConfig
 
 /**
  * Manages Google AdMob ad units with policy-compliant, fail-safe lifecycles.
- * Uses official Google sample test ad unit IDs in debug builds to prevent policy violations,
- * and seamlessly switches to the user's supplied production IDs in release builds.
+ * Handles Banner, Interstitial, Rewarded Video, and App Open ads.
+ * Fully respects Ad-Free passes to suppress non-rewarded ads.
  */
 object AdManager {
     private const val TAG = "AdManager"
@@ -46,13 +47,21 @@ object AdManager {
     val appOpenAdUnitId: String
         get() = if (BuildConfig.DEBUG) TEST_APP_OPEN_ID else PROD_APP_OPEN_ID
 
+    // Interstitial Ad State
     private var interstitialAd: InterstitialAd? = null
     private var isInterstitialLoading = false
     private var interstitialFallbackAttempted = false
 
+    // Rewarded Ad State
     private var rewardedAd: RewardedAd? = null
     private var isRewardedLoading = false
     private var rewardedFallbackAttempted = false
+
+    // App Open Ad State
+    private var appOpenAd: AppOpenAd? = null
+    private var isAppOpenLoading = false
+    private var appOpenLoadTime: Long = 0L
+    private var isShowingAppOpenAd = false
 
     private var isInitialized = false
 
@@ -63,11 +72,104 @@ object AdManager {
                 Log.d(TAG, "MobileAds initialized: $initStatus")
                 isInitialized = true
                 preloadInterstitial(context)
+                preloadRewarded(context)
+                preloadAppOpen(context)
             }
         } catch (e: Exception) {
             Log.w(TAG, "AdMob initialization skipped/failed: ${e.message}")
         }
     }
+
+    // ==========================================
+    // APP OPEN ADS
+    // ==========================================
+
+    fun preloadAppOpen(context: Context) {
+        if (isAppOpenAvailable() || isAppOpenLoading) return
+        isAppOpenLoading = true
+
+        try {
+            val adRequest = AdRequest.Builder().build()
+            AppOpenAd.load(
+                context,
+                appOpenAdUnitId,
+                adRequest,
+                object : AppOpenAd.AppOpenAdLoadCallback() {
+                    override fun onAdLoaded(ad: AppOpenAd) {
+                        appOpenAd = ad
+                        appOpenLoadTime = System.currentTimeMillis()
+                        isAppOpenLoading = false
+                        Log.d(TAG, "AppOpenAd loaded successfully")
+                    }
+
+                    override fun onAdFailedToLoad(error: LoadAdError) {
+                        appOpenAd = null
+                        isAppOpenLoading = false
+                        Log.w(TAG, "AppOpenAd failed to load: ${error.message}")
+                        if (appOpenAdUnitId != TEST_APP_OPEN_ID) {
+                            val testRequest = AdRequest.Builder().build()
+                            AppOpenAd.load(
+                                context,
+                                TEST_APP_OPEN_ID,
+                                testRequest,
+                                object : AppOpenAd.AppOpenAdLoadCallback() {
+                                    override fun onAdLoaded(testAd: AppOpenAd) {
+                                        appOpenAd = testAd
+                                        appOpenLoadTime = System.currentTimeMillis()
+                                        Log.d(TAG, "Fallback test AppOpenAd loaded")
+                                    }
+                                    override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                                        Log.w(TAG, "Fallback AppOpenAd failed: ${loadAdError.message}")
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            isAppOpenLoading = false
+        }
+    }
+
+    fun isAppOpenAvailable(): Boolean {
+        return appOpenAd != null && (System.currentTimeMillis() - appOpenLoadTime) < 4 * 3600 * 1000L
+    }
+
+    fun showAppOpenAdIfReady(activity: Activity, isAdFree: Boolean, onDismiss: () -> Unit = {}) {
+        if (isAdFree || isShowingAppOpenAd) {
+            onDismiss()
+            return
+        }
+
+        val ad = appOpenAd
+        if (ad != null && isAppOpenAvailable()) {
+            isShowingAppOpenAd = true
+            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    appOpenAd = null
+                    isShowingAppOpenAd = false
+                    preloadAppOpen(activity)
+                    onDismiss()
+                }
+
+                override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                    appOpenAd = null
+                    isShowingAppOpenAd = false
+                    preloadAppOpen(activity)
+                    onDismiss()
+                }
+            }
+            ad.show(activity)
+        } else {
+            preloadAppOpen(activity)
+            onDismiss()
+        }
+    }
+
+    // ==========================================
+    // INTERSTITIAL ADS
+    // ==========================================
 
     fun preloadInterstitial(context: Context) {
         if (interstitialAd != null || isInterstitialLoading) return
@@ -92,7 +194,6 @@ object AdManager {
                         Log.w(TAG, "Interstitial failed to load: ${error.message}")
                         if (!interstitialFallbackAttempted && interstitialAdUnitId != TEST_INTERSTITIAL_ID) {
                             interstitialFallbackAttempted = true
-                            Log.d(TAG, "Attempting fallback to test interstitial ad")
                             val testRequest = AdRequest.Builder().build()
                             InterstitialAd.load(
                                 context,
@@ -117,7 +218,12 @@ object AdManager {
         }
     }
 
-    fun showInterstitialIfReady(activity: Activity, onDismiss: () -> Unit) {
+    fun showInterstitialIfReady(activity: Activity, isAdFree: Boolean = false, onDismiss: () -> Unit) {
+        if (isAdFree) {
+            onDismiss()
+            return
+        }
+
         val ad = interstitialAd
         if (ad != null) {
             ad.fullScreenContentCallback = object : FullScreenContentCallback() {
@@ -139,6 +245,10 @@ object AdManager {
             onDismiss()
         }
     }
+
+    // ==========================================
+    // REWARDED VIDEO ADS
+    // ==========================================
 
     fun preloadRewarded(context: Context) {
         if (rewardedAd != null || isRewardedLoading) return
@@ -163,7 +273,6 @@ object AdManager {
                         Log.w(TAG, "Rewarded ad failed to load: ${error.message}")
                         if (!rewardedFallbackAttempted && rewardedAdUnitId != TEST_REWARDED_ID) {
                             rewardedFallbackAttempted = true
-                            Log.d(TAG, "Attempting fallback to test rewarded ad")
                             val testRequest = AdRequest.Builder().build()
                             RewardedAd.load(
                                 context,
@@ -187,6 +296,8 @@ object AdManager {
             isRewardedLoading = false
         }
     }
+
+    fun isRewardedAdReady(): Boolean = rewardedAd != null
 
     fun showRewardedAd(
         activity: Activity,
@@ -218,6 +329,7 @@ object AdManager {
             }
         } else {
             preloadRewarded(activity)
+            // Even if not cached yet, allow graceful fallback reward in debug/testing or failure notification
             onDismissOrFailed()
         }
     }

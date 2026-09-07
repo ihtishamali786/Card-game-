@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -76,9 +77,16 @@ fun SettingsScreen(
     val settings by userPrefs.userSettingsFlow.collectAsState(initial = UserSettings())
 
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showRulesDialog by remember { mutableStateOf(false) }
 
     val privacyUrl = "https://hypercardgames.blogspot.com/p/privacy-policy.html"
     val termsUrl = "https://hypercardgames.blogspot.com/p/terms-and-conditions.html"
+
+    if (showRulesDialog) {
+        com.solitaire.hyper.card.games.ui.components.RulesDialog(
+            onDismiss = { showRulesDialog = false }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -97,7 +105,7 @@ fun SettingsScreen(
             )
         },
         bottomBar = {
-            BannerAdView()
+            BannerAdView(isAdFree = settings.isAdFreeActive())
         }
     ) { paddingValues ->
         Column(
@@ -147,6 +155,18 @@ fun SettingsScreen(
                         onCheckedChange = { scope.launch { userPrefs.updateLeftHanded(it) } }
                     )
                     SettingsSwitchRow(
+                        title = "Large Print Cards",
+                        subtitle = "High-visibility large indices and card symbols",
+                        checked = settings.largePrintMode,
+                        onCheckedChange = { scope.launch { userPrefs.updateLargePrint(it) } }
+                    )
+                    SettingsSwitchRow(
+                        title = "Vegas Scoring Mode",
+                        subtitle = "Standard casino $52 stake with $5 per foundation card",
+                        checked = settings.vegasScoring,
+                        onCheckedChange = { scope.launch { userPrefs.updateVegasScoring(it) } }
+                    )
+                    SettingsSwitchRow(
                         title = "Auto-Complete Helper",
                         subtitle = "Display quick win button when cards are solved",
                         checked = settings.autoCompleteEnabled,
@@ -175,6 +195,11 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Column {
+                    SettingsActionRow(
+                        title = "How to Play & Rules",
+                        icon = Icons.Default.MenuBook,
+                        onClick = { showRulesDialog = true }
+                    )
                     SettingsActionRow(
                         title = "Privacy Policy",
                         icon = Icons.Default.OpenInNew,

@@ -16,6 +16,8 @@ data class GameState(
     val gameMode: GameMode = GameMode.DRAW_1,
     val isDailyChallenge: Boolean = false,
     val challengeDate: String? = null,
+    val isVegasScoring: Boolean = false,
+    val isWinnableDeal: Boolean = false,
     val seed: Long = System.currentTimeMillis()
 ) {
     /**

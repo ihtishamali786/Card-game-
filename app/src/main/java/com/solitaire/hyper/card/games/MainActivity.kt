@@ -31,6 +31,7 @@ import com.solitaire.hyper.card.games.ui.home.HomeScreen
 import com.solitaire.hyper.card.games.ui.settings.SettingsScreen
 import com.solitaire.hyper.card.games.ui.stats.StatisticsScreen
 import com.solitaire.hyper.card.games.ui.theme.SolitaireHyperTheme
+import com.solitaire.hyper.card.games.ads.AdManager
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
@@ -97,6 +98,10 @@ fun SolitaireAppNavigation(
 
     LaunchedEffect(Unit) {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        activity?.let {
+            AdManager.preloadAppOpen(it)
+            AdManager.showAppOpenAdIfReady(it, userSettings.isAdFreeActive())
+        }
     }
 
     // When on HOME screen and user presses back, ask for confirmation
@@ -147,6 +152,8 @@ fun SolitaireAppNavigation(
         when (screen) {
             Screen.HOME -> HomeScreen(
                 hasSavedGame = hasSavedGame,
+                userSettings = userSettings,
+                userPrefs = userPrefs,
                 onContinueGame = {
                     viewModel.restoreSavedGameOrNew()
                     navigateTo(Screen.GAME)
@@ -157,6 +164,10 @@ fun SolitaireAppNavigation(
                 },
                 onPlayDraw3 = {
                     viewModel.startNewGame(mode = GameMode.DRAW_3)
+                    navigateTo(Screen.GAME)
+                },
+                onPlayWinnable = {
+                    viewModel.startNewGame(mode = GameMode.DRAW_1, isWinnableDeal = true)
                     navigateTo(Screen.GAME)
                 },
                 onDailyChallenge = {

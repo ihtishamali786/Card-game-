@@ -26,6 +26,8 @@ object GameStateSerializer {
             root.put("gameMode", state.gameMode.name)
             root.put("isDailyChallenge", state.isDailyChallenge)
             root.put("challengeDate", state.challengeDate ?: "")
+            root.put("isVegasScoring", state.isVegasScoring)
+            root.put("isWinnableDeal", state.isWinnableDeal)
             root.put("seed", state.seed)
 
             // Stock
@@ -74,6 +76,8 @@ object GameStateSerializer {
             val gameMode = GameMode.fromString(root.optString("gameMode", GameMode.DRAW_1.name))
             val isDailyChallenge = root.optBoolean("isDailyChallenge", false)
             val challengeDate = root.optString("challengeDate", "").takeIf { it.isNotEmpty() }
+            val isVegasScoring = root.optBoolean("isVegasScoring", false)
+            val isWinnableDeal = root.optBoolean("isWinnableDeal", false)
             val seed = root.optLong("seed", System.currentTimeMillis())
 
             val stock = deserializeCardList(root.optJSONArray("stock"))
@@ -112,6 +116,8 @@ object GameStateSerializer {
                 gameMode = gameMode,
                 isDailyChallenge = isDailyChallenge,
                 challengeDate = challengeDate,
+                isVegasScoring = isVegasScoring,
+                isWinnableDeal = isWinnableDeal,
                 seed = seed
             )
         } catch (e: Exception) {

@@ -4,24 +4,30 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 /**
- * Background themes available for selection.
+ * Background themes available for selection (Free & Premium 3D).
  */
 data class BackgroundTheme(
     val id: String,
     val name: String,
     val primaryColor: Color,
-    val brush: Brush
+    val brush: Brush,
+    val isPremium: Boolean = false,
+    val coinCost: Int = 0,
+    val is3D: Boolean = false
 )
 
 /**
- * Card back themes available for selection.
+ * Card back themes available for selection (Free & Premium 3D).
  */
 data class CardBackTheme(
     val id: String,
     val name: String,
     val baseColor: Color,
     val accentColor: Color,
-    val patternType: PatternType
+    val patternType: PatternType,
+    val isPremium: Boolean = false,
+    val coinCost: Int = 0,
+    val is3D: Boolean = false
 ) {
     enum class PatternType {
         SLEEK_EMERALD,
@@ -31,7 +37,13 @@ data class CardBackTheme(
         HYPER_GRID,
         VINTAGE_FILIGREE,
         MIDNIGHT_STAR,
-        CRIMSON_DRAGON
+        CRIMSON_DRAGON,
+        // 3D & Premium Patterns
+        HOLOGRAPHIC_3D,
+        GOLD_FOIL_3D,
+        DRAGON_3D,
+        CYBERPUNK_3D,
+        CRYSTAL_3D
     }
 }
 
@@ -42,146 +54,267 @@ data class CardFaceTheme(
     val id: String,
     val name: String,
     val fontStyleName: String,
-    val highContrast: Boolean = false
+    val highContrast: Boolean = false,
+    val isPremium: Boolean = false,
+    val coinCost: Int = 0,
+    val is3D: Boolean = false
 )
 
 object CustomizationRegistry {
 
     val backgrounds = listOf(
-        BackgroundTheme(
-            id = "SLEEK_EMERALD",
-            name = "Sleek Interface",
-            primaryColor = Color(0xFF142D25),
-            brush = Brush.verticalGradient(listOf(Color(0xFF142D25), Color(0xFF0B1411)))
-        ),
+        // Free Themes
         BackgroundTheme(
             id = "CLASSIC_FELT",
             name = "Classic Felt",
             primaryColor = Color(0xFF0C5A35),
-            brush = Brush.verticalGradient(listOf(Color(0xFF146C43), Color(0xFF0B4628), Color(0xFF062A17)))
+            brush = Brush.verticalGradient(listOf(Color(0xFF146C43), Color(0xFF0B4628), Color(0xFF062A17))),
+            isPremium = false,
+            coinCost = 0
         ),
         BackgroundTheme(
-            id = "EMERALD",
-            name = "Emerald Royale",
-            primaryColor = Color(0xFF007953),
-            brush = Brush.radialGradient(listOf(Color(0xFF009B6A), Color(0xFF006847), Color(0xFF003824)))
-        ),
-        BackgroundTheme(
-            id = "MIDNIGHT",
-            name = "Midnight Velvet",
-            primaryColor = Color(0xFF0B332A),
-            brush = Brush.verticalGradient(listOf(Color(0xFF134E41), Color(0xFF0C352C), Color(0xFF051713)))
+            id = "SLEEK_EMERALD",
+            name = "Sleek Emerald",
+            primaryColor = Color(0xFF142D25),
+            brush = Brush.verticalGradient(listOf(Color(0xFF142D25), Color(0xFF0B1411))),
+            isPremium = false,
+            coinCost = 0
         ),
         BackgroundTheme(
             id = "SAPPHIRE",
             name = "Sapphire Casino",
             primaryColor = Color(0xFF0F3E6D),
-            brush = Brush.verticalGradient(listOf(Color(0xFF1A5A9C), Color(0xFF104173), Color(0xFF07213D)))
+            brush = Brush.verticalGradient(listOf(Color(0xFF1A5A9C), Color(0xFF104173), Color(0xFF07213D))),
+            isPremium = false,
+            coinCost = 0
         ),
         BackgroundTheme(
             id = "OBSIDIAN",
             name = "Obsidian Dark",
             primaryColor = Color(0xFF1E2124),
-            brush = Brush.verticalGradient(listOf(Color(0xFF2B2F36), Color(0xFF1C1E23), Color(0xFF0F1012)))
-        ),
-        BackgroundTheme(
-            id = "OCEAN",
-            name = "Ocean Breeze",
-            primaryColor = Color(0xFF026873),
-            brush = Brush.verticalGradient(listOf(Color(0xFF048797), Color(0xFF025761), Color(0xFF012C31)))
-        ),
-        BackgroundTheme(
-            id = "FOREST",
-            name = "Nordic Forest",
-            primaryColor = Color(0xFF1C442A),
-            brush = Brush.verticalGradient(listOf(Color(0xFF265B39), Color(0xFF1A3F27), Color(0xFF0D2114)))
-        ),
-        BackgroundTheme(
-            id = "SUNSET",
-            name = "Sunset Amber",
-            primaryColor = Color(0xFF5E271F),
-            brush = Brush.verticalGradient(listOf(Color(0xFF7A3429), Color(0xFF54221A), Color(0xFF2C100C)))
-        ),
-        BackgroundTheme(
-            id = "HYPER_CYBER",
-            name = "Hyper Cyber",
-            primaryColor = Color(0xFF231145),
-            brush = Brush.verticalGradient(listOf(Color(0xFF3B1C75), Color(0xFF210F42), Color(0xFF0F061F)))
+            brush = Brush.verticalGradient(listOf(Color(0xFF2B2F36), Color(0xFF1C1E23), Color(0xFF0F1012))),
+            isPremium = false,
+            coinCost = 0
         ),
         BackgroundTheme(
             id = "MINIMAL_SLATE",
             name = "Minimal Slate",
             primaryColor = Color(0xFF2D3748),
-            brush = Brush.verticalGradient(listOf(Color(0xFF3F4E64), Color(0xFF2B3545), Color(0xFF1A202C)))
+            brush = Brush.verticalGradient(listOf(Color(0xFF3F4E64), Color(0xFF2B3545), Color(0xFF1A202C))),
+            isPremium = false,
+            coinCost = 0
+        ),
+
+        // Premium 3D Themes
+        BackgroundTheme(
+            id = "3D_COSMIC_HOLO",
+            name = "3D Cosmic Hologram",
+            primaryColor = Color(0xFF2E0854),
+            brush = Brush.radialGradient(
+                listOf(Color(0xFF8A2BE2), Color(0xFF4B0082), Color(0xFF190033), Color(0xFF0A0017))
+            ),
+            isPremium = true,
+            coinCost = 600,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "3D_ROYAL_GOLD",
+            name = "3D Royal Gold Velvet",
+            primaryColor = Color(0xFF2B1F00),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF5C4708), Color(0xFF2E2204), Color(0xFF140F02), Color(0xFF000000))
+            ),
+            isPremium = true,
+            coinCost = 800,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "3D_CYBER_NEON",
+            name = "3D Cyber Grid Matrix",
+            primaryColor = Color(0xFF051C2C),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF00E5FF), Color(0xFF005577), Color(0xFF021B27), Color(0xFF010B10))
+            ),
+            isPremium = true,
+            coinCost = 700,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "3D_DEEP_OCEAN",
+            name = "3D Deep Ocean Emerald",
+            primaryColor = Color(0xFF004D40),
+            brush = Brush.radialGradient(
+                listOf(Color(0xFF00BFA5), Color(0xFF00796B), Color(0xFF00332C), Color(0xFF001512))
+            ),
+            isPremium = true,
+            coinCost = 600,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "3D_MAGMA_ROYALE",
+            name = "3D Volcanic Magma",
+            primaryColor = Color(0xFF3E1109),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFFFF3D00), Color(0xFFBF360C), Color(0xFF4E1408), Color(0xFF1B0502))
+            ),
+            isPremium = true,
+            coinCost = 750,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "3D_DIAMOND_CARBON",
+            name = "3D Platinum Carbon",
+            primaryColor = Color(0xFF181C20),
+            brush = Brush.radialGradient(
+                listOf(Color(0xFF78909C), Color(0xFF37474F), Color(0xFF21272B), Color(0xFF0D0F10))
+            ),
+            isPremium = true,
+            coinCost = 850,
+            is3D = true
         )
     )
 
     val cardBacks = listOf(
-        CardBackTheme(
-            id = "SLEEK_EMERALD",
-            name = "Sleek Emerald",
-            baseColor = Color(0xFF1D3D33),
-            accentColor = Color(0xFF34D399),
-            patternType = CardBackTheme.PatternType.SLEEK_EMERALD
-        ),
+        // Free Card Backs
         CardBackTheme(
             id = "ROYAL_CREST",
             name = "Royal Crest",
             baseColor = Color(0xFF1B3B6F),
             accentColor = Color(0xFFFFD700),
-            patternType = CardBackTheme.PatternType.ROYAL_CREST
+            patternType = CardBackTheme.PatternType.ROYAL_CREST,
+            isPremium = false,
+            coinCost = 0
+        ),
+        CardBackTheme(
+            id = "SLEEK_EMERALD",
+            name = "Sleek Emerald",
+            baseColor = Color(0xFF1D3D33),
+            accentColor = Color(0xFF34D399),
+            patternType = CardBackTheme.PatternType.SLEEK_EMERALD,
+            isPremium = false,
+            coinCost = 0
         ),
         CardBackTheme(
             id = "DIAMOND_GEOMETRY",
             name = "Diamond Geometry",
             baseColor = Color(0xFF9E1B32),
             accentColor = Color(0xFFFFE082),
-            patternType = CardBackTheme.PatternType.DIAMOND_GEOMETRY
+            patternType = CardBackTheme.PatternType.DIAMOND_GEOMETRY,
+            isPremium = false,
+            coinCost = 0
         ),
         CardBackTheme(
             id = "CLASSIC_TARTAN",
             name = "Classic Tartan",
             baseColor = Color(0xFF1E3F20),
             accentColor = Color(0xFF81C784),
-            patternType = CardBackTheme.PatternType.CLASSIC_TARTAN
+            patternType = CardBackTheme.PatternType.CLASSIC_TARTAN,
+            isPremium = false,
+            coinCost = 0
         ),
+
+        // Premium 3D Card Backs
         CardBackTheme(
-            id = "HYPER_GRID",
-            name = "Hyper Grid",
+            id = "3D_HOLOGRAPHIC_FOIL",
+            name = "3D Holographic Foil",
             baseColor = Color(0xFF120E2E),
             accentColor = Color(0xFF00E5FF),
-            patternType = CardBackTheme.PatternType.HYPER_GRID
+            patternType = CardBackTheme.PatternType.HOLOGRAPHIC_3D,
+            isPremium = true,
+            coinCost = 700,
+            is3D = true
         ),
         CardBackTheme(
-            id = "VINTAGE_FILIGREE",
-            name = "Vintage Filigree",
-            baseColor = Color(0xFF4A154B),
-            accentColor = Color(0xFFF8BBD0),
-            patternType = CardBackTheme.PatternType.VINTAGE_FILIGREE
+            id = "3D_GOLD_FILIGREE",
+            name = "3D Gold Filigree 24K",
+            baseColor = Color(0xFF1F1600),
+            accentColor = Color(0xFFFFD700),
+            patternType = CardBackTheme.PatternType.GOLD_FOIL_3D,
+            isPremium = true,
+            coinCost = 900,
+            is3D = true
         ),
         CardBackTheme(
-            id = "MIDNIGHT_STAR",
-            name = "Midnight Star",
-            baseColor = Color(0xFF0A192F),
-            accentColor = Color(0xFF64FFDA),
-            patternType = CardBackTheme.PatternType.MIDNIGHT_STAR
+            id = "3D_IMPERIAL_DRAGON",
+            name = "3D Imperial Dragon",
+            baseColor = Color(0xFF5C0606),
+            accentColor = Color(0xFFFFB300),
+            patternType = CardBackTheme.PatternType.DRAGON_3D,
+            isPremium = true,
+            coinCost = 850,
+            is3D = true
         ),
         CardBackTheme(
-            id = "CRIMSON_DRAGON",
-            name = "Crimson Dragon",
-            baseColor = Color(0xFF7F0000),
-            accentColor = Color(0xFFFFC107),
-            patternType = CardBackTheme.PatternType.CRIMSON_DRAGON
+            id = "3D_CYBERPUNK_NEON",
+            name = "3D Cyberpunk Matrix",
+            baseColor = Color(0xFF090D1A),
+            accentColor = Color(0xFFFF007F),
+            patternType = CardBackTheme.PatternType.CYBERPUNK_3D,
+            isPremium = true,
+            coinCost = 750,
+            is3D = true
+        ),
+        CardBackTheme(
+            id = "3D_CRYSTAL_OBSIDIAN",
+            name = "3D Crystal Obsidian",
+            baseColor = Color(0xFF0F1115),
+            accentColor = Color(0xFF80D8FF),
+            patternType = CardBackTheme.PatternType.CRYSTAL_3D,
+            isPremium = true,
+            coinCost = 800,
+            is3D = true
         )
     )
 
     val cardFaces = listOf(
-        CardFaceTheme("CLASSIC", "Classic Standard", "Standard Serif"),
-        CardFaceTheme("MODERN", "Modern Clean", "Clean Sans"),
-        CardFaceTheme("MINIMAL", "Bold Minimal", "Minimalist Bold"),
-        CardFaceTheme("VINTAGE", "Vintage Renaissance", "Ornate Antique"),
-        CardFaceTheme("ELEGANT", "Elegant Serif", "High Contrast Luxury"),
-        CardFaceTheme("HIGH_CONTRAST", "High Contrast Dark", "High Visibility", highContrast = true)
+        // Free Card Faces
+        CardFaceTheme(
+            id = "CLASSIC",
+            name = "Classic Standard",
+            fontStyleName = "Standard Serif",
+            isPremium = false,
+            coinCost = 0
+        ),
+        CardFaceTheme(
+            id = "MODERN",
+            name = "Modern Clean",
+            fontStyleName = "Clean Sans",
+            isPremium = false,
+            coinCost = 0
+        ),
+        CardFaceTheme(
+            id = "MINIMAL",
+            name = "Bold Minimal",
+            fontStyleName = "Minimalist Bold",
+            isPremium = false,
+            coinCost = 0
+        ),
+
+        // Premium 3D Card Faces
+        CardFaceTheme(
+            id = "3D_GOLD_LUXURY",
+            name = "3D Gold Foil Luxury",
+            fontStyleName = "24K Gold Indices",
+            isPremium = true,
+            coinCost = 750,
+            is3D = true
+        ),
+        CardFaceTheme(
+            id = "3D_CYBER_GLOW",
+            name = "3D Cyber Glow",
+            fontStyleName = "Neon Vector Indices",
+            isPremium = true,
+            coinCost = 700,
+            is3D = true
+        ),
+        CardFaceTheme(
+            id = "3D_IMPERIAL_ROYALE",
+            name = "3D Imperial Royale",
+            fontStyleName = "Baroque Royal Indices",
+            isPremium = true,
+            coinCost = 800,
+            is3D = true
+        )
     )
 
     fun getBackground(id: String): BackgroundTheme {
