@@ -266,11 +266,7 @@ fun CustomizationScreen(
                                             }
                                         },
                                         onDismissOrFailed = {
-                                            // Fallback grant in debug or inform
-                                            scope.launch {
-                                                userPrefs.addCoins(250)
-                                                Toast.makeText(context, "+250 Coins Claimed!", Toast.LENGTH_SHORT).show()
-                                            }
+                                            // No coins awarded if ad was not watched completely or was blocked
                                         }
                                     )
                                 }
@@ -373,12 +369,7 @@ fun CustomizationScreen(
                                                 }
                                             },
                                             onDismissOrFailed = {
-                                                scope.launch {
-                                                    val vipUnlocked = userPrefs.recordRewardedAdForVip()
-                                                    if (vipUnlocked) {
-                                                        Toast.makeText(context, "🎉 1-Hour 3D VIP Pass Unlocked!", Toast.LENGTH_LONG).show()
-                                                    }
-                                                }
+                                                // No VIP progress awarded if video ad was not watched completely or was blocked
                                             }
                                         )
                                     }

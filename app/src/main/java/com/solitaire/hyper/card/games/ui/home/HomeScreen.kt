@@ -392,12 +392,7 @@ fun HomeScreen(
                                                 }
                                             },
                                             onDismissOrFailed = {
-                                                scope.launch {
-                                                    val vipUnlocked = userPrefs.recordRewardedAdForVip()
-                                                    if (vipUnlocked) {
-                                                        Toast.makeText(context, "🎉 1-Hour 3D VIP Pass Unlocked!", Toast.LENGTH_LONG).show()
-                                                    }
-                                                }
+                                                // No VIP progress awarded if video ad was not watched completely or was blocked
                                             }
                                         )
                                     }

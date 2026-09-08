@@ -326,10 +326,7 @@ fun AiCoachDialog(
                                         }
                                     },
                                     onDismissOrFailed = {
-                                        scope.launch {
-                                            userPrefs.addAiTokens(2)
-                                            Toast.makeText(context, "+2 AI Tokens Claimed!", Toast.LENGTH_SHORT).show()
-                                        }
+                                        // No tokens awarded if ad was not watched completely or was blocked
                                     }
                                 )
                             },

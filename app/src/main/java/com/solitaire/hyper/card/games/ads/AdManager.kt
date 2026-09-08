@@ -13,6 +13,8 @@ import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
 import com.solitaire.hyper.card.games.BuildConfig
 
 /**
@@ -26,13 +28,15 @@ object AdManager {
     // Production Unit IDs provided by the owner
     private const val PROD_BANNER_ID = "ca-app-pub-2835586363285222/9008521623"
     private const val PROD_INTERSTITIAL_ID = "ca-app-pub-2835586363285222/6527547141"
-    private const val PROD_REWARDED_ID = "ca-app-pub-2835586363285222/7068753999"
+    private const val PROD_REWARDED_ID = "ca-app-pub-2835586363285222/8802943428"
+    private const val PROD_REWARDED_INTERSTITIAL_ID = "ca-app-pub-2835586363285222/8802943428"
     private const val PROD_APP_OPEN_ID = "ca-app-pub-2835586363285222/4092955494"
 
     // Official Google Test Ad Unit IDs
     const val TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111"
     const val TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
     const val TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917"
+    const val TEST_REWARDED_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/5354046379"
     const val TEST_APP_OPEN_ID = "ca-app-pub-3940256099942544/9257390722"
 
     val bannerAdUnitId: String
@@ -43,6 +47,9 @@ object AdManager {
 
     val rewardedAdUnitId: String
         get() = if (BuildConfig.DEBUG) TEST_REWARDED_ID else PROD_REWARDED_ID
+
+    val rewardedInterstitialAdUnitId: String
+        get() = if (BuildConfig.DEBUG) TEST_REWARDED_INTERSTITIAL_ID else PROD_REWARDED_INTERSTITIAL_ID
 
     val appOpenAdUnitId: String
         get() = if (BuildConfig.DEBUG) TEST_APP_OPEN_ID else PROD_APP_OPEN_ID
@@ -56,6 +63,11 @@ object AdManager {
     private var rewardedAd: RewardedAd? = null
     private var isRewardedLoading = false
     private var rewardedFallbackAttempted = false
+
+    // Rewarded Interstitial Ad State
+    private var rewardedInterstitialAd: RewardedInterstitialAd? = null
+    private var isRewardedInterstitialLoading = false
+    private var rewardedInterstitialFallbackAttempted = false
 
     // App Open Ad State
     private var appOpenAd: AppOpenAd? = null
@@ -73,6 +85,7 @@ object AdManager {
                 isInitialized = true
                 preloadInterstitial(context)
                 preloadRewarded(context)
+                preloadRewardedInterstitial(context)
                 preloadAppOpen(context)
             }
         } catch (e: Exception) {
@@ -247,10 +260,58 @@ object AdManager {
     }
 
     // ==========================================
-    // REWARDED VIDEO ADS
+    // REWARDED VIDEO & REWARDED INTERSTITIAL ADS
     // ==========================================
 
+    fun preloadRewardedInterstitial(context: Context) {
+        if (rewardedInterstitialAd != null || isRewardedInterstitialLoading) return
+        isRewardedInterstitialLoading = true
+
+        try {
+            val adRequest = AdRequest.Builder().build()
+            RewardedInterstitialAd.load(
+                context,
+                rewardedInterstitialAdUnitId,
+                adRequest,
+                object : RewardedInterstitialAdLoadCallback() {
+                    override fun onAdLoaded(ad: RewardedInterstitialAd) {
+                        rewardedInterstitialAd = ad
+                        isRewardedInterstitialLoading = false
+                        Log.d(TAG, "Rewarded interstitial ad loaded")
+                    }
+
+                    override fun onAdFailedToLoad(error: LoadAdError) {
+                        rewardedInterstitialAd = null
+                        isRewardedInterstitialLoading = false
+                        Log.w(TAG, "Rewarded interstitial failed to load: ${error.message}")
+                        if (!rewardedInterstitialFallbackAttempted && rewardedInterstitialAdUnitId != TEST_REWARDED_INTERSTITIAL_ID) {
+                            rewardedInterstitialFallbackAttempted = true
+                            val testRequest = AdRequest.Builder().build()
+                            RewardedInterstitialAd.load(
+                                context,
+                                TEST_REWARDED_INTERSTITIAL_ID,
+                                testRequest,
+                                object : RewardedInterstitialAdLoadCallback() {
+                                    override fun onAdLoaded(ad: RewardedInterstitialAd) {
+                                        rewardedInterstitialAd = ad
+                                        Log.d(TAG, "Fallback test rewarded interstitial loaded")
+                                    }
+                                    override fun onAdFailedToLoad(err: LoadAdError) {
+                                        Log.w(TAG, "Fallback test rewarded interstitial failed: ${err.message}")
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            isRewardedInterstitialLoading = false
+        }
+    }
+
     fun preloadRewarded(context: Context) {
+        preloadRewardedInterstitial(context)
         if (rewardedAd != null || isRewardedLoading) return
         isRewardedLoading = true
 
@@ -297,20 +358,48 @@ object AdManager {
         }
     }
 
-    fun isRewardedAdReady(): Boolean = rewardedAd != null
+    fun isRewardedAdReady(): Boolean = rewardedInterstitialAd != null || rewardedAd != null
 
     fun showRewardedAd(
         activity: Activity,
         onRewardEarned: () -> Unit,
         onDismissOrFailed: () -> Unit
     ) {
-        val ad = rewardedAd
-        if (ad != null) {
+        val rInterAd = rewardedInterstitialAd
+        val rAd = rewardedAd
+
+        if (rInterAd != null) {
             var rewardEarned = false
-            ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            rInterAd.fullScreenContentCallback = object : FullScreenContentCallback() {
+                override fun onAdDismissedFullScreenContent() {
+                    rewardedInterstitialAd = null
+                    preloadRewardedInterstitial(activity)
+                    preloadRewarded(activity)
+                    if (rewardEarned) {
+                        onRewardEarned()
+                    } else {
+                        onDismissOrFailed()
+                    }
+                }
+
+                override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                    rewardedInterstitialAd = null
+                    preloadRewardedInterstitial(activity)
+                    preloadRewarded(activity)
+                    android.widget.Toast.makeText(activity, "Failed to display ad. Please check network/DNS.", android.widget.Toast.LENGTH_SHORT).show()
+                    onDismissOrFailed()
+                }
+            }
+            rInterAd.show(activity) { _ ->
+                rewardEarned = true
+            }
+        } else if (rAd != null) {
+            var rewardEarned = false
+            rAd.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
                     rewardedAd = null
                     preloadRewarded(activity)
+                    preloadRewardedInterstitial(activity)
                     if (rewardEarned) {
                         onRewardEarned()
                     } else {
@@ -321,15 +410,22 @@ object AdManager {
                 override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                     rewardedAd = null
                     preloadRewarded(activity)
+                    preloadRewardedInterstitial(activity)
+                    android.widget.Toast.makeText(activity, "Failed to display ad. Please check network/DNS.", android.widget.Toast.LENGTH_SHORT).show()
                     onDismissOrFailed()
                 }
             }
-            ad.show(activity) { _ ->
+            rAd.show(activity) { _ ->
                 rewardEarned = true
             }
         } else {
+            preloadRewardedInterstitial(activity)
             preloadRewarded(activity)
-            // Even if not cached yet, allow graceful fallback reward in debug/testing or failure notification
+            android.widget.Toast.makeText(
+                activity,
+                "Video ad loading or blocked by DNS/AdBlocker. Please verify connection and retry.",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
             onDismissOrFailed()
         }
     }

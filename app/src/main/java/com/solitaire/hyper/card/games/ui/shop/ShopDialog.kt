@@ -224,10 +224,7 @@ fun ShopDialog(
                                                 }
                                             },
                                             onDismissOrFailed = {
-                                                scope.launch {
-                                                    userPrefs.addAdFreeTokens(1)
-                                                    Toast.makeText(context, "+1 Ad-Free Token Claimed!", Toast.LENGTH_SHORT).show()
-                                                }
+                                                // No token awarded if ad failed to load, was blocked by DNS, or was skipped
                                             }
                                         )
                                     },
@@ -382,10 +379,7 @@ fun ShopDialog(
                                                 }
                                             },
                                             onDismissOrFailed = {
-                                                scope.launch {
-                                                    val vipUnlocked = userPrefs.recordRewardedAdForVip()
-                                                    if (vipUnlocked) Toast.makeText(context, "🎉 VIP Crown Pass Unlocked!", Toast.LENGTH_LONG).show()
-                                                }
+                                                // No VIP progress if video ad was not completed or was blocked
                                             }
                                         )
                                     },
@@ -537,11 +531,7 @@ fun ShopDialog(
                                                 }
                                             },
                                             onDismissOrFailed = {
-                                                scope.launch {
-                                                    userPrefs.addCoins(250)
-                                                    userPrefs.incrementRewardedAdsWatched()
-                                                    Toast.makeText(context, "+250 Coins Claimed!", Toast.LENGTH_SHORT).show()
-                                                }
+                                                // No coins awarded if video ad was not watched or was blocked
                                             }
                                         )
                                     },
