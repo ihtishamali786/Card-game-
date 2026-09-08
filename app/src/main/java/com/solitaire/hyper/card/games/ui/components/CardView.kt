@@ -159,32 +159,46 @@ fun CardFaceView(
     cardFace: CardFaceTheme,
     largePrint: Boolean = false
 ) {
+    // Rich casino card colors
     val textColor = if (card.color == CardColor.RED) Color(0xFFD32F2F) else Color(0xFF1E2124)
     val fontFamily = if (cardFace.id == "VINTAGE" || cardFace.id == "ELEGANT") FontFamily.Serif else FontFamily.SansSerif
 
-    val cornerRankSize = if (largePrint) 14.sp else 11.sp
-    val cornerRankLineHeight = if (largePrint) 14.sp else 11.sp
-    val cornerSuitSize = if (largePrint) 12.sp else 10.sp
-    val cornerSuitLineHeight = if (largePrint) 12.sp else 10.sp
+    // Significantly enlarged indices for authentic readability
+    val cornerRankSize = if (largePrint) 16.sp else 13.5.sp
+    val cornerRankLineHeight = if (largePrint) 16.sp else 13.5.sp
+    val cornerSuitSize = if (largePrint) 14.sp else 12.sp
+    val cornerSuitLineHeight = if (largePrint) 14.sp else 12.sp
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color(0xFFFCFCFC))
             .padding(2.dp)
     ) {
-        // Top-Left Index
+        // Inner delicate framing line for realistic casino card finish
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val pad = 1.5.dp.toPx()
+            drawRoundRect(
+                color = Color(0x14000000),
+                topLeft = Offset(pad, pad),
+                size = Size(size.width - 2 * pad, size.height - 2 * pad),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                style = Stroke(width = 0.5.dp.toPx())
+            )
+        }
+
+        // Top-Left Index (Rank + Big Suit Symbol)
         Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 2.dp, top = 1.dp),
+                .padding(start = 2.dp, top = 1.5.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = card.rank.display,
                 color = textColor,
                 fontSize = cornerRankSize,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.Black,
                 fontFamily = fontFamily,
                 lineHeight = cornerRankLineHeight
             )
@@ -196,67 +210,76 @@ fun CardFaceView(
             )
         }
 
-        // Center emblem / illustration
+        // Center emblem / illustration (ENLARGED & AUTHENTIC PLAYING CARD DESIGN)
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             if (card.rank in listOf(Rank.JACK, Rank.QUEEN, Rank.KING)) {
-                // Royalty badge
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Royalty badge: Crown + Large Suit + Dual Emblems
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Text(
                         text = when (card.rank) {
                             Rank.KING -> "♔"
                             Rank.QUEEN -> "♕"
                             else -> "⚔"
                         },
-                        color = textColor.copy(alpha = 0.85f),
-                        fontSize = if (largePrint) 22.sp else 18.sp,
+                        color = textColor.copy(alpha = 0.90f),
+                        fontSize = if (largePrint) 28.sp else 23.sp,
+                        fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
                     Text(
                         text = card.suit.symbol,
-                        color = textColor.copy(alpha = 0.5f),
-                        fontSize = if (largePrint) 12.sp else 10.sp
+                        color = textColor,
+                        fontSize = if (largePrint) 16.sp else 13.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             } else if (card.rank == Rank.ACE) {
+                // Majestic large Ace symbol (like real Ace of Spades / Hearts)
                 Text(
                     text = card.suit.symbol,
                     color = textColor,
-                    fontSize = if (largePrint) 26.sp else 22.sp,
+                    fontSize = if (largePrint) 36.sp else 30.sp,
+                    fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center
                 )
             } else {
+                // Number card: Big bold central suit symbol
                 Text(
                     text = card.suit.symbol,
-                    color = textColor.copy(alpha = 0.8f),
-                    fontSize = if (largePrint) 18.sp else 15.sp,
+                    color = textColor.copy(alpha = 0.88f),
+                    fontSize = if (largePrint) 28.sp else 23.sp,
+                    fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
             }
         }
 
-        // Bottom-Right Index (inverted)
+        // Bottom-Right Index (inverted, bold & enlarged)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 2.dp, bottom = 1.dp),
+                .padding(end = 2.dp, bottom = 1.5.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = card.suit.symbol,
                 color = textColor,
-                fontSize = if (largePrint) 11.sp else 9.sp,
-                lineHeight = if (largePrint) 11.sp else 9.sp
+                fontSize = cornerSuitSize,
+                lineHeight = cornerSuitLineHeight
             )
             Text(
                 text = card.rank.display,
                 color = textColor,
-                fontSize = if (largePrint) 12.sp else 10.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = cornerRankSize,
+                fontWeight = FontWeight.Black,
                 fontFamily = fontFamily,
-                lineHeight = if (largePrint) 12.sp else 10.sp
+                lineHeight = cornerRankLineHeight
             )
         }
     }

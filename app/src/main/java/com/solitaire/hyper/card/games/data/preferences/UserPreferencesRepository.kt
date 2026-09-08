@@ -37,10 +37,15 @@ data class UserSettings(
     val unlockedItems: String = "",
     val adFreeUntilTimestamp: Long = 0L,
     val vipUntilTimestamp: Long = 0L,
-    val rewardedAdsWatchedForVip: Int = 0
+    val rewardedAdsWatchedForVip: Int = 0,
+    val adFreeTokens: Int = 3,
+    val magicWands: Int = 5,
+    val aiTokens: Int = 10,
+    val isVipPermanent: Boolean = false,
+    val rewardedAdsWatchedTotal: Int = 0
 ) {
-    fun isAdFreeActive(): Boolean = System.currentTimeMillis() < adFreeUntilTimestamp
-    fun isVipActive(): Boolean = System.currentTimeMillis() < vipUntilTimestamp
+    fun isVipActive(): Boolean = isVipPermanent || System.currentTimeMillis() < vipUntilTimestamp
+    fun isAdFreeActive(): Boolean = isVipActive() || System.currentTimeMillis() < adFreeUntilTimestamp
 
     fun isItemUnlocked(itemId: String): Boolean {
         if (isVipActive()) return true
@@ -49,11 +54,13 @@ data class UserSettings(
     }
 
     fun getAdFreeRemainingMinutes(): Int {
+        if (isVipActive()) return 9999
         val diff = adFreeUntilTimestamp - System.currentTimeMillis()
         return if (diff > 0) ((diff + 59999) / 60000).toInt() else 0
     }
 
     fun getVipRemainingMinutes(): Int {
+        if (isVipPermanent) return 9999
         val diff = vipUntilTimestamp - System.currentTimeMillis()
         return if (diff > 0) ((diff + 59999) / 60000).toInt() else 0
     }
@@ -81,6 +88,11 @@ class UserPreferencesRepository(private val context: Context) {
         val KEY_AD_FREE_UNTIL = longPreferencesKey("ad_free_until_timestamp")
         val KEY_VIP_UNTIL = longPreferencesKey("vip_until_timestamp")
         val KEY_REWARDED_ADS_WATCHED_VIP = intPreferencesKey("rewarded_ads_watched_vip")
+        val KEY_AD_FREE_TOKENS = intPreferencesKey("ad_free_tokens_balance")
+        val KEY_MAGIC_WANDS = intPreferencesKey("magic_wands_inventory")
+        val KEY_AI_TOKENS = intPreferencesKey("ai_tokens_inventory")
+        val KEY_VIP_PERMANENT = booleanPreferencesKey("vip_permanent_unlocked")
+        val KEY_REWARDED_ADS_TOTAL = intPreferencesKey("rewarded_ads_total_watched")
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -111,7 +123,12 @@ class UserPreferencesRepository(private val context: Context) {
                 unlockedItems = prefs[PreferencesKeys.KEY_UNLOCKED_ITEMS] ?: "",
                 adFreeUntilTimestamp = prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] ?: 0L,
                 vipUntilTimestamp = prefs[PreferencesKeys.KEY_VIP_UNTIL] ?: 0L,
-                rewardedAdsWatchedForVip = prefs[PreferencesKeys.KEY_REWARDED_ADS_WATCHED_VIP] ?: 0
+                rewardedAdsWatchedForVip = prefs[PreferencesKeys.KEY_REWARDED_ADS_WATCHED_VIP] ?: 0,
+                adFreeTokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3,
+                magicWands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5,
+                aiTokens = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10,
+                isVipPermanent = prefs[PreferencesKeys.KEY_VIP_PERMANENT] ?: false,
+                rewardedAdsWatchedTotal = prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] ?: 0
             )
         }
 
@@ -267,5 +284,193 @@ class UserPreferencesRepository(private val context: Context) {
             }
         }
         return vipUnlocked
+    }
+
+    /**
+     * Consumes 1 Ad-Free Token from inventory and extends ad-free status by 30 minutes.
+     * Returns true if a token was successfully used.
+     */
+    suspend fun useAdFreeToken(): Boolean {
+        var used = false
+        context.dataStore.edit { prefs ->
+            val tokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
+            if (tokens > 0) {
+                prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = tokens - 1
+                val now = System.currentTimeMillis()
+                val currentUntil = prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] ?: 0L
+                val base = if (currentUntil > now) currentUntil else now
+                prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] = base + 30 * 60 * 1000L // 30 mins
+                used = true
+            }
+        }
+        return used
+    }
+
+    /**
+     * Adds ad-free tokens to the user's inventory.
+     */
+    suspend fun addAdFreeTokens(count: Int) {
+        if (count <= 0) return
+        context.dataStore.edit { prefs ->
+            val current = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
+            prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = current + count
+        }
+    }
+
+    /**
+     * Buys ad-free tokens using in-game coins.
+     */
+    suspend fun buyAdFreeTokens(tokenCount: Int, coinCost: Int): Boolean {
+        var success = false
+        context.dataStore.edit { prefs ->
+            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
+            if (currentCoins >= coinCost) {
+                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
+                val currentTokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
+                prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = currentTokens + tokenCount
+                success = true
+            }
+        }
+        return success
+    }
+
+    /**
+     * Directly activates Ad-Free for given hours using coins.
+     */
+    suspend fun activateAdFreePass(hours: Int, coinCost: Int): Boolean {
+        var success = false
+        context.dataStore.edit { prefs ->
+            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
+            if (currentCoins >= coinCost) {
+                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
+                val now = System.currentTimeMillis()
+                val currentUntil = prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] ?: 0L
+                val base = if (currentUntil > now) currentUntil else now
+                prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] = base + hours * 3600 * 1000L
+                success = true
+            }
+        }
+        return success
+    }
+
+    /**
+     * Activates 24-Hour VIP Access using coins.
+     */
+    suspend fun activateVipDayPass(coinCost: Int): Boolean {
+        var success = false
+        context.dataStore.edit { prefs ->
+            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
+            if (currentCoins >= coinCost) {
+                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
+                val now = System.currentTimeMillis()
+                val currentUntil = prefs[PreferencesKeys.KEY_VIP_UNTIL] ?: 0L
+                val base = if (currentUntil > now) currentUntil else now
+                prefs[PreferencesKeys.KEY_VIP_UNTIL] = base + 24 * 3600 * 1000L
+                success = true
+            }
+        }
+        return success
+    }
+
+    /**
+     * Permanently unlocks VIP Crown tier (no ads, all themes, unlimited perks).
+     */
+    suspend fun activatePermanentVip(coinCost: Int): Boolean {
+        var success = false
+        context.dataStore.edit { prefs ->
+            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
+            if (currentCoins >= coinCost) {
+                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
+                prefs[PreferencesKeys.KEY_VIP_PERMANENT] = true
+                success = true
+            }
+        }
+        return success
+    }
+
+    /**
+     * Consumes 1 magic wand or returns true if VIP
+     */
+    suspend fun useMagicWand(isVip: Boolean = false): Boolean {
+        if (isVip) return true
+        var used = false
+        context.dataStore.edit { prefs ->
+            val wands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
+            if (wands > 0) {
+                prefs[PreferencesKeys.KEY_MAGIC_WANDS] = wands - 1
+                used = true
+            }
+        }
+        return used
+    }
+
+    suspend fun addMagicWands(count: Int) {
+        if (count <= 0) return
+        context.dataStore.edit { prefs ->
+            val current = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
+            prefs[PreferencesKeys.KEY_MAGIC_WANDS] = current + count
+        }
+    }
+
+    suspend fun buyMagicWands(count: Int, coinCost: Int): Boolean {
+        var success = false
+        context.dataStore.edit { prefs ->
+            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
+            if (currentCoins >= coinCost) {
+                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
+                val current = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
+                prefs[PreferencesKeys.KEY_MAGIC_WANDS] = current + count
+                success = true
+            }
+        }
+        return success
+    }
+
+    /**
+     * Consumes 1 AI analysis token or returns true if VIP
+     */
+    suspend fun useAiToken(isVip: Boolean = false): Boolean {
+        if (isVip) return true
+        var used = false
+        context.dataStore.edit { prefs ->
+            val tokens = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10
+            if (tokens > 0) {
+                prefs[PreferencesKeys.KEY_AI_TOKENS] = tokens - 1
+                used = true
+            }
+        }
+        return used
+    }
+
+    suspend fun addAiTokens(count: Int) {
+        if (count <= 0) return
+        context.dataStore.edit { prefs ->
+            val current = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10
+            prefs[PreferencesKeys.KEY_AI_TOKENS] = current + count
+        }
+    }
+
+    suspend fun buyAiTokens(count: Int, coinCost: Int): Boolean {
+        var success = false
+        context.dataStore.edit { prefs ->
+            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
+            if (currentCoins >= coinCost) {
+                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
+                val current = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10
+                prefs[PreferencesKeys.KEY_AI_TOKENS] = current + count
+                success = true
+            }
+        }
+        return success
+    }
+
+    /**
+     * Increments general rewarded ad count
+     */
+    suspend fun incrementRewardedAdsWatched() {
+        context.dataStore.edit { prefs ->
+            val current = prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] ?: 0
+            prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] = current + 1
+        }
     }
 }

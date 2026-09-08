@@ -182,3 +182,9 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.register<Zip>("createObb") {
+  archiveFileName.set("main.${android.defaultConfig.versionCode}.${android.defaultConfig.applicationId}.obb")
+  destinationDirectory.set(layout.buildDirectory.dir("outputs/obb"))
+  from("src/main/assets")
+}

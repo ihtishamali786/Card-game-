@@ -38,6 +38,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import com.solitaire.hyper.card.games.ui.shop.ShopDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.PrimaryTabRow
@@ -94,6 +95,7 @@ fun CustomizationScreen(
     val scope = rememberCoroutineScope()
     val settings by userPrefs.userSettingsFlow.collectAsState(initial = UserSettings())
 
+    var showShopDialog by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Table Felt", "Card Back", "Card Face")
 
@@ -118,26 +120,50 @@ fun CustomizationScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("3D Themes & Store", fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                        // Coins Badge
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF2E2405),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f)),
+                        Text("3D Themes & Store", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(end = 12.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            // Store & VIP Action Pill
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF3B2A06),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)),
+                                modifier = Modifier.clickable { showShopDialog = true }
                             ) {
-                                Text("🪙", fontSize = 14.sp)
-                                Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = "${settings.coins}",
+                                    text = "👑 VIP Store",
                                     color = Color(0xFFFFD700),
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 13.sp
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
+                            }
+
+                            // Coins Badge (Clickable to open Store)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFF2E2405),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f)),
+                                modifier = Modifier.clickable { showShopDialog = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("🪙", fontSize = 13.sp)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text = "${settings.coins}",
+                                        color = Color(0xFFFFD700),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.5.sp
+                                    )
+                                    Spacer(Modifier.width(3.dp))
+                                    Text("+", color = SleekEmerald400, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                }
                             }
                         }
                     }
@@ -484,6 +510,15 @@ fun CustomizationScreen(
                     )
                 }
             }
+        }
+
+        // Shop & VIP Dialog
+        if (showShopDialog) {
+            ShopDialog(
+                userSettings = settings,
+                userPrefs = userPrefs,
+                onDismiss = { showShopDialog = false }
+            )
         }
     }
 }

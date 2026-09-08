@@ -45,6 +45,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.ShoppingCart
+import com.solitaire.hyper.card.games.ui.components.AiCoachDialog
+import com.solitaire.hyper.card.games.ui.shop.ShopDialog
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -121,6 +125,11 @@ fun GameScreen(
     val isAutoCompleting by viewModel.isAutoCompleting.collectAsState()
     val showWinDialog by viewModel.showWinDialog.collectAsState()
 
+    val aiAnalysis by viewModel.aiAnalysis.collectAsState()
+    val isAiAnalyzing by viewModel.isAiAnalyzing.collectAsState()
+    var showAiCoachDialog by remember { mutableStateOf(false) }
+    var showShopDialog by remember { mutableStateOf(false) }
+
     var showExitConfirm by remember { mutableStateOf(false) }
     var showRestartConfirm by remember { mutableStateOf(false) }
     var showPlayDialog by remember { mutableStateOf(false) }
@@ -159,6 +168,10 @@ fun GameScreen(
                 showTimer = userSettings.showTimer,
                 onMenuClick = { showMenuDialog = true },
                 onThemesClick = onOpenThemes,
+                onAiCoachClick = {
+                    viewModel.requestAiCoachAnalysis(onOutOfTokens = { showShopDialog = true })
+                    showAiCoachDialog = true
+                },
                 selectedLocation = selectedLocation,
                 onCancelSelection = { viewModel.clearSelection() }
             )
@@ -271,7 +284,7 @@ fun GameScreen(
                 gameState = gameState,
                 isAutoCompleting = isAutoCompleting,
                 onSettings = onOpenSettings,
-                onMagicWand = { viewModel.useMagicWand() },
+                onMagicWand = { viewModel.useMagicWand(onOutOfWands = { showShopDialog = true }) },
                 onPlay = { showPlayDialog = true },
                 onHint = { viewModel.requestHint() },
                 onUndo = { viewModel.undo() },
@@ -578,6 +591,15 @@ fun GameScreen(
                             showMenuDialog = false
                             onOpenAchievements()
                         }
+                        GameMenuRow(icon = Icons.Default.SmartToy, title = "🤖 AI Solitaire Coach") {
+                            showMenuDialog = false
+                            viewModel.requestAiCoachAnalysis(onOutOfTokens = { showShopDialog = true })
+                            showAiCoachDialog = true
+                        }
+                        GameMenuRow(icon = Icons.Default.ShoppingCart, title = "🪙 Shop & VIP Store") {
+                            showMenuDialog = false
+                            showShopDialog = true
+                        }
                         GameMenuRow(icon = Icons.Default.Palette, title = "Themes & Customization") {
                             showMenuDialog = false
                             onOpenThemes()
@@ -598,6 +620,30 @@ fun GameScreen(
                         Text("Close", color = SleekSlate300)
                     }
                 }
+            )
+        }
+
+        // AI Solitaire Coach Dialog
+        if (showAiCoachDialog || aiAnalysis != null) {
+            AiCoachDialog(
+                analysis = aiAnalysis,
+                isLoading = isAiAnalyzing,
+                userSettings = userSettings,
+                userPrefs = viewModel.userPrefs,
+                onApplyMove = { viewModel.applyAiRecommendedMove() },
+                onDismiss = {
+                    showAiCoachDialog = false
+                    viewModel.dismissAiCoach()
+                }
+            )
+        }
+
+        // In-App Store & VIP Dialog
+        if (showShopDialog) {
+            ShopDialog(
+                userSettings = userSettings,
+                userPrefs = viewModel.userPrefs,
+                onDismiss = { showShopDialog = false }
             )
         }
     }
@@ -649,6 +695,7 @@ fun PortraitGameTopHeader(
     showTimer: Boolean = true,
     onMenuClick: () -> Unit,
     onThemesClick: () -> Unit,
+    onAiCoachClick: () -> Unit,
     selectedLocation: CardLocation?,
     onCancelSelection: () -> Unit
 ) {
@@ -766,34 +813,57 @@ fun PortraitGameTopHeader(
             }
         }
 
-        // Right: 🎨 Themes Palette Button with Notification Dot
-        Box(
-            modifier = Modifier.size(36.dp)
+        // Right: AI Coach & Themes Palette Buttons
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // 🤖 AI Solitaire Coach Button
             IconButton(
-                onClick = onThemesClick,
+                onClick = onAiCoachClick,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.35f), CircleShape)
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                    .testTag("themes_button")
+                    .size(36.dp)
+                    .background(Color(0xFF2E1065).copy(alpha = 0.85f), CircleShape)
+                    .border(1.2.dp, Color(0xFF8B5CF6), CircleShape)
+                    .testTag("ai_coach_button")
             ) {
                 Icon(
-                    Icons.Default.Palette,
-                    contentDescription = "Themes",
-                    tint = SleekSlate100,
-                    modifier = Modifier.size(18.dp)
+                    Icons.Default.SmartToy,
+                    contentDescription = "AI Coach",
+                    tint = Color(0xFFDDD6FE),
+                    modifier = Modifier.size(19.dp)
                 )
             }
 
-            // Small red badge dot
+            // 🎨 Themes Palette Button with Notification Dot
             Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(Color(0xFFE53935), CircleShape)
-                    .border(1.dp, Color.White, CircleShape)
-                    .align(Alignment.TopEnd)
-            )
+                modifier = Modifier.size(36.dp)
+            ) {
+                IconButton(
+                    onClick = onThemesClick,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.35f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                        .testTag("themes_button")
+                ) {
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = "Themes",
+                        tint = SleekSlate100,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Small red badge dot
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(Color(0xFFE53935), CircleShape)
+                        .border(1.dp, Color.White, CircleShape)
+                        .align(Alignment.TopEnd)
+                )
+            }
         }
     }
 }

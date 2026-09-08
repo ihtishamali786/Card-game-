@@ -38,6 +38,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import com.solitaire.hyper.card.games.ui.shop.ShopDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -97,6 +98,7 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     val currentDateStr = SimpleDateFormat("EEEE, MMMM d", Locale.getDefault()).format(Date())
     var showRulesDialog by remember { mutableStateOf(false) }
+    var showShopDialog by remember { mutableStateOf(false) }
 
     val isAdFreeActive = userSettings.isAdFreeActive()
     val isVipActive = userSettings.isVipActive()
@@ -134,51 +136,68 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Coins Pill
+                // Coins Pill (opens Shop)
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = SleekHeaderDark,
-                    border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.4f)),
+                    border = BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f)),
                     modifier = Modifier.clickable {
-                        // Quick watch ad for coins
-                        if (activity != null && userPrefs != null) {
-                            AdManager.showRewardedAd(
-                                activity = activity,
-                                onRewardEarned = {
-                                    scope.launch {
-                                        userPrefs.addCoins(250)
-                                        Toast.makeText(context, "+250 Coins Earned!", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                onDismissOrFailed = {
-                                    scope.launch {
-                                        userPrefs.addCoins(250)
-                                        Toast.makeText(context, "+250 Coins Claimed!", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            )
-                        }
+                        showShopDialog = true
                     }
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("🪙", fontSize = 16.sp)
-                        Spacer(Modifier.width(6.dp))
+                        Text("🪙", fontSize = 15.sp)
+                        Spacer(Modifier.width(5.dp))
                         Text(
                             text = "${userSettings.coins}",
                             color = Color(0xFFFFD700),
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp
+                            fontSize = 13.5.sp
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text("+", color = SleekEmerald400, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                        Text("+", color = SleekEmerald400, fontWeight = FontWeight.Black, fontSize = 13.5.sp)
                     }
                 }
 
-                // VIP / Ad-Free Active Badges
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Ad-Free Tokens & VIP status badges
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Ad-Free Tokens Quick Pill
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFF0F291E),
+                        border = BorderStroke(1.dp, SleekEmerald400.copy(alpha = 0.5f)),
+                        modifier = Modifier.clickable {
+                            if (userSettings.adFreeTokens > 0) {
+                                scope.launch {
+                                    userPrefs?.useAdFreeToken()
+                                    Toast.makeText(context, "⚡ Activated 30-min Ad-Free!", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                showShopDialog = true
+                            }
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("⚡", fontSize = 12.sp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "${userSettings.adFreeTokens} Token${if (userSettings.adFreeTokens != 1) "s" else ""}",
+                                color = SleekEmerald400,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
                     if (isAdFreeActive) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -186,11 +205,11 @@ fun HomeScreen(
                             border = BorderStroke(1.dp, SleekEmerald400)
                         ) {
                             Text(
-                                text = "🛡️ ${userSettings.getAdFreeRemainingMinutes()}m Ad-Free",
+                                text = "🛡️ ${userSettings.getAdFreeRemainingMinutes()}m",
                                 color = SleekEmerald400,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                             )
                         }
                     }
@@ -202,11 +221,11 @@ fun HomeScreen(
                             border = BorderStroke(1.dp, Color(0xFFFFD700))
                         ) {
                             Text(
-                                text = "👑 ${userSettings.getVipRemainingMinutes()}m VIP",
+                                text = "👑 VIP",
                                 color = Color(0xFFFFD700),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
                             )
                         }
                     }
@@ -396,6 +415,57 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            // Store & VIP Featured Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable(onClick = { showShopDialog = true })
+                    .testTag("store_vip_card"),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF231908)),
+                border = BorderStroke(1.2.dp, Color(0xFFFFD700).copy(alpha = 0.5f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .background(Color(0xFFFFD700), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("👑", fontSize = 20.sp)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Store & VIP Pass", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
+                                Spacer(Modifier.width(6.dp))
+                                Surface(
+                                    color = Color(0xFFFFD700).copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text("HOT", color = Color(0xFFFFD700), fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
+                                }
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Text("Ad-Free tokens, VIP crowns, magic wands & AI tokens", color = SleekSlate300, fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+                    Text("SHOP ›", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Daily Challenge Featured Card
             Card(
                 modifier = Modifier
@@ -506,6 +576,15 @@ fun HomeScreen(
             BannerAdView(isAdFree = isAdFreeActive)
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // In-App Store & VIP Pass Dialog
+        if (showShopDialog && userPrefs != null) {
+            ShopDialog(
+                userSettings = userSettings,
+                userPrefs = userPrefs,
+                onDismiss = { showShopDialog = false }
+            )
         }
     }
 }

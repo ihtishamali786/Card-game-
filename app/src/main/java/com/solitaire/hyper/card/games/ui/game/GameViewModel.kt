@@ -29,7 +29,7 @@ import java.util.Locale
 
 class GameViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val userPrefs = UserPreferencesRepository(application)
+    val userPrefs = UserPreferencesRepository(application)
     private val repository = GameRepository(application)
     val soundManager = SoundManager(application)
 
@@ -56,6 +56,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _statusMessage = MutableStateFlow<String?>("Tap any face-up card to select")
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
+
+    private val _aiAnalysis = MutableStateFlow<com.solitaire.hyper.card.games.ai.AiAnalysisResult?>(null)
+    val aiAnalysis: StateFlow<com.solitaire.hyper.card.games.ai.AiAnalysisResult?> = _aiAnalysis.asStateFlow()
+
+    private val _isAiAnalyzing = MutableStateFlow(false)
+    val isAiAnalyzing: StateFlow<Boolean> = _isAiAnalyzing.asStateFlow()
 
     private val undoStack = mutableListOf<GameMove>()
     private var timerJob: Job? = null
@@ -389,10 +395,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun useMagicWand() {
+    fun useMagicWand(onOutOfWands: (() -> Unit)? = null) {
         if (_gameState.value.isGameWon || _isAutoCompleting.value) return
+        val isVip = _userSettings.value.isVipActive()
+        if (!isVip && _userSettings.value.magicWands <= 0) {
+            onOutOfWands?.invoke()
+            _statusMessage.value = "Need Magic Wand! Get from store or watch video."
+            soundManager.playInvalidMove()
+            return
+        }
+
         val result = SolitaireEngine.magicWand(_gameState.value)
         if (result != null) {
+            if (!isVip) {
+                viewModelScope.launch { userPrefs.useMagicWand(isVip = false) }
+            }
             _gameState.value = result.first
             _selectedLocation.value = null
             _validTargets.value = emptySet()
@@ -403,6 +420,41 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             soundManager.playInvalidMove()
             _statusMessage.value = "No cards can be moved right now"
+        }
+    }
+
+    fun requestAiCoachAnalysis(onOutOfTokens: (() -> Unit)? = null) {
+        if (_gameState.value.isGameWon || _isAutoCompleting.value) return
+        val isVip = _userSettings.value.isVipActive()
+        if (!isVip && _userSettings.value.aiTokens <= 0) {
+            onOutOfTokens?.invoke()
+            _statusMessage.value = "Need AI Token! Get from store or watch video."
+            soundManager.playInvalidMove()
+            return
+        }
+
+        _isAiAnalyzing.value = true
+        viewModelScope.launch {
+            if (!isVip) {
+                userPrefs.useAiToken(isVip = false)
+            }
+            val result = com.solitaire.hyper.card.games.ai.SolitaireAiEngine.analyzeGame(_gameState.value)
+            _aiAnalysis.value = result
+            _isAiAnalyzing.value = false
+            soundManager.playMagicWand()
+        }
+    }
+
+    fun dismissAiCoach() {
+        _aiAnalysis.value = null
+    }
+
+    fun applyAiRecommendedMove() {
+        val hint = SolitaireEngine.findHint(_gameState.value)
+        if (hint != null) {
+            _activeHint.value = hint
+            _statusMessage.value = "AI Recommended: ${hint.description}"
+            soundManager.playCardMove()
         }
     }
 
