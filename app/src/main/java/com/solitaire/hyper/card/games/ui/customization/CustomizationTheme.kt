@@ -30,6 +30,16 @@ data class CardBackTheme(
     val is3D: Boolean = false
 ) {
     enum class PatternType {
+        // The 7 Distinct User Photo Designs
+        CRIMSON_ANVIL,   // Photo 3: Main Board Card (Forge Anvil, crossed swords & hearth glow)
+        SILVER_DRAGON,   // Photo 1: Brushed Chrome & Coiled Dragon sunburst
+        GOLDEN_HEARTS,   // Photo 2: 24K Pure Gold bullion weave & royal diamond
+        VINTAGE_TAVERN,  // Photo 4: Rustic tavern woodcut Celtic knot & brass
+        BAROQUE_ACES,    // Photo 5: Reformation gold & ivory illuminated rosettes
+        AZTEC_MANDALA,   // Photo 6: Obsidian & scarlet sacred Aztec sunstone wheel
+        MODERN_POPART,   // Photo 7: Contemporary designer neon pop-art grid
+
+        // Standard / 3D Patterns
         SLEEK_EMERALD,
         ROYAL_CREST,
         DIAMOND_GEOMETRY,
@@ -38,7 +48,6 @@ data class CardBackTheme(
         VINTAGE_FILIGREE,
         MIDNIGHT_STAR,
         CRIMSON_DRAGON,
-        // 3D & Premium Patterns
         HOLOGRAPHIC_3D,
         GOLD_FOIL_3D,
         DRAGON_3D,
@@ -48,7 +57,21 @@ data class CardBackTheme(
 }
 
 /**
- * Card face styles.
+ * Card face styles representing each artistic deck design.
+ */
+enum class CardFaceStyle {
+    CRIMSON_ANVIL,   // Photo 3: Main default! Ivory canvas, ink-black & blood crimson geometric court
+    SILVER_DRAGON,   // Photo 1: Metallic chrome-silver brushed finish, dark armor King & metallic pips
+    GOLDEN_HEARTS,   // Photo 2: 24K gold foil textured canvas, ruby red indices & gleaming hearts
+    VINTAGE_TAVERN,  // Photo 4: Rustic woodcut renaissance court, antique ochre & tavern burgundy
+    BAROQUE_ACES,    // Photo 5: Reformation illuminated manuscript, gold rosettes & historic emblems
+    AZTEC_MANDALA,   // Photo 6: Concentric geometric Aztec/Mayan tribal mandalas in red & black
+    MODERN_POPART,   // Photo 7: Designer pop art (neon tube heart, green monster, bird dispersion)
+    STANDARD         // Classic standard indices
+}
+
+/**
+ * Card face themes available for selection.
  */
 data class CardFaceTheme(
     val id: String,
@@ -57,7 +80,8 @@ data class CardFaceTheme(
     val highContrast: Boolean = false,
     val isPremium: Boolean = false,
     val coinCost: Int = 0,
-    val is3D: Boolean = false
+    val is3D: Boolean = false,
+    val style: CardFaceStyle = CardFaceStyle.STANDARD
 )
 
 object CustomizationRegistry {
@@ -175,7 +199,78 @@ object CustomizationRegistry {
     )
 
     val cardBacks = listOf(
-        // Free Card Backs
+        // ⭐ 1. PHOTO 3: Crimson Anvil Royal Forge (Main Board Default Card Back)
+        CardBackTheme(
+            id = "BACK_CRIMSON_ANVIL",
+            name = "Crimson Anvil Forge",
+            baseColor = Color(0xFF160D0C),
+            accentColor = Color(0xFFB71C1C),
+            patternType = CardBackTheme.PatternType.CRIMSON_ANVIL,
+            isPremium = false,
+            coinCost = 0
+        ),
+        // 2. PHOTO 1: Silver Dragon Waterproof
+        CardBackTheme(
+            id = "BACK_SILVER_DRAGON",
+            name = "Silver Dragon Metallic",
+            baseColor = Color(0xFF26282B),
+            accentColor = Color(0xFFD4D4D8),
+            patternType = CardBackTheme.PatternType.SILVER_DRAGON,
+            isPremium = false,
+            coinCost = 0
+        ),
+        // 3. PHOTO 2: 24K Golden Hearts Luxury
+        CardBackTheme(
+            id = "BACK_GOLDEN_HEARTS",
+            name = "24K Golden Hearts Weave",
+            baseColor = Color(0xFF2A1F02),
+            accentColor = Color(0xFFFFD700),
+            patternType = CardBackTheme.PatternType.GOLDEN_HEARTS,
+            isPremium = false,
+            coinCost = 0
+        ),
+        // 4. PHOTO 4: Vintage Tavern Kings
+        CardBackTheme(
+            id = "BACK_VINTAGE_TAVERN",
+            name = "Vintage Tavern Oak",
+            baseColor = Color(0xFF2B180D),
+            accentColor = Color(0xFFC8963E),
+            patternType = CardBackTheme.PatternType.VINTAGE_TAVERN,
+            isPremium = false,
+            coinCost = 0
+        ),
+        // 5. PHOTO 5: Reformation Baroque Aces
+        CardBackTheme(
+            id = "BACK_BAROQUE_ACES",
+            name = "Reformation Baroque Gold",
+            baseColor = Color(0xFFFBF8F2),
+            accentColor = Color(0xFFB8860B),
+            patternType = CardBackTheme.PatternType.BAROQUE_ACES,
+            isPremium = false,
+            coinCost = 0
+        ),
+        // 6. PHOTO 6: Aztec Tribal Mandala
+        CardBackTheme(
+            id = "BACK_AZTEC_MANDALA",
+            name = "Aztec Sunstone Mandala",
+            baseColor = Color(0xFF141414),
+            accentColor = Color(0xFFD32F2F),
+            patternType = CardBackTheme.PatternType.AZTEC_MANDALA,
+            isPremium = false,
+            coinCost = 0
+        ),
+        // 7. PHOTO 7: Modern Pop Art Avant-Garde
+        CardBackTheme(
+            id = "BACK_MODERN_POPART",
+            name = "Modern Pop Art Matrix",
+            baseColor = Color(0xFF0F172A),
+            accentColor = Color(0xFF00E5FF),
+            patternType = CardBackTheme.PatternType.MODERN_POPART,
+            isPremium = false,
+            coinCost = 0
+        ),
+
+        // Classic / Free Card Backs
         CardBackTheme(
             id = "ROYAL_CREST",
             name = "Royal Crest",
@@ -267,27 +362,94 @@ object CustomizationRegistry {
     )
 
     val cardFaces = listOf(
-        // Free Card Faces
+        // ⭐ 1. PHOTO 3: Crimson Anvil Royal Forge (Main Board Default Card Face)
+        CardFaceTheme(
+            id = "FACE_CRIMSON_ANVIL",
+            name = "Crimson Anvil Forge",
+            fontStyleName = "Royal Medieval Gothic",
+            isPremium = false,
+            coinCost = 0,
+            style = CardFaceStyle.CRIMSON_ANVIL
+        ),
+        // 2. PHOTO 1: Silver Dragon Waterproof
+        CardFaceTheme(
+            id = "FACE_SILVER_DRAGON",
+            name = "Silver Dragon Waterproof",
+            fontStyleName = "Chrome Metallic Armor",
+            isPremium = false,
+            coinCost = 0,
+            style = CardFaceStyle.SILVER_DRAGON
+        ),
+        // 3. PHOTO 2: 24K Golden Hearts Luxury
+        CardFaceTheme(
+            id = "FACE_GOLDEN_HEARTS",
+            name = "24K Golden Hearts Luxury",
+            fontStyleName = "24K Gold & Ruby Foil",
+            isPremium = false,
+            coinCost = 0,
+            style = CardFaceStyle.GOLDEN_HEARTS
+        ),
+        // 4. PHOTO 4: Vintage Tavern Kings
+        CardFaceTheme(
+            id = "FACE_VINTAGE_TAVERN",
+            name = "Vintage Tavern Kings",
+            fontStyleName = "Woodcut Renaissance",
+            isPremium = false,
+            coinCost = 0,
+            style = CardFaceStyle.VINTAGE_TAVERN
+        ),
+        // 5. PHOTO 5: Reformation Baroque Aces
+        CardFaceTheme(
+            id = "FACE_BAROQUE_ACES",
+            name = "Reformation Baroque Aces",
+            fontStyleName = "Illuminated Scripture",
+            isPremium = false,
+            coinCost = 0,
+            style = CardFaceStyle.BAROQUE_ACES
+        ),
+        // 6. PHOTO 6: Aztec Tribal Mandala
+        CardFaceTheme(
+            id = "FACE_AZTEC_MANDALA",
+            name = "Aztec Tribal Mandala",
+            fontStyleName = "Sacred Aztec Mandala",
+            isPremium = false,
+            coinCost = 0,
+            style = CardFaceStyle.AZTEC_MANDALA
+        ),
+        // 7. PHOTO 7: Modern Pop Art Avant-Garde
+        CardFaceTheme(
+            id = "FACE_MODERN_POPART",
+            name = "Modern Pop Art Avant-Garde",
+            fontStyleName = "Designer Gallery Neon",
+            isPremium = false,
+            coinCost = 0,
+            style = CardFaceStyle.MODERN_POPART
+        ),
+
+        // Classic Card Faces
         CardFaceTheme(
             id = "CLASSIC",
             name = "Classic Standard",
             fontStyleName = "Standard Serif",
             isPremium = false,
-            coinCost = 0
+            coinCost = 0,
+            style = CardFaceStyle.STANDARD
         ),
         CardFaceTheme(
             id = "MODERN",
             name = "Modern Clean",
             fontStyleName = "Clean Sans",
             isPremium = false,
-            coinCost = 0
+            coinCost = 0,
+            style = CardFaceStyle.STANDARD
         ),
         CardFaceTheme(
             id = "MINIMAL",
             name = "Bold Minimal",
             fontStyleName = "Minimalist Bold",
             isPremium = false,
-            coinCost = 0
+            coinCost = 0,
+            style = CardFaceStyle.STANDARD
         ),
 
         // Premium 3D Card Faces
@@ -297,7 +459,8 @@ object CustomizationRegistry {
             fontStyleName = "24K Gold Indices",
             isPremium = true,
             coinCost = 750,
-            is3D = true
+            is3D = true,
+            style = CardFaceStyle.GOLDEN_HEARTS
         ),
         CardFaceTheme(
             id = "3D_CYBER_GLOW",
@@ -305,7 +468,8 @@ object CustomizationRegistry {
             fontStyleName = "Neon Vector Indices",
             isPremium = true,
             coinCost = 700,
-            is3D = true
+            is3D = true,
+            style = CardFaceStyle.MODERN_POPART
         ),
         CardFaceTheme(
             id = "3D_IMPERIAL_ROYALE",
@@ -313,7 +477,8 @@ object CustomizationRegistry {
             fontStyleName = "Baroque Royal Indices",
             isPremium = true,
             coinCost = 800,
-            is3D = true
+            is3D = true,
+            style = CardFaceStyle.BAROQUE_ACES
         )
     )
 

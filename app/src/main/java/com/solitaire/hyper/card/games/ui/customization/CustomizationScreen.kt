@@ -105,7 +105,7 @@ fun CustomizationScreen(
     val currentBack = CustomizationRegistry.getCardBack(settings.cardBackId)
     val currentFace = CustomizationRegistry.getCardFace(settings.cardFaceId)
 
-    val sampleFaceUpCard = remember { Card(id = 99, suit = Suit.SPADES, rank = Rank.ACE, isFaceUp = true) }
+    val sampleFaceUpCard = remember { Card(id = 99, suit = Suit.HEARTS, rank = Rank.KING, isFaceUp = true) }
     val sampleFaceDownCard = remember { Card(id = 98, suit = Suit.HEARTS, rank = Rank.KING, isFaceUp = false) }
 
     val isVipActive = settings.isVipActive()
@@ -739,7 +739,7 @@ fun CardFacesGrid(
                 ) {
                     Box {
                         CardView(
-                            card = Card(id = 1, suit = Suit.HEARTS, rank = Rank.QUEEN, isFaceUp = true),
+                            card = Card(id = 1, suit = Suit.HEARTS, rank = Rank.KING, isFaceUp = true),
                             cardFace = face,
                             modifier = Modifier.size(42.dp, 60.dp)
                         )

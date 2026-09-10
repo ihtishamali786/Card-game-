@@ -63,6 +63,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isAiAnalyzing = MutableStateFlow(false)
     val isAiAnalyzing: StateFlow<Boolean> = _isAiAnalyzing.asStateFlow()
 
+    private val _tutorialHint = MutableStateFlow<Hint?>(null)
+    val tutorialHint: StateFlow<Hint?> = _tutorialHint.asStateFlow()
+
+    private val _isTutorialActive = MutableStateFlow(false)
+    val isTutorialActive: StateFlow<Boolean> = _isTutorialActive.asStateFlow()
+
+    private var lastUserActionTime: Long = System.currentTimeMillis()
     private val undoStack = mutableListOf<GameMove>()
     private var timerJob: Job? = null
     private var usedHints = false
@@ -90,6 +97,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _validTargets.value = emptySet()
         _statusMessage.value = "Tap or drag card to play"
         _activeHint.value = null
+        _tutorialHint.value = null
+        _isTutorialActive.value = false
+        lastUserActionTime = System.currentTimeMillis()
         _isAutoCompleting.value = false
         _showWinDialog.value = false
         usedHints = false
@@ -136,6 +146,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onStockClicked() {
+        recordUserInteraction()
         if (_gameState.value.isGameWon || _isAutoCompleting.value) return
         _selectedLocation.value = null
         _validTargets.value = emptySet()
@@ -204,6 +215,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onCardClicked(location: CardLocation) {
+        recordUserInteraction()
         if (_gameState.value.isGameWon || _isAutoCompleting.value) return
         _activeHint.value = null
 
@@ -294,6 +306,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onFoundationClicked(foundationIndex: Int) {
+        recordUserInteraction()
         if (_gameState.value.isGameWon || _isAutoCompleting.value) return
         val selected = _selectedLocation.value
         val target = CardLocation.Foundation(foundationIndex)
@@ -329,6 +342,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onCardDoubleClicked(location: CardLocation) {
+        recordUserInteraction()
         if (_gameState.value.isGameWon || _isAutoCompleting.value) return
         _activeHint.value = null
         _selectedLocation.value = null
@@ -459,6 +473,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onCardDropped(from: CardLocation, to: CardLocation) {
+        recordUserInteraction()
         if (_gameState.value.isGameWon || _isAutoCompleting.value) return
         val moveResult = SolitaireEngine.moveCards(_gameState.value, from, to)
         if (moveResult != null) {
@@ -553,12 +568,55 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun recordUserInteraction() {
+        lastUserActionTime = System.currentTimeMillis()
+        if (_isTutorialActive.value) {
+            _isTutorialActive.value = false
+            _tutorialHint.value = null
+        }
+    }
+
+    fun applyTutorialMove() {
+        val hint = _tutorialHint.value ?: return
+        recordUserInteraction()
+        onCardDropped(hint.from, hint.to)
+    }
+
+    fun dismissTutorial() {
+        recordUserInteraction()
+    }
+
+    fun showTutorialNow() {
+        val hint = SolitaireEngine.findHint(_gameState.value)
+        if (hint != null) {
+            _tutorialHint.value = hint
+            _isTutorialActive.value = true
+            _statusMessage.value = "💡 Tutorial: Move ${hint.card.rank.display}${hint.card.suit.symbol} to ${hint.description}"
+        } else {
+            _statusMessage.value = "💡 Tap Stock to draw a new card"
+        }
+    }
+
     private fun startTimer() {
         timerJob?.cancel()
+        lastUserActionTime = System.currentTimeMillis()
         timerJob = viewModelScope.launch {
             while (!_gameState.value.isGameWon) {
                 delay(1000)
                 _gameState.update { it.copy(elapsedTimeSeconds = it.elapsedTimeSeconds + 1) }
+
+                // Auto-Tutorial Idle Check: If user hasn't made a move for 12 seconds,
+                // automatically demonstrate the next legal move so beginners learn instantly!
+                if (!_isAutoCompleting.value && !_isTutorialActive.value && !_showWinDialog.value) {
+                    val idleMs = System.currentTimeMillis() - lastUserActionTime
+                    if (idleMs >= 12_000L) {
+                        val hint = SolitaireEngine.findHint(_gameState.value)
+                        if (hint != null) {
+                            _tutorialHint.value = hint
+                            _isTutorialActive.value = true
+                        }
+                    }
+                }
             }
         }
     }

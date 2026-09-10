@@ -46,7 +46,8 @@ import com.solitaire.hyper.card.games.ui.theme.SleekSlate400
  */
 @Composable
 fun RulesDialog(
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onShowDemo: (() -> Unit)? = null
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -146,7 +147,14 @@ fun RulesDialog(
                     description = "Stuck with no moves? Tap the Magic Wand button to automatically unlock a hidden face-down card or make the smartest move!"
                 )
 
-                // Rule Section 6: Coins & 3D Themes
+                // Rule Section 6: Auto Tutorial Demo
+                RuleItem(
+                    icon = "🎓",
+                    title = "Auto Tutorial & Inactivity Guide",
+                    description = "Beginner friendly: If you are idle for 12 to 15 seconds without making a move, the game will automatically animate the card to show you the best move!"
+                )
+
+                // Rule Section 7: Coins & 3D Themes
                 RuleItem(
                     icon = "🪙",
                     title = "Coins, Ad-Free & 3D VIP",
@@ -154,6 +162,25 @@ fun RulesDialog(
                 )
 
                 Spacer(Modifier.height(16.dp))
+
+                if (onShowDemo != null) {
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onShowDemo()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .testTag("rules_show_demo_button"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("💡 SHOW DEMO MOVE NOW", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                }
 
                 Button(
                     onClick = onDismiss,

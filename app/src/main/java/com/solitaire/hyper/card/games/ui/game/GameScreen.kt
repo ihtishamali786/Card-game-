@@ -45,10 +45,12 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.ShoppingCart
 import com.solitaire.hyper.card.games.ui.components.AiCoachDialog
 import com.solitaire.hyper.card.games.ui.shop.ShopDialog
+import com.solitaire.hyper.card.games.ui.components.TutorialDemoOverlay
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -122,6 +124,8 @@ fun GameScreen(
     val validTargets by viewModel.validTargets.collectAsState()
     val statusMessage by viewModel.statusMessage.collectAsState()
     val activeHint by viewModel.activeHint.collectAsState()
+    val tutorialHint by viewModel.tutorialHint.collectAsState()
+    val isTutorialActive by viewModel.isTutorialActive.collectAsState()
     val isAutoCompleting by viewModel.isAutoCompleting.collectAsState()
     val showWinDialog by viewModel.showWinDialog.collectAsState()
 
@@ -142,7 +146,10 @@ fun GameScreen(
     val currentCardFace = CustomizationRegistry.getCardFace(userSettings.cardFaceId)
 
     if (showRulesDialog) {
-        RulesDialog(onDismiss = { showRulesDialog = false })
+        RulesDialog(
+            onDismiss = { showRulesDialog = false },
+            onShowDemo = { viewModel.showTutorialNow() }
+        )
     }
 
     // User requested: prompt confirmation when user tries to go back
@@ -150,13 +157,18 @@ fun GameScreen(
         showExitConfirm = true
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(currentBackground.brush)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
+        val availableWidth = maxWidth
+        val colSpacing = 4.dp
+        val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
+        val cardHeight = cardWidth * 1.38f
+        val density = androidx.compose.ui.platform.LocalDensity.current
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -579,6 +591,10 @@ fun GameScreen(
                             showMenuDialog = false
                             showRulesDialog = true
                         }
+                        GameMenuRow(icon = Icons.Default.School, title = "🎓 Visual Tutorial (Show Demo)") {
+                            showMenuDialog = false
+                            viewModel.showTutorialNow()
+                        }
                         GameMenuRow(icon = Icons.Default.DateRange, title = "Daily Challenges") {
                             showMenuDialog = false
                             onOpenDaily()
@@ -645,6 +661,97 @@ fun GameScreen(
                 userPrefs = viewModel.userPrefs,
                 onDismiss = { showShopDialog = false }
             )
+        }
+
+        // 6. Interactive Animated Tutorial Demo Overlay (Auto Guide for beginners)
+        val tHint = tutorialHint
+        if (isTutorialActive && tHint != null) {
+            val fromOffset = remember(tHint, availableWidth, userSettings.leftHandedMode) {
+                calculateTutorialCardCenter(
+                    location = tHint.from,
+                    gameState = gameState,
+                    screenWidth = availableWidth,
+                    cardWidth = cardWidth,
+                    cardHeight = cardHeight,
+                    colSpacing = colSpacing,
+                    leftHanded = userSettings.leftHandedMode,
+                    density = density
+                )
+            }
+            val toOffset = remember(tHint, availableWidth, userSettings.leftHandedMode) {
+                calculateTutorialCardCenter(
+                    location = tHint.to,
+                    gameState = gameState,
+                    screenWidth = availableWidth,
+                    cardWidth = cardWidth,
+                    cardHeight = cardHeight,
+                    colSpacing = colSpacing,
+                    leftHanded = userSettings.leftHandedMode,
+                    density = density
+                )
+            }
+
+            TutorialDemoOverlay(
+                hint = tHint,
+                fromOffset = fromOffset,
+                toOffset = toOffset,
+                cardWidth = cardWidth,
+                cardHeight = cardHeight,
+                cardBack = currentCardBack,
+                cardFace = currentCardFace,
+                onApplyMove = { viewModel.applyTutorialMove() },
+                onDismiss = { viewModel.dismissTutorial() }
+            )
+        }
+    }
+}
+
+private fun calculateTutorialCardCenter(
+    location: CardLocation,
+    gameState: GameState,
+    screenWidth: Dp,
+    cardWidth: Dp,
+    cardHeight: Dp,
+    colSpacing: Dp,
+    leftHanded: Boolean,
+    density: androidx.compose.ui.unit.Density
+): Offset {
+    return with(density) {
+        val totalPaddingHorizontal = 12.dp + (colSpacing * 2)
+        val rowWidth = screenWidth - totalPaddingHorizontal
+        val spaceBetweenCols = ((rowWidth - cardWidth * 7) / 6).coerceAtLeast(0.dp)
+        val colStep = cardWidth + spaceBetweenCols
+
+        fun colCenterX(col: Int): Float {
+            val left = 6.dp + colSpacing + (colStep * col) + (cardWidth / 2)
+            return left.toPx()
+        }
+
+        val topRowY = 46.dp + 3.dp + (cardHeight / 2)
+        val tableauTopY = 46.dp + 3.dp + cardHeight + 8.dp
+
+        when (location) {
+            is CardLocation.Stock -> {
+                val c = if (leftHanded) 0 else 6
+                Offset(colCenterX(c), topRowY.toPx())
+            }
+            is CardLocation.Waste -> {
+                val c = if (leftHanded) 1 else 5
+                Offset(colCenterX(c), topRowY.toPx())
+            }
+            is CardLocation.Foundation -> {
+                val c = if (leftHanded) 3 + location.index else location.index
+                Offset(colCenterX(c), topRowY.toPx())
+            }
+            is CardLocation.Tableau -> {
+                val c = location.columnIndex.coerceIn(0, 6)
+                val pile = gameState.tableau.getOrNull(c) ?: emptyList()
+                val cardIdx = location.cardIndex ?: maxOf(0, pile.size - 1)
+                val clampedIdx = cardIdx.coerceIn(0, maxOf(0, pile.size - 1))
+                val yStep = 18.dp
+                val yOffset = tableauTopY + (yStep * clampedIdx) + (cardHeight / 2)
+                Offset(colCenterX(c), yOffset.toPx())
+            }
         }
     }
 }

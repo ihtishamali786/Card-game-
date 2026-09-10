@@ -85,7 +85,6 @@ object AdManager {
                 isInitialized = true
                 preloadInterstitial(context)
                 preloadRewarded(context)
-                preloadRewardedInterstitial(context)
                 preloadAppOpen(context)
             }
         } catch (e: Exception) {
@@ -311,7 +310,6 @@ object AdManager {
     }
 
     fun preloadRewarded(context: Context) {
-        preloadRewardedInterstitial(context)
         if (rewardedAd != null || isRewardedLoading) return
         isRewardedLoading = true
 
