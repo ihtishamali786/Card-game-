@@ -1,4 +1,4 @@
 # Solitaire Hyper Card Games Assets
-Version: 6.0
+Version: 7.0
 Package: com.solitaire.hyper.card.games
 Type: Klondike Classic & 3D Themes

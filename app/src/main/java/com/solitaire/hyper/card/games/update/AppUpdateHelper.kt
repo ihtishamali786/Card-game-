@@ -157,11 +157,11 @@ object AppUpdateHelper {
         val notes = "New Update Available! Please update your app to enjoy fresh card styles, AI coach advice, and faster gameplay."
         val status = UpdateStatus.Available(
             availableVersionCode = 99,
-            availableVersionName = "v7.0",
+            availableVersionName = "v8.0",
             updateNotes = notes,
             appUpdateInfo = null
         )
         _updateStatus.value = status
-        NotificationHelper.showAppUpdateNotification(context, "v7.0", notes)
+        NotificationHelper.showAppUpdateNotification(context, "v8.0", notes)
     }
 }
