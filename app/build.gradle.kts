@@ -143,6 +143,7 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.firebase.analytics)
   implementation(libs.play.services.ads)
+  implementation(libs.play.app.update)
   // implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   implementation(libs.firebase.ai)

@@ -3,6 +3,7 @@ package com.solitaire.hyper.card.games.ui.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,10 +22,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
+import com.solitaire.hyper.card.games.BuildConfig
+import com.solitaire.hyper.card.games.update.AppUpdateHelper
+import com.solitaire.hyper.card.games.update.UpdateStatus
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -221,6 +227,26 @@ fun SettingsScreen(
                         onClick = { rateApp(context) }
                     )
                     SettingsActionRow(
+                        title = "Check for Updates",
+                        icon = Icons.Default.SystemUpdate,
+                        onClick = {
+                            Toast.makeText(context, "Checking for latest updates...", Toast.LENGTH_SHORT).show()
+                            AppUpdateHelper.checkForAppUpdate(context, isUserInitiated = true) { status ->
+                                if (status is UpdateStatus.UpToDate) {
+                                    Toast.makeText(context, "You have the latest version (v${BuildConfig.VERSION_NAME})", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    )
+                    SettingsActionRow(
+                        title = "Test Update Notification",
+                        icon = Icons.Default.NotificationsActive,
+                        onClick = {
+                            AppUpdateHelper.simulateNewUpdateForTesting(context)
+                            Toast.makeText(context, "Update notification & alert triggered!", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                    SettingsActionRow(
                         title = "About Application",
                         icon = Icons.Default.Info,
                         onClick = { showAboutDialog = true }
@@ -237,7 +263,7 @@ fun SettingsScreen(
                 title = { Text("Solitaire-Hyper Card Games") },
                 text = {
                     Column {
-                        Text("Version 2.0.0 (Play Console Release)")
+                        Text("Version ${BuildConfig.VERSION_NAME} (Play Console Release)")
                         Spacer(Modifier.height(8.dp))
                         Text(
                             "A master-crafted Klondike Solitaire card experience with daily challenges, " +

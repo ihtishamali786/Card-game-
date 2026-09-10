@@ -2,10 +2,15 @@ package com.solitaire.hyper.card.games
 
 import android.app.Activity
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,10 +24,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import com.solitaire.hyper.card.games.data.GameRepository
 import com.solitaire.hyper.card.games.data.preferences.UserPreferencesRepository
 import com.solitaire.hyper.card.games.game.model.GameMode
 import com.solitaire.hyper.card.games.ui.achievements.AchievementsScreen
+import com.solitaire.hyper.card.games.ui.components.UpdateNoticeDialog
 import com.solitaire.hyper.card.games.ui.customization.CustomizationScreen
 import com.solitaire.hyper.card.games.ui.daily.DailyChallengeScreen
 import com.solitaire.hyper.card.games.ui.game.GameScreen
@@ -32,6 +39,8 @@ import com.solitaire.hyper.card.games.ui.settings.SettingsScreen
 import com.solitaire.hyper.card.games.ui.stats.StatisticsScreen
 import com.solitaire.hyper.card.games.ui.theme.SolitaireHyperTheme
 import com.solitaire.hyper.card.games.ads.AdManager
+import com.solitaire.hyper.card.games.update.AppUpdateHelper
+import com.solitaire.hyper.card.games.update.UpdateStatus
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
@@ -95,6 +104,24 @@ fun SolitaireAppNavigation(
 
     val userSettings by viewModel.userSettings.collectAsState()
     val hasSavedGame = !userSettings.savedGameJson.isNullOrBlank()
+    val updateStatus by AppUpdateHelper.updateStatus.collectAsState()
+
+    // Request notification permission on Android 13+ (Tiramisu)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { _ -> }
+
+        LaunchedEffect(Unit) {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -102,6 +129,23 @@ fun SolitaireAppNavigation(
             AdManager.preloadAppOpen(it)
             AdManager.showAppOpenAdIfReady(it, userSettings.isAdFreeActive())
         }
+        // Check for Google Play Store updates on app startup
+        AppUpdateHelper.checkForAppUpdate(context)
+    }
+
+    // In-App Update Notice Dialog if new version is available
+    val availableUpdate = updateStatus as? UpdateStatus.Available
+    if (availableUpdate != null) {
+        UpdateNoticeDialog(
+            newVersionName = availableUpdate.availableVersionName,
+            updateNotes = availableUpdate.updateNotes,
+            onUpdateNow = {
+                activity?.let { AppUpdateHelper.startUpdateFlow(it) }
+            },
+            onDismiss = {
+                AppUpdateHelper.dismissUpdatePrompt()
+            }
+        )
     }
 
     // When on HOME screen and user presses back, ask for confirmation

@@ -48,6 +48,11 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SystemUpdate
+import android.widget.Toast
+import com.solitaire.hyper.card.games.BuildConfig
+import com.solitaire.hyper.card.games.update.AppUpdateHelper
+import com.solitaire.hyper.card.games.update.UpdateStatus
 import com.solitaire.hyper.card.games.ui.components.AiCoachDialog
 import com.solitaire.hyper.card.games.ui.shop.ShopDialog
 import com.solitaire.hyper.card.games.ui.components.TutorialDemoOverlay
@@ -619,6 +624,15 @@ fun GameScreen(
                         GameMenuRow(icon = Icons.Default.Palette, title = "Themes & Customization") {
                             showMenuDialog = false
                             onOpenThemes()
+                        }
+                        GameMenuRow(icon = Icons.Default.SystemUpdate, title = "🚀 Check for Updates") {
+                            showMenuDialog = false
+                            Toast.makeText(context, "Checking for latest updates...", Toast.LENGTH_SHORT).show()
+                            AppUpdateHelper.checkForAppUpdate(context, isUserInitiated = true) { status ->
+                                if (status is UpdateStatus.UpToDate) {
+                                    Toast.makeText(context, "Your app is up to date (v${BuildConfig.VERSION_NAME})", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         }
                         GameMenuRow(icon = Icons.Default.Settings, title = "Settings") {
                             showMenuDialog = false
