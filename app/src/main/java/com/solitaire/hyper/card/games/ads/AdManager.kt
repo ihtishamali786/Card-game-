@@ -75,6 +75,10 @@ object AdManager {
     private var appOpenLoadTime: Long = 0L
     private var isShowingAppOpenAd = false
 
+    // Periodic Video/Interstitial timer (every 15-20 minutes: 15 * 60 * 1000 ms)
+    private const val PERIODIC_AD_INTERVAL_MS = 15 * 60 * 1000L
+    private var lastAdShownTimestamp: Long = System.currentTimeMillis()
+
     private var isInitialized = false
 
     fun initialize(context: Context) {
@@ -89,6 +93,40 @@ object AdManager {
             }
         } catch (e: Exception) {
             Log.w(TAG, "AdMob initialization skipped/failed: ${e.message}")
+        }
+    }
+
+    /**
+     * Checks if 15+ minutes have passed since the last ad, and displays an ad if ready.
+     * Called on natural gameplay checkpoints (e.g., deal new game, restart, pause).
+     */
+    fun checkAndShowPeriodicTimeAd(activity: Activity, isAdFree: Boolean, onComplete: () -> Unit = {}) {
+        if (isAdFree) {
+            onComplete()
+            return
+        }
+        val elapsed = System.currentTimeMillis() - lastAdShownTimestamp
+        if (elapsed >= PERIODIC_AD_INTERVAL_MS) {
+            Log.d(TAG, "Periodic ad trigger reached (${elapsed / 60000} minutes elapsed). Showing interstitial...")
+            lastAdShownTimestamp = System.currentTimeMillis()
+            showInterstitialIfReady(activity, isAdFree = false) {
+                onComplete()
+            }
+        } else {
+            onComplete()
+        }
+    }
+
+    /**
+     * Shows an exit ad when the user chooses to exit the game.
+     */
+    fun showExitAd(activity: Activity, isAdFree: Boolean, onFinished: () -> Unit) {
+        if (isAdFree) {
+            onFinished()
+            return
+        }
+        showInterstitialIfReady(activity, isAdFree = false) {
+            onFinished()
         }
     }
 

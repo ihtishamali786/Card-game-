@@ -168,7 +168,13 @@ fun SolitaireAppNavigation(
                 Button(
                     onClick = {
                         showAppExitDialog = false
-                        activity?.finish()
+                        if (activity != null) {
+                            AdManager.showExitAd(activity, userSettings.isAdFreeActive()) {
+                                activity.finish()
+                            }
+                        } else {
+                            activity?.finish()
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500)
                 ) {

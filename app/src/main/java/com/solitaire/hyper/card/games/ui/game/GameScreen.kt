@@ -146,6 +146,13 @@ fun GameScreen(
     var showRulesDialog by remember { mutableStateOf(false) }
     var hasDoubledCoins by remember { mutableStateOf(false) }
 
+    // Periodic (15-20 min) ad check whenever GameScreen loads or is entered
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (activity != null) {
+            AdManager.checkAndShowPeriodicTimeAd(activity, userSettings.isAdFreeActive())
+        }
+    }
+
     val currentBackground = CustomizationRegistry.getBackground(userSettings.backgroundId)
     val currentCardBack = CustomizationRegistry.getCardBack(userSettings.cardBackId)
     val currentCardFace = CustomizationRegistry.getCardFace(userSettings.cardFaceId)

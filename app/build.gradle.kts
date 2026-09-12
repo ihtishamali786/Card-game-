@@ -18,8 +18,8 @@ android {
     applicationId = "com.solitaire.hyper.card.games"
     minSdk = 24
     targetSdk = 36
-    versionCode = 7
-    versionName = "7.0"
+    versionCode = 8
+    versionName = "8.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -191,27 +191,5 @@ tasks.register<Zip>("createObb") {
   from("src/main/assets")
 }
 
-val rootDirPath = rootDir.absolutePath
-tasks.matching { it.name == "signReleaseBundle" || it.name == "packageReleaseBundle" }.configureEach {
-  doLast {
-    val buildDirFile = layout.buildDirectory.get().asFile
-    val candidates = listOf(
-      File(buildDirFile, "outputs/bundle/release/app-release.aab"),
-      File(buildDirFile, "intermediates/final_app_bundle/release/packageReleaseBundle/base.aab")
-    )
-    for (src in candidates) {
-      if (src.exists() && src.length() > 0) {
-        val rootRelease = File(rootDirPath, "release.aab")
-        val pubRelease = File("$rootDirPath/public/downloads/release.aab")
-        val pubAppRelease = File("$rootDirPath/public/downloads/app-release.aab")
-        src.copyTo(rootRelease, overwrite = true)
-        src.copyTo(pubRelease, overwrite = true)
-        src.copyTo(pubAppRelease, overwrite = true)
-        println(">>> Successfully copied ${src.name} (${src.length()} bytes) to release.aab and public/downloads!")
-        break
-      }
-    }
-  }
-}
 
 

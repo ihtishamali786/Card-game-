@@ -52,7 +52,9 @@ data class CardBackTheme(
         GOLD_FOIL_3D,
         DRAGON_3D,
         CYBERPUNK_3D,
-        CRYSTAL_3D
+        CRYSTAL_3D,
+        BEACH_5D,
+        FLORAL_4D
     }
 }
 
@@ -194,6 +196,29 @@ object CustomizationRegistry {
             ),
             isPremium = true,
             coinCost = 850,
+            is3D = true
+        ),
+        // 5D / 4D Themes (Tropical Beach & Floral Paradise)
+        BackgroundTheme(
+            id = "5D_TROPICAL_BEACH",
+            name = "5D Tropical Beach Lagoon",
+            primaryColor = Color(0xFF00695C),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF00E5FF), Color(0xFF00ACC1), Color(0xFF00796B), Color(0xFF004D40), Color(0xFFD7CCC8))
+            ),
+            isPremium = true,
+            coinCost = 900,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "4D_FLORAL_PARADISE",
+            name = "4D Royal Blossom Floral",
+            primaryColor = Color(0xFF880E4F),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFFF48FB1), Color(0xFFD81B60), Color(0xFF880E4F), Color(0xFF4A148C), Color(0xFF1A0520))
+            ),
+            isPremium = true,
+            coinCost = 900,
             is3D = true
         )
     )
@@ -358,6 +383,26 @@ object CustomizationRegistry {
             isPremium = true,
             coinCost = 800,
             is3D = true
+        ),
+        CardBackTheme(
+            id = "5D_BEACH_BREEZE",
+            name = "5D Tropical Beach Breeze",
+            baseColor = Color(0xFF00363A),
+            accentColor = Color(0xFF00E5FF),
+            patternType = CardBackTheme.PatternType.BEACH_5D,
+            isPremium = true,
+            coinCost = 900,
+            is3D = true
+        ),
+        CardBackTheme(
+            id = "4D_BLOSSOM_FLORAL",
+            name = "4D Royal Blossom Floral",
+            baseColor = Color(0xFF2E001F),
+            accentColor = Color(0xFFFF4081),
+            patternType = CardBackTheme.PatternType.FLORAL_4D,
+            isPremium = true,
+            coinCost = 900,
+            is3D = true
         )
     )
 
@@ -477,6 +522,24 @@ object CustomizationRegistry {
             fontStyleName = "Baroque Royal Indices",
             isPremium = true,
             coinCost = 800,
+            is3D = true,
+            style = CardFaceStyle.BAROQUE_ACES
+        ),
+        CardFaceTheme(
+            id = "5D_BEACH_PARADISE",
+            name = "5D Beach Paradise",
+            fontStyleName = "Aqua Lagoon Serifs",
+            isPremium = true,
+            coinCost = 900,
+            is3D = true,
+            style = CardFaceStyle.CRIMSON_ANVIL
+        ),
+        CardFaceTheme(
+            id = "4D_ROYAL_BLOSSOM",
+            name = "4D Royal Blossom",
+            fontStyleName = "Velvet Petal Script",
+            isPremium = true,
+            coinCost = 900,
             is3D = true,
             style = CardFaceStyle.BAROQUE_ACES
         )

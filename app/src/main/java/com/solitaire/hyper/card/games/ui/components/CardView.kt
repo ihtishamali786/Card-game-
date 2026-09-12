@@ -384,7 +384,7 @@ fun CardFaceView(
 }
 
 /**
- * Center graphics for Court Cards (K, Q, J) reflecting the user's specific decks.
+ * Full-Card Authentic Center Art for Court Cards (K, Q, J) reflecting real playing card portraits.
  */
 @Composable
 private fun CourtCardCenterView(
@@ -393,175 +393,224 @@ private fun CourtCardCenterView(
     textColor: Color,
     largePrint: Boolean
 ) {
-    val style = cardFace.style
+    val isRed = card.color == CardColor.RED
+    val primaryGold = Color(0xFFD4AF37)
+    val royalCrimson = if (isRed) Color(0xFF9E1B32) else Color(0xFF1E3A8A)
+    val mantleDark = if (isRed) Color(0xFF5A0D1B) else Color(0xFF0F172A)
+    val faceSkin = Color(0xFFFFF1DC)
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
     ) {
-        when (style) {
-            CardFaceStyle.CRIMSON_ANVIL -> {
-                // ⭐ Photo 3: Medieval blacksmith court monarch crown & bold enlarged center suit sign
-                val emblem = when (card.rank) {
-                    Rank.KING -> "♔" // King of Hearts with royal crown
-                    Rank.QUEEN -> "♕" // Queen of Hearts with floral veil
-                    else -> "⚔" // Jack of Hearts with broadsword
+        // 1. Full-Card Symmetrical Canvas Portrait
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val cx = w / 2f
+            val cy = h / 2f
+
+            // Outer Court Frame
+            drawRoundRect(
+                color = primaryGold.copy(alpha = 0.5f),
+                topLeft = Offset(0f, 0f),
+                size = Size(w, h),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                style = Stroke(width = 1.dp.toPx())
+            )
+
+            // Ornate Inner Framing
+            drawRect(
+                color = primaryGold.copy(alpha = 0.25f),
+                topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
+                size = Size(w - 4.dp.toPx(), h - 4.dp.toPx()),
+                style = Stroke(width = 0.8.dp.toPx())
+            )
+
+            // Symmetrical Split Line
+            drawLine(
+                color = primaryGold.copy(alpha = 0.45f),
+                start = Offset(4.dp.toPx(), cy),
+                end = Offset(w - 4.dp.toPx(), cy),
+                strokeWidth = 1.dp.toPx()
+            )
+
+            // Top Bust
+            val topH = cy * 0.9f
+            val bustPathTop = Path().apply {
+                moveTo(cx - w * 0.38f, cy - 2.dp.toPx())
+                lineTo(cx - w * 0.32f, cy - topH * 0.65f)
+                lineTo(cx - w * 0.16f, cy - topH * 0.90f)
+                lineTo(cx + w * 0.16f, cy - topH * 0.90f)
+                lineTo(cx + w * 0.32f, cy - topH * 0.65f)
+                lineTo(cx + w * 0.38f, cy - 2.dp.toPx())
+                close()
+            }
+            drawPath(bustPathTop, color = royalCrimson)
+            drawPath(bustPathTop, color = primaryGold.copy(alpha = 0.8f), style = Stroke(width = 0.9.dp.toPx()))
+
+            // Mantle Robe Inset (Top)
+            val mantlePathTop = Path().apply {
+                moveTo(cx - w * 0.22f, cy - 2.dp.toPx())
+                lineTo(cx - w * 0.14f, cy - topH * 0.70f)
+                lineTo(cx, cy - topH * 0.45f)
+                lineTo(cx + w * 0.14f, cy - topH * 0.70f)
+                lineTo(cx + w * 0.22f, cy - 2.dp.toPx())
+                close()
+            }
+            drawPath(mantlePathTop, color = mantleDark)
+
+            // Top Head
+            val headRadius = minOf(w * 0.16f, topH * 0.22f)
+            val headCenterTop = Offset(cx, cy - topH * 0.65f)
+            drawCircle(color = faceSkin, radius = headRadius, center = headCenterTop)
+            drawCircle(color = primaryGold, radius = headRadius, center = headCenterTop, style = Stroke(width = 0.8.dp.toPx()))
+
+            // Crown / Diadem / Helmet (Top)
+            when (card.rank) {
+                Rank.KING -> {
+                    // King's 3-point Royal Crown
+                    val crownPath = Path().apply {
+                        val baseY = headCenterTop.y - headRadius * 0.7f
+                        val peakY = baseY - headRadius * 0.8f
+                        moveTo(headCenterTop.x - headRadius * 1.1f, baseY)
+                        lineTo(headCenterTop.x - headRadius * 1.1f, peakY)
+                        lineTo(headCenterTop.x - headRadius * 0.5f, baseY - headRadius * 0.3f)
+                        lineTo(headCenterTop.x, peakY - headRadius * 0.2f)
+                        lineTo(headCenterTop.x + headRadius * 0.5f, baseY - headRadius * 0.3f)
+                        lineTo(headCenterTop.x + headRadius * 1.1f, peakY)
+                        lineTo(headCenterTop.x + headRadius * 1.1f, baseY)
+                        close()
+                    }
+                    drawPath(crownPath, color = primaryGold)
                 }
-                Text(
-                    text = emblem,
-                    color = textColor,
-                    fontSize = if (largePrint) 22.sp else 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = card.suit.symbol,
-                    color = textColor,
-                    fontSize = if (largePrint) 30.sp else 25.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
+                Rank.QUEEN -> {
+                    // Queen's Tiara & Floral Veil
+                    val tiaraPath = Path().apply {
+                        val baseY = headCenterTop.y - headRadius * 0.7f
+                        val peakY = baseY - headRadius * 0.65f
+                        moveTo(headCenterTop.x - headRadius, baseY)
+                        lineTo(headCenterTop.x, peakY)
+                        lineTo(headCenterTop.x + headRadius, baseY)
+                        close()
+                    }
+                    drawPath(tiaraPath, color = primaryGold)
+                    drawCircle(color = if (isRed) Color(0xFFFF4081) else Color(0xFF60A5FA), radius = headRadius * 0.35f, center = Offset(headCenterTop.x, headCenterTop.y - headRadius * 0.8f))
+                }
+                Rank.JACK -> {
+                    // Jack's Soldier Helmet / Feathered Beret
+                    val hatPath = Path().apply {
+                        val baseY = headCenterTop.y - headRadius * 0.7f
+                        val topCapY = baseY - headRadius * 0.55f
+                        moveTo(headCenterTop.x - headRadius * 1.1f, baseY)
+                        lineTo(headCenterTop.x - headRadius * 0.8f, topCapY)
+                        lineTo(headCenterTop.x + headRadius * 0.8f, topCapY)
+                        lineTo(headCenterTop.x + headRadius * 1.1f, baseY)
+                        close()
+                    }
+                    drawPath(hatPath, color = mantleDark)
+                    // Feather plume
+                    drawLine(
+                        color = Color(0xFFFFD700),
+                        start = Offset(headCenterTop.x + headRadius * 0.5f, headCenterTop.y - headRadius),
+                        end = Offset(headCenterTop.x + headRadius * 1.2f, headCenterTop.y - headRadius * 1.4f),
+                        strokeWidth = 1.5.dp.toPx()
+                    )
+                }
+                else -> {}
             }
-            CardFaceStyle.SILVER_DRAGON -> {
-                // Photo 1: Metallic chrome armored royalty
-                Text(
-                    text = when (card.rank) {
-                        Rank.KING -> "♚"
-                        Rank.QUEEN -> "♛"
-                        else -> "♞"
-                    },
-                    color = textColor,
-                    fontSize = if (largePrint) 22.sp else 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = card.suit.symbol,
-                    color = textColor,
-                    fontSize = if (largePrint) 28.sp else 24.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
+
+            // Symmetrical Bottom Inverted Bust
+            val bustPathBottom = Path().apply {
+                moveTo(cx - w * 0.38f, cy + 2.dp.toPx())
+                lineTo(cx - w * 0.32f, cy + topH * 0.65f)
+                lineTo(cx - w * 0.16f, cy + topH * 0.90f)
+                lineTo(cx + w * 0.16f, cy + topH * 0.90f)
+                lineTo(cx + w * 0.32f, cy + topH * 0.65f)
+                lineTo(cx + w * 0.38f, cy + 2.dp.toPx())
+                close()
             }
-            CardFaceStyle.GOLDEN_HEARTS -> {
-                // Photo 2: 24K pure gold court with ruby gem
-                Text(
-                    text = when (card.rank) {
-                        Rank.KING -> "👑"
-                        Rank.QUEEN -> "👸"
-                        else -> "⚔️"
-                    },
-                    fontSize = if (largePrint) 20.sp else 17.sp,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = card.suit.symbol,
-                    color = textColor,
-                    fontSize = if (largePrint) 28.sp else 24.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
+            drawPath(bustPathBottom, color = royalCrimson)
+            drawPath(bustPathBottom, color = primaryGold.copy(alpha = 0.8f), style = Stroke(width = 0.9.dp.toPx()))
+
+            // Mantle Robe Inset (Bottom)
+            val mantlePathBottom = Path().apply {
+                moveTo(cx - w * 0.22f, cy + 2.dp.toPx())
+                lineTo(cx - w * 0.14f, cy + topH * 0.70f)
+                lineTo(cx, cy + topH * 0.45f)
+                lineTo(cx + w * 0.14f, cy + topH * 0.70f)
+                lineTo(cx + w * 0.22f, cy + 2.dp.toPx())
+                close()
             }
-            CardFaceStyle.VINTAGE_TAVERN -> {
-                // Photo 4: Renaissance woodblock King
-                Text(
-                    text = when (card.rank) {
-                        Rank.KING -> "👑"
-                        Rank.QUEEN -> "♕"
-                        else -> "🗡"
-                    },
-                    color = textColor,
-                    fontSize = if (largePrint) 22.sp else 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = card.suit.symbol,
-                    color = textColor,
-                    fontSize = if (largePrint) 28.sp else 24.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
+            drawPath(mantlePathBottom, color = mantleDark)
+
+            // Bottom Head
+            val headCenterBottom = Offset(cx, cy + topH * 0.65f)
+            drawCircle(color = faceSkin, radius = headRadius, center = headCenterBottom)
+            drawCircle(color = primaryGold, radius = headRadius, center = headCenterBottom, style = Stroke(width = 0.8.dp.toPx()))
+
+            // Bottom Crown / Tiara
+            when (card.rank) {
+                Rank.KING -> {
+                    val crownPath = Path().apply {
+                        val baseY = headCenterBottom.y + headRadius * 0.7f
+                        val peakY = baseY + headRadius * 0.8f
+                        moveTo(headCenterBottom.x - headRadius * 1.1f, baseY)
+                        lineTo(headCenterBottom.x - headRadius * 1.1f, peakY)
+                        lineTo(headCenterBottom.x - headRadius * 0.5f, baseY + headRadius * 0.3f)
+                        lineTo(headCenterBottom.x, peakY + headRadius * 0.2f)
+                        lineTo(headCenterBottom.x + headRadius * 0.5f, baseY + headRadius * 0.3f)
+                        lineTo(headCenterBottom.x + headRadius * 1.1f, peakY)
+                        lineTo(headCenterBottom.x + headRadius * 1.1f, baseY)
+                        close()
+                    }
+                    drawPath(crownPath, color = primaryGold)
+                }
+                Rank.QUEEN -> {
+                    val tiaraPath = Path().apply {
+                        val baseY = headCenterBottom.y + headRadius * 0.7f
+                        val peakY = baseY + headRadius * 0.65f
+                        moveTo(headCenterBottom.x - headRadius, baseY)
+                        lineTo(headCenterBottom.x, peakY)
+                        lineTo(headCenterBottom.x + headRadius, baseY)
+                        close()
+                    }
+                    drawPath(tiaraPath, color = primaryGold)
+                    drawCircle(color = if (isRed) Color(0xFFFF4081) else Color(0xFF60A5FA), radius = headRadius * 0.35f, center = Offset(headCenterBottom.x, headCenterBottom.y + headRadius * 0.8f))
+                }
+                Rank.JACK -> {
+                    val hatPath = Path().apply {
+                        val baseY = headCenterBottom.y + headRadius * 0.7f
+                        val topCapY = baseY + headRadius * 0.55f
+                        moveTo(headCenterBottom.x - headRadius * 1.1f, baseY)
+                        lineTo(headCenterBottom.x - headRadius * 0.8f, topCapY)
+                        lineTo(headCenterBottom.x + headRadius * 0.8f, topCapY)
+                        lineTo(headCenterBottom.x + headRadius * 1.1f, baseY)
+                        close()
+                    }
+                    drawPath(hatPath, color = mantleDark)
+                }
+                else -> {}
             }
-            CardFaceStyle.BAROQUE_ACES -> {
-                // Photo 5: Illuminated renaissance court
-                Text(
-                    text = when (card.rank) {
-                        Rank.KING -> "♔"
-                        Rank.QUEEN -> "♕"
-                        else -> "⚜"
-                    },
-                    color = Color(0xFFB8860B),
-                    fontSize = if (largePrint) 22.sp else 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = card.suit.symbol,
-                    color = textColor,
-                    fontSize = if (largePrint) 28.sp else 24.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
-            }
-            CardFaceStyle.AZTEC_MANDALA -> {
-                // Photo 6: Sacred Aztec tribal deity
-                Text(
-                    text = when (card.rank) {
-                        Rank.KING -> "☀️"
-                        Rank.QUEEN -> "🌙"
-                        else -> "⚡"
-                    },
-                    fontSize = if (largePrint) 20.sp else 17.sp,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = card.suit.symbol,
-                    color = textColor,
-                    fontSize = if (largePrint) 28.sp else 24.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
-            }
-            CardFaceStyle.MODERN_POPART -> {
-                // Photo 7: Pop art designer character
-                Text(
-                    text = when (card.rank) {
-                        Rank.KING -> "👾"
-                        Rank.QUEEN -> "💎"
-                        else -> "⚡"
-                    },
-                    fontSize = if (largePrint) 20.sp else 17.sp,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = card.suit.symbol,
-                    color = textColor,
-                    fontSize = if (largePrint) 28.sp else 24.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
-            }
-            CardFaceStyle.STANDARD -> {
-                Text(
-                    text = when (card.rank) {
-                        Rank.KING -> "♔"
-                        Rank.QUEEN -> "♕"
-                        else -> "⚔"
-                    },
-                    color = textColor.copy(alpha = 0.90f),
-                    fontSize = if (largePrint) 22.sp else 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = card.suit.symbol,
-                    color = textColor,
-                    fontSize = if (largePrint) 28.sp else 24.sp,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
-                )
-            }
+        }
+
+        // 2. Bold Central Suit Insignia Badge
+        Box(
+            modifier = Modifier
+                .size(if (largePrint) 30.dp else 26.dp)
+                .background(Color(0xFFFFF9E6).copy(alpha = 0.95f), CircleShape)
+                .border(1.2.dp, primaryGold, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = card.suit.symbol,
+                color = textColor,
+                fontSize = if (largePrint) 18.sp else 16.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -992,6 +1041,35 @@ fun CardBackView(cardBack: CardBackTheme) {
                     drawLine(color = Color(0xFF80D8FF).copy(alpha = 0.6f), start = Offset(cx, cy), end = Offset(ex, ey), strokeWidth = 1.2.dp.toPx())
                 }
                 drawCircle(color = Color.White.copy(alpha = 0.8f), radius = 3.dp.toPx(), center = Offset(cx, cy))
+            }
+
+            CardBackTheme.PatternType.BEACH_5D -> {
+                // 5D Tropical Beach Lagoon: Aqua waves & golden sunburst
+                val r = minOf(w, h) * 0.36f
+                drawCircle(color = Color(0xFFFFD54F).copy(alpha = 0.6f), radius = r * 0.5f, center = Offset(cx, cy - r * 0.2f))
+                for (i in 1..4) {
+                    val waveY = cy + (i * 5.dp.toPx())
+                    drawLine(
+                        color = Color(0xFF00E5FF).copy(alpha = 0.8f),
+                        start = Offset(cx - r * 0.8f, waveY),
+                        end = Offset(cx + r * 0.8f, waveY),
+                        strokeWidth = 1.5.dp.toPx()
+                    )
+                }
+                drawCircle(color = Color(0xFF00E5FF), radius = r, center = Offset(cx, cy), style = Stroke(width = 1.2.dp.toPx()))
+            }
+
+            CardBackTheme.PatternType.FLORAL_4D -> {
+                // 4D Royal Blossom Floral: 8 radiating lotus petals
+                val r = minOf(w, h) * 0.38f
+                for (angle in 0 until 8) {
+                    val rad = Math.toRadians(angle * 45.0)
+                    val px = cx + (r * 0.7f * cos(rad)).toFloat()
+                    val py = cy + (r * 0.7f * sin(rad)).toFloat()
+                    drawCircle(color = Color(0xFFFF4081).copy(alpha = 0.65f), radius = r * 0.32f, center = Offset(px, py))
+                }
+                drawCircle(color = Color(0xFFFFD700), radius = r * 0.22f, center = Offset(cx, cy))
+                drawCircle(color = Color(0xFFFF80AB), radius = r, center = Offset(cx, cy), style = Stroke(width = 1.2.dp.toPx()))
             }
 
             else -> {
