@@ -10,6 +10,15 @@ val SleekGradientBottom = Color(0xFF0B1411)
 val SleekCardBackBg = Color(0xFF1D3D33)
 val SleekFooterBg = Color(0xFF0A0F0D)
 
+// Luxury Gold & Platinum Accents
+val LuxuryGoldPrimary = Color(0xFFFFD700)
+val LuxuryGoldDark = Color(0xFFB8860B)
+val LuxuryGoldLight = Color(0xFFFFF3B0)
+val LuxuryGoldMuted = Color(0xFF7A641A)
+val LuxuryPlatinum = Color(0xFFE5E7EB)
+val LuxuryObsidian = Color(0xFF0D1117)
+val LuxuryCardBorder = Color(0x33FFD700)
+
 val SleekEmerald400 = Color(0xFF34D399)
 val SleekEmerald500 = Color(0xFF10B981)
 val SleekEmerald600 = Color(0xFF059669)

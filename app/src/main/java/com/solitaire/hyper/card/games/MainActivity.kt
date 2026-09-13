@@ -88,6 +88,16 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        com.solitaire.hyper.card.games.notifications.NotificationScheduler.recordUserActivity(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        com.solitaire.hyper.card.games.notifications.NotificationScheduler.recordUserActivity(this)
+    }
 }
 
 @Composable

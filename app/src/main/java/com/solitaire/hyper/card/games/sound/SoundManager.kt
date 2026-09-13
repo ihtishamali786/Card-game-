@@ -92,6 +92,23 @@ class SoundManager(private val context: Context) {
         triggerHaptic(durationMs = 25, amplitude = 40)
     }
 
+    fun playSpinTick() {
+        if (!soundEnabled) return
+        scope.launch {
+            synthesizeTone(frequency = 800.0, durationMs = 25, volume = 0.3)
+        }
+        triggerHaptic(durationMs = 10, amplitude = 30)
+    }
+
+    fun playSpinReward() {
+        if (!soundEnabled) return
+        scope.launch {
+            val celebrationNotes = doubleArrayOf(587.33, 739.99, 880.0, 1174.66) // D5, F#5, A5, D6
+            synthesizeArpeggio(frequencies = celebrationNotes, durationMs = 140, volume = 0.6)
+        }
+        triggerHaptic(durationMs = 60, amplitude = 100)
+    }
+
     private fun triggerHaptic(durationMs: Long, amplitude: Int = 50) {
         if (!vibrationEnabled || vibrator == null || !vibrator.hasVibrator()) return
         try {

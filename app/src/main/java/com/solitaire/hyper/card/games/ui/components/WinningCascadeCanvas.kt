@@ -1,10 +1,12 @@
 package com.solitaire.hyper.card.games.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,11 +15,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -32,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -42,6 +49,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -51,10 +59,15 @@ import androidx.compose.ui.unit.sp
 import com.solitaire.hyper.card.games.game.model.CardColor
 import com.solitaire.hyper.card.games.game.model.Rank
 import com.solitaire.hyper.card.games.game.model.Suit
+import com.solitaire.hyper.card.games.sound.SoundManager
+import com.solitaire.hyper.card.games.ui.theme.LuxuryGoldPrimary
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald400
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
 import com.solitaire.hyper.card.games.ui.theme.SleekHeaderDark
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
+import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.random.Random
 
 data class CascadeCard(
@@ -87,6 +100,9 @@ fun WinningCascadeCanvas(
     coinsEarned: Int = 200,
     hasDoubledCoins: Boolean = false,
     onWatchAdDouble: (() -> Unit)? = null,
+    onNextLevel: (() -> Unit)? = null,
+    onSpinWinCoins: ((Int) -> Unit)? = null,
+    soundManager: SoundManager? = null,
     onPlayAgain: () -> Unit,
     onHome: () -> Unit,
     onDismiss: () -> Unit
@@ -94,6 +110,14 @@ fun WinningCascadeCanvas(
     val activeCards = remember { mutableStateListOf<CascadeCard>() }
     val trails = remember { mutableStateListOf<TrailStamp>() }
     var bannerVisible by remember { mutableStateOf(false) }
+
+    // Spin-to-Win Wheel State
+    val spinScope = rememberCoroutineScope()
+    val wheelRotation = remember { Animatable(0f) }
+    var isSpinning by remember { mutableStateOf(false) }
+    var hasSpun by remember { mutableStateOf(false) }
+    var spunRewardCoins by remember { mutableStateOf<Int?>(null) }
+    val prizeSegments = remember { listOf(100, 250, 50, 500, 150, 300, 75, 400) }
 
     LaunchedEffect(Unit) {
         // Build card deck to launch from Kings down to Aces
@@ -250,23 +274,180 @@ fun WinningCascadeCanvas(
 
                     // Stats row
                     Row(
-                        modifier = Modifier.padding(vertical = 10.dp)
+                        modifier = Modifier.padding(vertical = 8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("SCORE", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text("$score", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("$score", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
                         }
-                        Spacer(Modifier.width(24.dp))
+                        Spacer(Modifier.width(20.dp))
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("MOVES", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text("$moves", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("$moves", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
                         }
-                        Spacer(Modifier.width(24.dp))
+                        Spacer(Modifier.width(20.dp))
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("TIME", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             val mins = timeSeconds / 60
                             val secs = timeSeconds % 60
-                            Text(String.format("%02d:%02d", mins, secs), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(String.format("%02d:%02d", mins, secs), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+
+                    // ⭐ Spin-to-Win Bonus Lucky Wheel Mechanic
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF131D19),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, LuxuryGoldPrimary.copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text("🎡", fontSize = 16.sp)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    "VICTORY LUCKY SPIN",
+                                    color = LuxuryGoldPrimary,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            // Wheel graphic & needle pointer
+                            Box(
+                                modifier = Modifier.size(110.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Canvas(modifier = Modifier.size(100.dp)) {
+                                    val radius = size.minDimension / 2f
+                                    val center = Offset(size.width / 2f, size.height / 2f)
+                                    val sweep = 360f / prizeSegments.size
+                                    val currentRot = wheelRotation.value
+
+                                    val sliceColors = listOf(
+                                        Color(0xFFEAB308), Color(0xFF10B981), Color(0xFF3B82F6), Color(0xFFEC4899),
+                                        Color(0xFF8B5CF6), Color(0xFFF97316), Color(0xFF06B6D4), Color(0xFF84CC16)
+                                    )
+
+                                    for (i in prizeSegments.indices) {
+                                        val startAngle = currentRot + i * sweep
+                                        drawArc(
+                                            color = sliceColors[i % sliceColors.size],
+                                            startAngle = startAngle,
+                                            sweepAngle = sweep,
+                                            useCenter = true,
+                                            size = Size(radius * 2, radius * 2),
+                                            topLeft = Offset(center.x - radius, center.y - radius)
+                                        )
+                                        // Sector border line
+                                        val rad = Math.toRadians(startAngle.toDouble())
+                                        val endX = center.x + radius * cos(rad).toFloat()
+                                        val endY = center.y + radius * sin(rad).toFloat()
+                                        drawLine(
+                                            color = Color.White.copy(alpha = 0.6f),
+                                            start = center,
+                                            end = Offset(endX, endY),
+                                            strokeWidth = 1.5f
+                                        )
+                                    }
+
+                                    // Gold outer rim
+                                    drawCircle(
+                                        color = Color(0xFFFFD700),
+                                        radius = radius,
+                                        center = center,
+                                        style = Stroke(width = 3.dp.toPx())
+                                    )
+                                    // Center hub
+                                    drawCircle(
+                                        color = Color(0xFF1E293B),
+                                        radius = radius * 0.26f,
+                                        center = center
+                                    )
+                                    drawCircle(
+                                        color = Color(0xFFFFD700),
+                                        radius = radius * 0.26f,
+                                        center = center,
+                                        style = Stroke(width = 2.dp.toPx())
+                                    )
+                                }
+
+                                // Pointer needle at top pointing downward
+                                Text(
+                                    text = "▼",
+                                    color = Color(0xFFFFD700),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .padding(top = 0.dp)
+                                )
+                            }
+
+                            Spacer(Modifier.height(6.dp))
+
+                            if (spunRewardCoins != null) {
+                                Text(
+                                    text = "🎉 Won +$spunRewardCoins Bonus Coins!",
+                                    color = Color(0xFFFDE047),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            } else {
+                                Button(
+                                    onClick = {
+                                        if (!isSpinning && !hasSpun) {
+                                            isSpinning = true
+                                            spinScope.launch {
+                                                soundManager?.playSpinTick()
+                                                val randomSector = Random.nextInt(prizeSegments.size)
+                                                val sectorAngle = 360f / prizeSegments.size
+                                                // Needle at top (270 degrees). Target sector should align to 270 deg.
+                                                val fullRotations = (5 + Random.nextInt(3)) * 360f
+                                                val targetAngle = fullRotations + (270f - (randomSector * sectorAngle + sectorAngle / 2f))
+
+                                                wheelRotation.animateTo(
+                                                    targetValue = targetAngle,
+                                                    animationSpec = tween(
+                                                        durationMillis = 3200,
+                                                        easing = FastOutSlowInEasing
+                                                    )
+                                                )
+                                                val wonCoins = prizeSegments[randomSector]
+                                                spunRewardCoins = wonCoins
+                                                hasSpun = true
+                                                isSpinning = false
+                                                soundManager?.playSpinReward()
+                                                onSpinWinCoins?.invoke(wonCoins)
+                                            }
+                                        }
+                                    },
+                                    enabled = !isSpinning && !hasSpun,
+                                    colors = ButtonDefaults.buttonColors(containerColor = LuxuryGoldPrimary),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier
+                                        .height(34.dp)
+                                        .testTag("spin_to_win_button")
+                                ) {
+                                    Text(
+                                        text = if (isSpinning) "Spinning..." else "SPIN TO WIN 🪙",
+                                        color = Color(0xFF1E1602),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -275,21 +456,39 @@ fun WinningCascadeCanvas(
                             onClick = onWatchAdDouble,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(42.dp)
+                                .height(40.dp)
                                 .testTag("double_coins_button"),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("🎬 Watch Ad for +400 Coins", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text("🎬 Watch Ad for +400 Coins", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(6.dp))
+                    }
+
+                    // ⭐ NEXT LEVEL OPTION (Transforms game look & deal)
+                    if (onNextLevel != null) {
+                        Button(
+                            onClick = onNextLevel,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                                .testTag("next_level_button"),
+                            colors = ButtonDefaults.buttonColors(containerColor = LuxuryGoldPrimary),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color(0xFF1E1602))
+                            Spacer(Modifier.width(8.dp))
+                            Text("NEXT LEVEL ›", color = Color(0xFF1E1602), fontWeight = FontWeight.Black, fontSize = 14.5.sp)
+                        }
+                        Spacer(Modifier.height(6.dp))
                     }
 
                     Button(
                         onClick = onPlayAgain,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
+                            .height(44.dp)
                             .testTag("play_again_cascade_button"),
                         colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
                         shape = RoundedCornerShape(10.dp)
@@ -299,13 +498,13 @@ fun WinningCascadeCanvas(
                         Text("PLAY AGAIN", color = Color.White, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(6.dp))
 
                     OutlinedButton(
                         onClick = onHome,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp)
+                            .height(42.dp)
                             .testTag("home_cascade_button"),
                         shape = RoundedCornerShape(10.dp)
                     ) {

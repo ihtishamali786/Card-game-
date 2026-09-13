@@ -193,6 +193,34 @@ fun SettingsScreen(
                 }
             }
 
+            // Notifications & Hourly Reminders
+            SettingsSectionHeader("Notifications & Hourly Reminders")
+            Card(
+                colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Column {
+                    SettingsSwitchRow(
+                        title = "Hourly Idle Game Reminders",
+                        subtitle = "Reminds you every 1 hour when idle (Works Offline & Online)",
+                        checked = true,
+                        onCheckedChange = {
+                            Toast.makeText(context, "Hourly idle game notifications are active!", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                    SettingsActionRow(
+                        title = "Test Reminder Notification",
+                        subtitle = "Fires a test game reminder in 3 seconds to preview",
+                        icon = Icons.Default.NotificationsActive,
+                        onClick = {
+                            com.solitaire.hyper.card.games.notifications.NotificationScheduler.scheduleNextHourlyAlarm(context, delayMs = 3000L)
+                            Toast.makeText(context, "Test reminder will fire in 3 seconds! Close or minimize app to see it.", Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            }
+
             // Legal & About
             SettingsSectionHeader("About & Legal")
             Card(
@@ -329,6 +357,7 @@ fun SettingsSwitchRow(
 @Composable
 fun SettingsActionRow(
     title: String,
+    subtitle: String? = null,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
@@ -340,7 +369,12 @@ fun SettingsActionRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(title, color = Color.White, fontSize = 14.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp)
+            if (!subtitle.isNullOrBlank()) {
+                Text(subtitle, color = SleekSlate400, fontSize = 12.sp)
+            }
+        }
         Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.6f))
     }
 }

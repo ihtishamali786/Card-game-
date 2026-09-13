@@ -133,6 +133,7 @@ fun GameScreen(
     val isTutorialActive by viewModel.isTutorialActive.collectAsState()
     val isAutoCompleting by viewModel.isAutoCompleting.collectAsState()
     val showWinDialog by viewModel.showWinDialog.collectAsState()
+    val isGamePaused by viewModel.isGamePaused.collectAsState()
 
     val aiAnalysis by viewModel.aiAnalysis.collectAsState()
     val isAiAnalyzing by viewModel.isAiAnalyzing.collectAsState()
@@ -190,6 +191,8 @@ fun GameScreen(
             PortraitGameTopHeader(
                 gameState = gameState,
                 showTimer = userSettings.showTimer,
+                isPaused = isGamePaused,
+                onTimerClick = { viewModel.togglePause() },
                 onMenuClick = { showMenuDialog = true },
                 onThemesClick = onOpenThemes,
                 onAiCoachClick = {
@@ -330,6 +333,21 @@ fun GameScreen(
                 moves = gameState.moveCount,
                 coinsEarned = 200,
                 hasDoubledCoins = hasDoubledCoins,
+                soundManager = viewModel.soundManager,
+                onSpinWinCoins = { coins ->
+                    viewModel.awardSpinWinCoins(coins)
+                },
+                onNextLevel = {
+                    viewModel.dismissWinDialog()
+                    hasDoubledCoins = false
+                    if (activity != null) {
+                        AdManager.showInterstitialIfReady(activity, isAdFree = userSettings.isAdFreeActive()) {
+                            viewModel.proceedToNextLevel()
+                        }
+                    } else {
+                        viewModel.proceedToNextLevel()
+                    }
+                },
                 onWatchAdDouble = {
                     if (activity != null) {
                         AdManager.showRewardedAd(
@@ -587,6 +605,13 @@ fun GameScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
+                        GameMenuRow(
+                            icon = Icons.Default.PlayArrow,
+                            title = if (isGamePaused) "▶️ Resume Game (Timer: ${formatTime(gameState.elapsedTimeSeconds)})" else "⏸️ Pause Game (Timer: ${formatTime(gameState.elapsedTimeSeconds)})"
+                        ) {
+                            showMenuDialog = false
+                            viewModel.togglePause()
+                        }
                         GameMenuRow(icon = Icons.Default.Home, title = "Main Menu") {
                             showMenuDialog = false
                             showExitConfirm = true
@@ -821,6 +846,8 @@ fun GameMenuRow(
 fun PortraitGameTopHeader(
     gameState: GameState,
     showTimer: Boolean = true,
+    isPaused: Boolean = false,
+    onTimerClick: () -> Unit = {},
     onMenuClick: () -> Unit,
     onThemesClick: () -> Unit,
     onAiCoachClick: () -> Unit,
@@ -881,21 +908,27 @@ fun PortraitGameTopHeader(
                     )
                 }
 
-                // TIME
+                // TIME (Tap to Pause / Resume)
                 if (showTimer) {
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onTimerClick)
+                            .background(if (isPaused) Color(0xFFFFD54F).copy(alpha = 0.2f) else Color.Transparent)
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .testTag("game_timer_button")
                     ) {
                         Text(
-                            text = "TIME",
-                            color = SleekSlate400,
+                            text = if (isPaused) "⏸️ PAUSED" else "⏱️ TIME",
+                            color = if (isPaused) Color(0xFFFFD54F) else SleekSlate400,
                             fontSize = 8.5.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
                         )
                         Text(
                             text = formatTime(gameState.elapsedTimeSeconds),
-                            color = Color.White,
+                            color = if (isPaused) Color(0xFFFFD54F) else Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )

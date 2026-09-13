@@ -15,8 +15,10 @@ object NotificationHelper {
 
     const val CHANNEL_DAILY_CHALLENGES = "channel_daily_challenges"
     const val CHANNEL_UPDATES = "channel_updates"
+    const val CHANNEL_HOURLY_REMINDERS = "channel_hourly_reminders"
     const val NOTIFICATION_ID_UPDATE = 7701
     const val NOTIFICATION_ID_DAILY = 7702
+    const val NOTIFICATION_ID_HOURLY = 7703
 
     fun initialize(context: Context) {
         createNotificationChannels(context)
@@ -47,8 +49,19 @@ object NotificationHelper {
                 setShowBadge(true)
             }
 
+            val hourlyChannel = NotificationChannel(
+                CHANNEL_HOURLY_REMINDERS,
+                "Game Reminders & Hourly Deals",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Hourly reminders when you haven't played, offering fresh deals & rewards"
+                enableVibration(true)
+                setShowBadge(true)
+            }
+
             notificationManager.createNotificationChannel(dailyChannel)
             notificationManager.createNotificationChannel(updatesChannel)
+            notificationManager.createNotificationChannel(hourlyChannel)
         }
     }
 

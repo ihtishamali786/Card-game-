@@ -69,6 +69,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isTutorialActive = MutableStateFlow(false)
     val isTutorialActive: StateFlow<Boolean> = _isTutorialActive.asStateFlow()
 
+    private val _isGamePaused = MutableStateFlow(false)
+    val isGamePaused: StateFlow<Boolean> = _isGamePaused.asStateFlow()
+
     private var lastUserActionTime: Long = System.currentTimeMillis()
     private val undoStack = mutableListOf<GameMove>()
     private var timerJob: Job? = null
@@ -92,6 +95,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         isVegasScoring: Boolean = _userSettings.value.vegasScoring
     ) {
         timerJob?.cancel()
+        _isGamePaused.value = false
         undoStack.clear()
         _selectedLocation.value = null
         _validTargets.value = emptySet()
@@ -137,6 +141,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 _activeHint.value = null
                 _isAutoCompleting.value = false
                 _showWinDialog.value = false
+                _isGamePaused.value = false
                 _gameState.value = restored
                 startTimer()
             } else {
@@ -547,6 +552,41 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun awardSpinWinCoins(coins: Int) {
+        viewModelScope.launch {
+            userPrefs.addCoins(coins)
+        }
+    }
+
+    fun proceedToNextLevel() {
+        viewModelScope.launch {
+            // Cycle through backgrounds dynamically to change visual stage on next level
+            val allThemes = com.solitaire.hyper.card.games.ui.customization.CustomizationRegistry.backgrounds
+            val currentBgId = _userSettings.value.backgroundId
+            val currentIndex = allThemes.indexOfFirst { it.id == currentBgId }
+            val nextBg = if (currentIndex >= 0) {
+                allThemes[(currentIndex + 1) % allThemes.size]
+            } else {
+                allThemes.first()
+            }
+            userPrefs.updateBackground(nextBg.id)
+
+            // Also cycle card back for rich level identity
+            val allCardBacks = com.solitaire.hyper.card.games.ui.customization.CustomizationRegistry.cardBacks
+            val currentBackId = _userSettings.value.cardBackId
+            val backIndex = allCardBacks.indexOfFirst { it.id == currentBackId }
+            val nextBack = if (backIndex >= 0) {
+                allCardBacks[(backIndex + 1) % allCardBacks.size]
+            } else {
+                allCardBacks.first()
+            }
+            userPrefs.updateCardBack(nextBack.id)
+
+            // Start a new winnable level deal
+            startNewGame(mode = _gameState.value.gameMode, isWinnableDeal = true)
+        }
+    }
+
     fun dismissWinDialog() {
         _showWinDialog.value = false
     }
@@ -597,17 +637,39 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun pauseGame() {
+        if (_gameState.value.isGameWon) return
+        _isGamePaused.value = true
+        timerJob?.cancel()
+    }
+
+    fun resumeGame() {
+        if (_gameState.value.isGameWon) return
+        _isGamePaused.value = false
+        startTimer()
+    }
+
+    fun togglePause() {
+        if (_gameState.value.isGameWon) return
+        if (_isGamePaused.value) {
+            resumeGame()
+        } else {
+            pauseGame()
+        }
+    }
+
     private fun startTimer() {
         timerJob?.cancel()
+        if (_isGamePaused.value || _gameState.value.isGameWon) return
         lastUserActionTime = System.currentTimeMillis()
         timerJob = viewModelScope.launch {
-            while (!_gameState.value.isGameWon) {
+            while (!_gameState.value.isGameWon && !_isGamePaused.value) {
                 delay(1000)
                 _gameState.update { it.copy(elapsedTimeSeconds = it.elapsedTimeSeconds + 1) }
 
                 // Auto-Tutorial Idle Check: If user hasn't made a move for 12 seconds,
                 // automatically demonstrate the next legal move so beginners learn instantly!
-                if (!_isAutoCompleting.value && !_isTutorialActive.value && !_showWinDialog.value) {
+                if (!_isAutoCompleting.value && !_isTutorialActive.value && !_showWinDialog.value && !_isGamePaused.value) {
                     val idleMs = System.currentTimeMillis() - lastUserActionTime
                     if (idleMs >= 12_000L) {
                         val hint = SolitaireEngine.findHint(_gameState.value)

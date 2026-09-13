@@ -130,7 +130,7 @@ fun HomeScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Top Status Bar: Coins & Active VIP Badges
+            // Top Status Bar: Coins, Round "No Ads" Corner Button & VIP Badges
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -162,54 +162,49 @@ fun HomeScreen(
                     }
                 }
 
-                // Ad-Free Tokens & VIP status badges
+                // Top Right: Round "No Ads" Button + Status Badges
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Ad-Free Tokens Quick Pill
+                    // ⭐ ROUND CORNER BUTTON: "No Ads"
                     Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color(0xFF0F291E),
-                        border = BorderStroke(1.dp, SleekEmerald400.copy(alpha = 0.5f)),
-                        modifier = Modifier.clickable {
-                            if (userSettings.adFreeTokens > 0) {
-                                scope.launch {
-                                    userPrefs?.useAdFreeToken()
-                                    Toast.makeText(context, "⚡ Activated 30-min Ad-Free!", Toast.LENGTH_SHORT).show()
+                        shape = CircleShape,
+                        color = if (isAdFreeActive) Color(0xFF143026) else Color(0xFF2A1538),
+                        border = BorderStroke(1.2.dp, if (isAdFreeActive) SleekEmerald400 else Color(0xFFCE93D8)),
+                        modifier = Modifier
+                            .clickable {
+                                if (isAdFreeActive) {
+                                    Toast.makeText(context, "🛡️ Ad-Free Active: ${userSettings.getAdFreeRemainingMinutes()}m remaining", Toast.LENGTH_SHORT).show()
+                                } else if (userSettings.adFreeTokens > 0) {
+                                    scope.launch {
+                                        userPrefs?.useAdFreeToken()
+                                        Toast.makeText(context, "⚡ Activated 30-min Ad-Free!", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else if (userSettings.coins >= 1000) {
+                                    scope.launch {
+                                        val ok = userPrefs?.activateAdFreeOneHour() ?: false
+                                        if (ok) {
+                                            Toast.makeText(context, "1-Hour Ad-Free Activated!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                } else {
+                                    showShopDialog = true
                                 }
-                            } else {
-                                showShopDialog = true
                             }
-                        }
+                            .testTag("no_ads_round_button")
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("⚡", fontSize = 12.sp)
+                            Text(if (isAdFreeActive) "🛡️" else "🚫", fontSize = 12.sp)
                             Spacer(Modifier.width(4.dp))
                             Text(
-                                text = "${userSettings.adFreeTokens} Token${if (userSettings.adFreeTokens != 1) "s" else ""}",
-                                color = SleekEmerald400,
+                                text = if (isAdFreeActive) "${userSettings.getAdFreeRemainingMinutes()}m" else "No Ads",
+                                color = if (isAdFreeActive) SleekEmerald400 else Color(0xFFF3E8FF),
                                 fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    if (isAdFreeActive) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF143026),
-                            border = BorderStroke(1.dp, SleekEmerald400)
-                        ) {
-                            Text(
-                                text = "🛡️ ${userSettings.getAdFreeRemainingMinutes()}m",
-                                color = SleekEmerald400,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp)
+                                fontWeight = FontWeight.ExtraBold
                             )
                         }
                     }
@@ -293,124 +288,7 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 1-Hour Ad-Free & VIP Rewards Hub
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
-                shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🛡️", fontSize = 16.sp)
-                            Spacer(Modifier.width(8.dp))
-                            Column {
-                                Text("Remove Ads for 1 Hour", color = SleekSlate100, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text("Cost: 1,000 Coins", color = SleekSlate400, fontSize = 11.sp)
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                if (userPrefs != null) {
-                                    scope.launch {
-                                        if (userSettings.coins >= 1000) {
-                                            val ok = userPrefs.activateAdFreeOneHour()
-                                            if (ok) {
-                                                Toast.makeText(context, "1-Hour Ad-Free Activated!", Toast.LENGTH_SHORT).show()
-                                            }
-                                        } else {
-                                            Toast.makeText(context, "Need 1,000 Coins! Watch videos to earn coins.", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isAdFreeActive) Color(0xFF143026) else Color(0xFF2A1C40)
-                            ),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.height(34.dp)
-                        ) {
-                            Text(
-                                if (isAdFreeActive) "Active" else "Pay 1000🪙",
-                                color = if (isAdFreeActive) SleekEmerald400 else Color(0xFFCE93D8),
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(10.dp))
-
-                    // 5 Video Ads for VIP Pass
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("👑 1-Hour 3D VIP Pass", color = Color(0xFFFFD700), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text(
-                                if (isVipActive) "All 3D themes unlocked (${userSettings.getVipRemainingMinutes()}m left)"
-                                else "Watch 5 video ads to unlock (${userSettings.rewardedAdsWatchedForVip}/5 watched)",
-                                color = SleekSlate300,
-                                fontSize = 11.sp
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            LinearProgressIndicator(
-                                progress = { if (isVipActive) 1f else (userSettings.rewardedAdsWatchedForVip / 5f) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(4.dp)
-                                    .clip(RoundedCornerShape(2.dp)),
-                                color = Color(0xFFFFD700),
-                                trackColor = Color.White.copy(alpha = 0.1f)
-                            )
-                        }
-
-                        Spacer(Modifier.width(10.dp))
-
-                        if (!isVipActive) {
-                            Button(
-                                onClick = {
-                                    if (activity != null && userPrefs != null) {
-                                        AdManager.showRewardedAd(
-                                            activity = activity,
-                                            onRewardEarned = {
-                                                scope.launch {
-                                                    val vipUnlocked = userPrefs.recordRewardedAdForVip()
-                                                    if (vipUnlocked) {
-                                                        Toast.makeText(context, "🎉 1-Hour 3D VIP Pass Unlocked!", Toast.LENGTH_LONG).show()
-                                                    } else {
-                                                        Toast.makeText(context, "Watched ad towards VIP pass!", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }
-                                            },
-                                            onDismissOrFailed = {
-                                                // No VIP progress awarded if video ad was not watched completely or was blocked
-                                            }
-                                        )
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5C4708)),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier.height(34.dp)
-                            ) {
-                                Text("Watch Ad", color = Color(0xFFFFD700), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Store & VIP Featured Card
+            // VIP Rewards & Store Card (Clean, luxurious layout)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -459,99 +337,30 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Daily Challenge Featured Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable(onClick = onDailyChallenge)
-                    .testTag("daily_challenge_card"),
-                colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .background(SleekEmerald400, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.DateRange, contentDescription = null, tint = SleekHeaderDark)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text("Daily Challenge", color = SleekSlate100, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(currentDateStr, color = SleekSlate400, fontSize = 12.sp)
-                        }
-                    }
-                    Text("PLAY ›", color = SleekEmerald400, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // How to Play Quick Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable(onClick = { showRulesDialog = true })
-                    .testTag("rules_card"),
-                colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
-                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(Color(0xFF3B82F6).copy(alpha = 0.2f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.MenuBook, contentDescription = null, tint = Color(0xFF60A5FA), modifier = Modifier.size(20.dp))
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text("Rules & How to Play", color = SleekSlate100, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("Moves, gestures, scoring & boosters", color = SleekSlate400, fontSize = 11.sp)
-                        }
-                    }
-                    Text("VIEW ›", color = Color(0xFF60A5FA), fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
-            }
-
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Navigation Grid: Themes, Statistics, Settings
+            // Navigation Grid: Themes, Daily Challenge, Statistics, Settings
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 HomeMenuItem(
                     modifier = Modifier.weight(1f),
-                    title = "3D Themes",
+                    title = "Themes",
                     icon = Icons.Default.Palette,
                     testTag = "nav_themes",
                     onClick = onCustomization
                 )
                 HomeMenuItem(
                     modifier = Modifier.weight(1f),
-                    title = "Statistics",
+                    title = "Daily Deal",
+                    icon = Icons.Default.DateRange,
+                    testTag = "daily_challenge_card",
+                    onClick = onDailyChallenge
+                )
+                HomeMenuItem(
+                    modifier = Modifier.weight(1f),
+                    title = "Stats",
                     icon = Icons.Default.BarChart,
                     testTag = "nav_statistics",
                     onClick = onStatistics

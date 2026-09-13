@@ -18,8 +18,9 @@ class SolitaireApp : Application() {
         // 1. Initialize AdMob Ads safely
         AdManager.initialize(this)
 
-        // 2. Initialize Notification Channels & Push
+        // 2. Initialize Notification Channels, OneSignal & Schedule Hourly Reminders
         NotificationHelper.initialize(this)
+        com.solitaire.hyper.card.games.notifications.NotificationScheduler.recordUserActivity(this)
 
         // 3. Pre-warm database
         CoroutineScope(Dispatchers.IO).launch {

@@ -220,6 +220,73 @@ object CustomizationRegistry {
             isPremium = true,
             coinCost = 900,
             is3D = true
+        ),
+        // Master Luxury Collection
+        BackgroundTheme(
+            id = "EMERALD_ROYALE",
+            name = "Emerald Royale",
+            primaryColor = Color(0xFF082218),
+            brush = Brush.radialGradient(
+                listOf(Color(0xFF15533A), Color(0xFF0A3322), Color(0xFF062015), Color(0xFF020D08))
+            ),
+            isPremium = true,
+            coinCost = 500,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "OBSIDIAN_PALACE",
+            name = "Obsidian Palace",
+            primaryColor = Color(0xFF0D1117),
+            brush = Brush.radialGradient(
+                listOf(Color(0xFF21262D), Color(0xFF161B22), Color(0xFF0D1117), Color(0xFF010409))
+            ),
+            isPremium = true,
+            coinCost = 550,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "MIDNIGHT_SAPPHIRE",
+            name = "Midnight Sapphire",
+            primaryColor = Color(0xFF071D49),
+            brush = Brush.radialGradient(
+                listOf(Color(0xFF1E3A8A), Color(0xFF0F2557), Color(0xFF071536), Color(0xFF020718))
+            ),
+            isPremium = true,
+            coinCost = 600,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "MONTE_CARLO_RED",
+            name = "Monte Carlo Velvet",
+            primaryColor = Color(0xFF4A0E17),
+            brush = Brush.radialGradient(
+                listOf(Color(0xFF881337), Color(0xFF5B0C1E), Color(0xFF33050F), Color(0xFF160105))
+            ),
+            isPremium = true,
+            coinCost = 650,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "ROYAL_AMETHYST",
+            name = "Royal Amethyst Lounge",
+            primaryColor = Color(0xFF3B0764),
+            brush = Brush.radialGradient(
+                listOf(Color(0xFF6B21A8), Color(0xFF4C0B78), Color(0xFF2A0347), Color(0xFF120120))
+            ),
+            isPremium = true,
+            coinCost = 700,
+            is3D = true
+        ),
+        BackgroundTheme(
+            id = "VINTAGE_MAHOGANY",
+            name = "Vintage Mahogany Club",
+            primaryColor = Color(0xFF2C1810),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF452214), Color(0xFF32160C), Color(0xFF210E07), Color(0xFF100603))
+            ),
+            isPremium = true,
+            coinCost = 750,
+            is3D = true
         )
     )
 
