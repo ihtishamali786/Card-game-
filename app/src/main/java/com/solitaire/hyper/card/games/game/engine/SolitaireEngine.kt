@@ -38,7 +38,11 @@ object SolitaireEngine {
     )
 
     /**
-     * Initializes a brand new Klondike deal.
+     * Initializes a brand new standard Klondike deal:
+     * - 7 tableau columns (col 0: 1 card, col 1: 2 cards, ..., col 6: 7 cards).
+     * - Only top card of each column is face-up.
+     * - 24 remaining cards into the stock face-down.
+     * - 4 empty foundations.
      */
     fun newGame(
         gameMode: GameMode = GameMode.DRAW_1,
@@ -61,12 +65,11 @@ object SolitaireEngine {
         val tableau = List(7) { ArrayList<Card>() }
         var deckIndex = 0
 
-        // Deal 7 columns: col i has i+1 cards, top card is face-up
+        // Deal 7 columns: col i has i+1 cards, only top card is face-up
         for (col in 0 until 7) {
             for (row in 0..col) {
                 val card = deck[deckIndex++]
-                val isTop = (row == col)
-                tableau[col].add(card.copy(isFaceUp = isTop))
+                tableau[col].add(card.copy(isFaceUp = (row == col)))
             }
         }
 

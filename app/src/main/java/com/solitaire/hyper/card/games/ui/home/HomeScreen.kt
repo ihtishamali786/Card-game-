@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -71,6 +72,7 @@ import com.solitaire.hyper.card.games.ui.theme.SleekGradientBottom
 import com.solitaire.hyper.card.games.ui.theme.SleekGradientTop
 import com.solitaire.hyper.card.games.ui.theme.SleekHeaderDark
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate100
+import com.solitaire.hyper.card.games.ui.theme.SleekSlate200
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate400
 import kotlinx.coroutines.launch
@@ -264,26 +266,74 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ONLY ONE MAIN ACTION BUTTON: CONTINUE GAME (Strictly as user requested)
-            Button(
-                onClick = onContinueGame,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .testTag("continue_game_button"),
-                colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = if (hasSavedGame) "CONTINUE GAME" else "CONTINUE GAME",
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.sp
-                )
+            // Main Action Buttons
+            if (hasSavedGame) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onContinueGame,
+                        modifier = Modifier
+                            .weight(1.3f)
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .testTag("continue_game_button"),
+                        colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                    ) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "CONTINUE",
+                            color = Color.White,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onPlayDraw1,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .testTag("new_deal_button"),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.06f)
+                        ),
+                        border = BorderStroke(1.dp, SleekEmerald400.copy(alpha = 0.5f))
+                    ) {
+                        Text(
+                            text = "NEW DEAL",
+                            color = SleekEmerald400,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onPlayDraw1,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .testTag("continue_game_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "PLAY KLONDIKE",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

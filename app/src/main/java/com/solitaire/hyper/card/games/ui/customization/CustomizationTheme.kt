@@ -62,6 +62,7 @@ data class CardBackTheme(
  * Card face styles representing each artistic deck design.
  */
 enum class CardFaceStyle {
+    SENIOR_CLASSIC,  // Senior Friendly & Large Cards (matching user photos: [Rank][Suit] side-by-side, large center pips, classic royal court King/Queen/Jack)
     CRIMSON_ANVIL,   // Photo 3: Main default! Ivory canvas, ink-black & blood crimson geometric court
     SILVER_DRAGON,   // Photo 1: Metallic chrome-silver brushed finish, dark armor King & metallic pips
     GOLDEN_HEARTS,   // Photo 2: 24K gold foil textured canvas, ruby red indices & gleaming hearts
@@ -474,7 +475,17 @@ object CustomizationRegistry {
     )
 
     val cardFaces = listOf(
-        // ⭐ 1. PHOTO 3: Crimson Anvil Royal Forge (Main Board Default Card Face)
+        // ⭐ 1. Senior Friendly Classic (Authentic Solitaire with [Rank][Suit] side-by-side & Royal Court Art)
+        CardFaceTheme(
+            id = "FACE_SENIOR_CLASSIC",
+            name = "Senior Friendly Classic",
+            fontStyleName = "Large High-Contrast",
+            highContrast = true,
+            isPremium = false,
+            coinCost = 0,
+            style = CardFaceStyle.SENIOR_CLASSIC
+        ),
+        // 2. Crimson Anvil Royal Forge
         CardFaceTheme(
             id = "FACE_CRIMSON_ANVIL",
             name = "Crimson Anvil Forge",

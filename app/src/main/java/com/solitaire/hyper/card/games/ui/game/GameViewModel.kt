@@ -129,7 +129,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         soundManager.playShuffle()
     }
 
-    fun restoreSavedGameOrNew(defaultMode: GameMode = GameMode.DRAW_1) {
+    fun restoreSavedGameOrNew(
+        defaultMode: GameMode = GameMode.DRAW_1
+    ) {
         viewModelScope.launch {
             val savedJson = _userSettings.value.savedGameJson
             val restored = GameStateSerializer.deserialize(savedJson)
@@ -237,7 +239,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     _selectedLocation.value = null
                     _validTargets.value = emptySet()
                     _statusMessage.value = "✓ Placed $cardName"
-                    soundManager.playCardMove()
+                    val isToFoundation = (quickMove.second as? GameMove.CardMove)?.to is CardLocation.Foundation
+                    if (isToFoundation) {
+                        soundManager.playFoundationSnap()
+                    } else {
+                        soundManager.playCardMove()
+                    }
                     checkWinOrSave()
                 } else {
                     // No quick move available - select and highlight valid targets
@@ -273,7 +280,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                     _selectedLocation.value = null
                     _validTargets.value = emptySet()
                     _statusMessage.value = "✓ Moved $cardName"
-                    soundManager.playCardMove()
+                    if (location is CardLocation.Foundation) {
+                        soundManager.playFoundationSnap()
+                    } else {
+                        soundManager.playCardMove()
+                    }
                     checkWinOrSave()
                 } else {
                     // Could not move selected card here; check if user wants to play or select the new card
@@ -287,7 +298,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                             _selectedLocation.value = null
                             _validTargets.value = emptySet()
                             _statusMessage.value = "✓ Placed $cardName"
-                            soundManager.playCardMove()
+                            val isToFoundation = (quickMove.second as? GameMove.CardMove)?.to is CardLocation.Foundation
+                            if (isToFoundation) {
+                                soundManager.playFoundationSnap()
+                            } else {
+                                soundManager.playCardMove()
+                            }
                             checkWinOrSave()
                         } else {
                             _selectedLocation.value = location
@@ -681,6 +697,40 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+    }
+
+    /**
+     * Restarts the current deal with identical seed.
+     */
+    fun restartCurrentGame() {
+        val current = _gameState.value
+        timerJob?.cancel()
+        _isGamePaused.value = false
+        undoStack.clear()
+        _selectedLocation.value = null
+        _validTargets.value = emptySet()
+        _statusMessage.value = "Deal restarted"
+        _activeHint.value = null
+        _tutorialHint.value = null
+        _isTutorialActive.value = false
+        lastUserActionTime = System.currentTimeMillis()
+        _isAutoCompleting.value = false
+        _showWinDialog.value = false
+        usedHints = false
+
+        val freshState = SolitaireEngine.newGame(
+            gameMode = current.gameMode,
+            seed = current.seed,
+            isDailyChallenge = current.isDailyChallenge,
+            challengeDate = current.challengeDate,
+            isWinnableDeal = current.isWinnableDeal,
+            isVegasScoring = current.isVegasScoring
+        )
+
+        _gameState.value = freshState
+        saveActiveGame()
+        startTimer()
+        soundManager.playShuffle()
     }
 
     private fun saveActiveGame() {

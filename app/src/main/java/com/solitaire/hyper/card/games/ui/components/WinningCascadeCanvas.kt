@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +67,7 @@ import com.solitaire.hyper.card.games.ui.theme.SleekEmerald400
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
 import com.solitaire.hyper.card.games.ui.theme.SleekHeaderDark
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
@@ -325,11 +328,21 @@ fun WinningCascadeCanvas(
                             Spacer(Modifier.height(8.dp))
 
                             // Wheel graphic & needle pointer
+                            val textPaint = remember {
+                                android.graphics.Paint().apply {
+                                    color = android.graphics.Color.WHITE
+                                    textSize = 28f
+                                    typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                                    textAlign = android.graphics.Paint.Align.CENTER
+                                    setShadowLayer(4f, 0f, 1.5f, android.graphics.Color.BLACK)
+                                }
+                            }
+
                             Box(
-                                modifier = Modifier.size(110.dp),
+                                modifier = Modifier.size(160.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Canvas(modifier = Modifier.size(100.dp)) {
+                                Canvas(modifier = Modifier.size(150.dp)) {
                                     val radius = size.minDimension / 2f
                                     val center = Offset(size.width / 2f, size.height / 2f)
                                     val sweep = 360f / prizeSegments.size
@@ -360,6 +373,19 @@ fun WinningCascadeCanvas(
                                             end = Offset(endX, endY),
                                             strokeWidth = 1.5f
                                         )
+
+                                        // Coin prize value text drawn boldly inside the sector
+                                        val midAngle = startAngle + sweep / 2f
+                                        rotate(degrees = midAngle, pivot = center) {
+                                            drawIntoCanvas { canvas ->
+                                                canvas.nativeCanvas.drawText(
+                                                    "${prizeSegments[i]}",
+                                                    center.x + radius * 0.62f,
+                                                    center.y + (textPaint.textSize * 0.35f),
+                                                    textPaint
+                                                )
+                                            }
+                                        }
                                     }
 
                                     // Gold outer rim
@@ -372,12 +398,12 @@ fun WinningCascadeCanvas(
                                     // Center hub
                                     drawCircle(
                                         color = Color(0xFF1E293B),
-                                        radius = radius * 0.26f,
+                                        radius = radius * 0.22f,
                                         center = center
                                     )
                                     drawCircle(
                                         color = Color(0xFFFFD700),
-                                        radius = radius * 0.26f,
+                                        radius = radius * 0.22f,
                                         center = center,
                                         style = Stroke(width = 2.dp.toPx())
                                     )
@@ -387,7 +413,7 @@ fun WinningCascadeCanvas(
                                 Text(
                                     text = "▼",
                                     color = Color(0xFFFFD700),
-                                    fontSize = 18.sp,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.Black,
                                     modifier = Modifier
                                         .align(Alignment.TopCenter)
@@ -410,7 +436,16 @@ fun WinningCascadeCanvas(
                                         if (!isSpinning && !hasSpun) {
                                             isSpinning = true
                                             spinScope.launch {
-                                                soundManager?.playSpinTick()
+                                                // Rhythmic ratchet ticking sound while wheel spins
+                                                val tickJob = launch {
+                                                    var delayMs = 55L
+                                                    while (isSpinning) {
+                                                        soundManager?.playSpinTick()
+                                                        delay(delayMs)
+                                                        delayMs = (delayMs * 1.075f).toLong().coerceAtMost(320L)
+                                                    }
+                                                }
+
                                                 val randomSector = Random.nextInt(prizeSegments.size)
                                                 val sectorAngle = 360f / prizeSegments.size
                                                 // Needle at top (270 degrees). Target sector should align to 270 deg.
@@ -424,6 +459,7 @@ fun WinningCascadeCanvas(
                                                         easing = FastOutSlowInEasing
                                                     )
                                                 )
+                                                tickJob.cancel()
                                                 val wonCoins = prizeSegments[randomSector]
                                                 spunRewardCoins = wonCoins
                                                 hasSpun = true

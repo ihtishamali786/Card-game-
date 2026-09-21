@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -176,8 +178,8 @@ fun CardFaceView(
 
     // 1. Theme-specific colors
     val textColor = when (style) {
-        CardFaceStyle.CRIMSON_ANVIL -> {
-            if (card.color == CardColor.RED) Color(0xFF8B0000) else Color(0xFF141414)
+        CardFaceStyle.SENIOR_CLASSIC, CardFaceStyle.CRIMSON_ANVIL, CardFaceStyle.STANDARD -> {
+            if (card.color == CardColor.RED) Color(0xFFD32F2F) else Color(0xFF111827)
         }
         CardFaceStyle.SILVER_DRAGON -> {
             if (card.color == CardColor.RED) Color(0xFFB91C1C) else Color(0xFF111827)
@@ -197,25 +199,20 @@ fun CardFaceView(
         CardFaceStyle.MODERN_POPART -> {
             if (card.color == CardColor.RED) Color(0xFFFF1744) else Color(0xFF0F172A)
         }
-        CardFaceStyle.STANDARD -> {
-            if (card.color == CardColor.RED) Color(0xFFD32F2F) else Color(0xFF1E2124)
-        }
     }
 
     val fontFamily = when (style) {
-        CardFaceStyle.CRIMSON_ANVIL, CardFaceStyle.VINTAGE_TAVERN, CardFaceStyle.BAROQUE_ACES -> FontFamily.Serif
+        CardFaceStyle.VINTAGE_TAVERN, CardFaceStyle.BAROQUE_ACES -> FontFamily.Serif
         else -> FontFamily.SansSerif
     }
 
-    // Indices sizing
-    val cornerRankSize = if (largePrint) 16.sp else 13.5.sp
-    val cornerRankLineHeight = if (largePrint) 16.sp else 13.5.sp
-    val cornerSuitSize = if (largePrint) 14.sp else 12.sp
-    val cornerSuitLineHeight = if (largePrint) 14.sp else 12.sp
+    // Indices sizing - Clear & Bold matching authentic game screenshots
+    val cornerRankSize = if (largePrint) 23.sp else 19.5.sp
+    val cornerRankLineHeight = if (largePrint) 24.sp else 20.sp
 
     // Background modifier
     val bgModifier = when (style) {
-        CardFaceStyle.CRIMSON_ANVIL -> Modifier.background(Color(0xFFFAF7F2))
+        CardFaceStyle.SENIOR_CLASSIC, CardFaceStyle.CRIMSON_ANVIL -> Modifier.background(Color.White)
         CardFaceStyle.SILVER_DRAGON -> Modifier.background(
             Brush.linearGradient(listOf(Color(0xFFE8E8EC), Color(0xFFFFFFFF), Color(0xFFD1D5DB), Color(0xFFE5E7EB)))
         )
@@ -226,7 +223,7 @@ fun CardFaceView(
         CardFaceStyle.BAROQUE_ACES -> Modifier.background(Color(0xFFFAF7EE))
         CardFaceStyle.AZTEC_MANDALA -> Modifier.background(Color(0xFFFCFCFC))
         CardFaceStyle.MODERN_POPART -> Modifier.background(Color(0xFFFFFFFF))
-        CardFaceStyle.STANDARD -> Modifier.background(Color(0xFFFCFCFC))
+        CardFaceStyle.STANDARD -> Modifier.background(Color.White)
     }
 
     Box(
@@ -237,27 +234,19 @@ fun CardFaceView(
     ) {
         // Theme framing line & ornaments
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val pad = 1.5.dp.toPx()
+            val pad = 1.2.dp.toPx()
             val w = size.width - 2 * pad
             val h = size.height - 2 * pad
 
             when (style) {
-                CardFaceStyle.CRIMSON_ANVIL -> {
-                    // Photo 3: Sharp black outer border with crimson inner hairline
+                CardFaceStyle.SENIOR_CLASSIC, CardFaceStyle.CRIMSON_ANVIL, CardFaceStyle.STANDARD -> {
+                    // Crisp clean border framing the card surface
                     drawRoundRect(
-                        color = Color(0xFF141414),
+                        color = Color(0x18000000),
                         topLeft = Offset(pad, pad),
                         size = Size(w, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.9.dp.toPx())
-                    )
-                    val inPad = pad + 2.dp.toPx()
-                    drawRoundRect(
-                        color = Color(0xFF8B0000).copy(alpha = 0.55f),
-                        topLeft = Offset(inPad, inPad),
-                        size = Size(size.width - 2 * inPad, size.height - 2 * inPad),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx()),
-                        style = Stroke(width = 0.5.dp.toPx())
+                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                        style = Stroke(width = 0.6.dp.toPx())
                     )
                 }
                 CardFaceStyle.SILVER_DRAGON -> {
@@ -265,7 +254,7 @@ fun CardFaceView(
                         color = Color(0xFF9CA3AF),
                         topLeft = Offset(pad, pad),
                         size = Size(w, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
                         style = Stroke(width = 0.7.dp.toPx())
                     )
                 }
@@ -274,7 +263,7 @@ fun CardFaceView(
                         color = Color(0xFFB45309).copy(alpha = 0.7f),
                         topLeft = Offset(pad, pad),
                         size = Size(w, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
                         style = Stroke(width = 0.8.dp.toPx())
                     )
                 }
@@ -283,7 +272,7 @@ fun CardFaceView(
                         color = Color(0xFF781824).copy(alpha = 0.45f),
                         topLeft = Offset(pad, pad),
                         size = Size(w, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx()),
+                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
                         style = Stroke(width = 0.8.dp.toPx())
                     )
                 }
@@ -292,7 +281,7 @@ fun CardFaceView(
                         color = Color(0xFFB8860B).copy(alpha = 0.65f),
                         topLeft = Offset(pad, pad),
                         size = Size(w, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
                         style = Stroke(width = 0.9.dp.toPx())
                     )
                 }
@@ -301,7 +290,7 @@ fun CardFaceView(
                         color = Color(0xFF1F2937).copy(alpha = 0.4f),
                         topLeft = Offset(pad, pad),
                         size = Size(w, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
                         style = Stroke(width = 0.6.dp.toPx())
                     )
                 }
@@ -310,28 +299,18 @@ fun CardFaceView(
                         color = Color(0xFF00E5FF).copy(alpha = 0.5f),
                         topLeft = Offset(pad, pad),
                         size = Size(w, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
                         style = Stroke(width = 0.7.dp.toPx())
-                    )
-                }
-                CardFaceStyle.STANDARD -> {
-                    drawRoundRect(
-                        color = Color(0x14000000),
-                        topLeft = Offset(pad, pad),
-                        size = Size(w, h),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.5.dp.toPx())
                     )
                 }
             }
         }
 
-        // Top-Left Index (Rank only - top suit sign removed per user instruction)
-        Column(
+        // Top-Left Index: Bold attractive rank only (no small suit sign, only single sign in card center)
+        Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(start = 2.5.dp, top = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(start = 3.5.dp, top = 2.dp)
         ) {
             Text(
                 text = card.rank.display,
@@ -343,274 +322,50 @@ fun CardFaceView(
             )
         }
 
-        // Center Illustration / Emblems (The ONLY suit sign on the entire card, bold and enlarged)
+        // Center Illustration / Emblems (Single Bold Sign for all cards: J, Q, K, A, and numbers)
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             when {
-                // Royalty Court Cards (King, Queen, Jack)
-                card.rank in listOf(Rank.JACK, Rank.QUEEN, Rank.KING) -> {
-                    CourtCardCenterView(card = card, cardFace = cardFace, textColor = textColor, largePrint = largePrint)
-                }
-                // Ace Cards
+                // Ace Cards: Large prominent bold suit symbol
                 card.rank == Rank.ACE -> {
                     AceCardCenterView(card = card, cardFace = cardFace, textColor = textColor, largePrint = largePrint)
                 }
-                // Number Cards
+                // Court Royalty Cards (Jack, Queen, King): Single bold suit sign (no picture/portrait)
+                card.rank in listOf(Rank.JACK, Rank.QUEEN, Rank.KING) -> {
+                    Text(
+                        text = card.suit.symbol,
+                        color = textColor,
+                        fontSize = if (largePrint) 28.sp else 24.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                // Number Cards (2 to 10): Single bold suit sign
                 else -> {
                     NumberCardCenterView(card = card, cardFace = cardFace, textColor = textColor, largePrint = largePrint)
                 }
             }
         }
 
-        // Bottom-Right Index (Rank only - bottom suit sign removed per user instruction)
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 2.5.dp, bottom = 2.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = card.rank.display,
-                color = textColor,
-                fontSize = cornerRankSize,
-                fontWeight = FontWeight.Black,
-                fontFamily = fontFamily,
-                lineHeight = cornerRankLineHeight
-            )
-        }
-    }
-}
-
-/**
- * Full-Card Authentic Center Art for Court Cards (K, Q, J) reflecting real playing card portraits.
- */
-@Composable
-private fun CourtCardCenterView(
-    card: Card,
-    cardFace: CardFaceTheme,
-    textColor: Color,
-    largePrint: Boolean
-) {
-    val isRed = card.color == CardColor.RED
-    val primaryGold = Color(0xFFD4AF37)
-    val royalCrimson = if (isRed) Color(0xFF9E1B32) else Color(0xFF1E3A8A)
-    val mantleDark = if (isRed) Color(0xFF5A0D1B) else Color(0xFF0F172A)
-    val faceSkin = Color(0xFFFFF1DC)
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        // 1. Full-Card Symmetrical Canvas Portrait
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = size.width
-            val h = size.height
-            val cx = w / 2f
-            val cy = h / 2f
-
-            // Outer Court Frame
-            drawRoundRect(
-                color = primaryGold.copy(alpha = 0.5f),
-                topLeft = Offset(0f, 0f),
-                size = Size(w, h),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                style = Stroke(width = 1.dp.toPx())
-            )
-
-            // Ornate Inner Framing
-            drawRect(
-                color = primaryGold.copy(alpha = 0.25f),
-                topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
-                size = Size(w - 4.dp.toPx(), h - 4.dp.toPx()),
-                style = Stroke(width = 0.8.dp.toPx())
-            )
-
-            // Symmetrical Split Line
-            drawLine(
-                color = primaryGold.copy(alpha = 0.45f),
-                start = Offset(4.dp.toPx(), cy),
-                end = Offset(w - 4.dp.toPx(), cy),
-                strokeWidth = 1.dp.toPx()
-            )
-
-            // Top Bust
-            val topH = cy * 0.9f
-            val bustPathTop = Path().apply {
-                moveTo(cx - w * 0.38f, cy - 2.dp.toPx())
-                lineTo(cx - w * 0.32f, cy - topH * 0.65f)
-                lineTo(cx - w * 0.16f, cy - topH * 0.90f)
-                lineTo(cx + w * 0.16f, cy - topH * 0.90f)
-                lineTo(cx + w * 0.32f, cy - topH * 0.65f)
-                lineTo(cx + w * 0.38f, cy - 2.dp.toPx())
-                close()
+        // Bottom-Right Index: Kept clean white for authentic Senior Friendly / Large card layout
+        if (style != CardFaceStyle.SENIOR_CLASSIC && style != CardFaceStyle.CRIMSON_ANVIL && style != CardFaceStyle.STANDARD) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 2.5.dp, bottom = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = card.rank.display,
+                    color = textColor,
+                    fontSize = cornerRankSize * 0.85f,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = fontFamily,
+                    lineHeight = cornerRankLineHeight
+                )
             }
-            drawPath(bustPathTop, color = royalCrimson)
-            drawPath(bustPathTop, color = primaryGold.copy(alpha = 0.8f), style = Stroke(width = 0.9.dp.toPx()))
-
-            // Mantle Robe Inset (Top)
-            val mantlePathTop = Path().apply {
-                moveTo(cx - w * 0.22f, cy - 2.dp.toPx())
-                lineTo(cx - w * 0.14f, cy - topH * 0.70f)
-                lineTo(cx, cy - topH * 0.45f)
-                lineTo(cx + w * 0.14f, cy - topH * 0.70f)
-                lineTo(cx + w * 0.22f, cy - 2.dp.toPx())
-                close()
-            }
-            drawPath(mantlePathTop, color = mantleDark)
-
-            // Top Head
-            val headRadius = minOf(w * 0.16f, topH * 0.22f)
-            val headCenterTop = Offset(cx, cy - topH * 0.65f)
-            drawCircle(color = faceSkin, radius = headRadius, center = headCenterTop)
-            drawCircle(color = primaryGold, radius = headRadius, center = headCenterTop, style = Stroke(width = 0.8.dp.toPx()))
-
-            // Crown / Diadem / Helmet (Top)
-            when (card.rank) {
-                Rank.KING -> {
-                    // King's 3-point Royal Crown
-                    val crownPath = Path().apply {
-                        val baseY = headCenterTop.y - headRadius * 0.7f
-                        val peakY = baseY - headRadius * 0.8f
-                        moveTo(headCenterTop.x - headRadius * 1.1f, baseY)
-                        lineTo(headCenterTop.x - headRadius * 1.1f, peakY)
-                        lineTo(headCenterTop.x - headRadius * 0.5f, baseY - headRadius * 0.3f)
-                        lineTo(headCenterTop.x, peakY - headRadius * 0.2f)
-                        lineTo(headCenterTop.x + headRadius * 0.5f, baseY - headRadius * 0.3f)
-                        lineTo(headCenterTop.x + headRadius * 1.1f, peakY)
-                        lineTo(headCenterTop.x + headRadius * 1.1f, baseY)
-                        close()
-                    }
-                    drawPath(crownPath, color = primaryGold)
-                }
-                Rank.QUEEN -> {
-                    // Queen's Tiara & Floral Veil
-                    val tiaraPath = Path().apply {
-                        val baseY = headCenterTop.y - headRadius * 0.7f
-                        val peakY = baseY - headRadius * 0.65f
-                        moveTo(headCenterTop.x - headRadius, baseY)
-                        lineTo(headCenterTop.x, peakY)
-                        lineTo(headCenterTop.x + headRadius, baseY)
-                        close()
-                    }
-                    drawPath(tiaraPath, color = primaryGold)
-                    drawCircle(color = if (isRed) Color(0xFFFF4081) else Color(0xFF60A5FA), radius = headRadius * 0.35f, center = Offset(headCenterTop.x, headCenterTop.y - headRadius * 0.8f))
-                }
-                Rank.JACK -> {
-                    // Jack's Soldier Helmet / Feathered Beret
-                    val hatPath = Path().apply {
-                        val baseY = headCenterTop.y - headRadius * 0.7f
-                        val topCapY = baseY - headRadius * 0.55f
-                        moveTo(headCenterTop.x - headRadius * 1.1f, baseY)
-                        lineTo(headCenterTop.x - headRadius * 0.8f, topCapY)
-                        lineTo(headCenterTop.x + headRadius * 0.8f, topCapY)
-                        lineTo(headCenterTop.x + headRadius * 1.1f, baseY)
-                        close()
-                    }
-                    drawPath(hatPath, color = mantleDark)
-                    // Feather plume
-                    drawLine(
-                        color = Color(0xFFFFD700),
-                        start = Offset(headCenterTop.x + headRadius * 0.5f, headCenterTop.y - headRadius),
-                        end = Offset(headCenterTop.x + headRadius * 1.2f, headCenterTop.y - headRadius * 1.4f),
-                        strokeWidth = 1.5.dp.toPx()
-                    )
-                }
-                else -> {}
-            }
-
-            // Symmetrical Bottom Inverted Bust
-            val bustPathBottom = Path().apply {
-                moveTo(cx - w * 0.38f, cy + 2.dp.toPx())
-                lineTo(cx - w * 0.32f, cy + topH * 0.65f)
-                lineTo(cx - w * 0.16f, cy + topH * 0.90f)
-                lineTo(cx + w * 0.16f, cy + topH * 0.90f)
-                lineTo(cx + w * 0.32f, cy + topH * 0.65f)
-                lineTo(cx + w * 0.38f, cy + 2.dp.toPx())
-                close()
-            }
-            drawPath(bustPathBottom, color = royalCrimson)
-            drawPath(bustPathBottom, color = primaryGold.copy(alpha = 0.8f), style = Stroke(width = 0.9.dp.toPx()))
-
-            // Mantle Robe Inset (Bottom)
-            val mantlePathBottom = Path().apply {
-                moveTo(cx - w * 0.22f, cy + 2.dp.toPx())
-                lineTo(cx - w * 0.14f, cy + topH * 0.70f)
-                lineTo(cx, cy + topH * 0.45f)
-                lineTo(cx + w * 0.14f, cy + topH * 0.70f)
-                lineTo(cx + w * 0.22f, cy + 2.dp.toPx())
-                close()
-            }
-            drawPath(mantlePathBottom, color = mantleDark)
-
-            // Bottom Head
-            val headCenterBottom = Offset(cx, cy + topH * 0.65f)
-            drawCircle(color = faceSkin, radius = headRadius, center = headCenterBottom)
-            drawCircle(color = primaryGold, radius = headRadius, center = headCenterBottom, style = Stroke(width = 0.8.dp.toPx()))
-
-            // Bottom Crown / Tiara
-            when (card.rank) {
-                Rank.KING -> {
-                    val crownPath = Path().apply {
-                        val baseY = headCenterBottom.y + headRadius * 0.7f
-                        val peakY = baseY + headRadius * 0.8f
-                        moveTo(headCenterBottom.x - headRadius * 1.1f, baseY)
-                        lineTo(headCenterBottom.x - headRadius * 1.1f, peakY)
-                        lineTo(headCenterBottom.x - headRadius * 0.5f, baseY + headRadius * 0.3f)
-                        lineTo(headCenterBottom.x, peakY + headRadius * 0.2f)
-                        lineTo(headCenterBottom.x + headRadius * 0.5f, baseY + headRadius * 0.3f)
-                        lineTo(headCenterBottom.x + headRadius * 1.1f, peakY)
-                        lineTo(headCenterBottom.x + headRadius * 1.1f, baseY)
-                        close()
-                    }
-                    drawPath(crownPath, color = primaryGold)
-                }
-                Rank.QUEEN -> {
-                    val tiaraPath = Path().apply {
-                        val baseY = headCenterBottom.y + headRadius * 0.7f
-                        val peakY = baseY + headRadius * 0.65f
-                        moveTo(headCenterBottom.x - headRadius, baseY)
-                        lineTo(headCenterBottom.x, peakY)
-                        lineTo(headCenterBottom.x + headRadius, baseY)
-                        close()
-                    }
-                    drawPath(tiaraPath, color = primaryGold)
-                    drawCircle(color = if (isRed) Color(0xFFFF4081) else Color(0xFF60A5FA), radius = headRadius * 0.35f, center = Offset(headCenterBottom.x, headCenterBottom.y + headRadius * 0.8f))
-                }
-                Rank.JACK -> {
-                    val hatPath = Path().apply {
-                        val baseY = headCenterBottom.y + headRadius * 0.7f
-                        val topCapY = baseY + headRadius * 0.55f
-                        moveTo(headCenterBottom.x - headRadius * 1.1f, baseY)
-                        lineTo(headCenterBottom.x - headRadius * 0.8f, topCapY)
-                        lineTo(headCenterBottom.x + headRadius * 0.8f, topCapY)
-                        lineTo(headCenterBottom.x + headRadius * 1.1f, baseY)
-                        close()
-                    }
-                    drawPath(hatPath, color = mantleDark)
-                }
-                else -> {}
-            }
-        }
-
-        // 2. Bold Central Suit Insignia Badge
-        Box(
-            modifier = Modifier
-                .size(if (largePrint) 30.dp else 26.dp)
-                .background(Color(0xFFFFF9E6).copy(alpha = 0.95f), CircleShape)
-                .border(1.2.dp, primaryGold, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = card.suit.symbol,
-                color = textColor,
-                fontSize = if (largePrint) 18.sp else 16.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
@@ -628,12 +383,11 @@ private fun AceCardCenterView(
     val style = cardFace.style
 
     when (style) {
-        CardFaceStyle.CRIMSON_ANVIL -> {
-            // ⭐ Photo 3: Dramatic bold enlarged suit sign with anvil diamond
+        CardFaceStyle.SENIOR_CLASSIC, CardFaceStyle.CRIMSON_ANVIL, CardFaceStyle.STANDARD -> {
             Text(
                 text = card.suit.symbol,
                 color = textColor,
-                fontSize = if (largePrint) 44.sp else 38.sp,
+                fontSize = if (largePrint) 30.sp else 25.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )
@@ -642,7 +396,7 @@ private fun AceCardCenterView(
             Text(
                 text = card.suit.symbol,
                 color = textColor,
-                fontSize = if (largePrint) 44.sp else 38.sp,
+                fontSize = if (largePrint) 28.sp else 24.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )
@@ -651,7 +405,7 @@ private fun AceCardCenterView(
             Text(
                 text = card.suit.symbol,
                 color = textColor,
-                fontSize = if (largePrint) 44.sp else 38.sp,
+                fontSize = if (largePrint) 28.sp else 24.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )
@@ -660,7 +414,7 @@ private fun AceCardCenterView(
             Text(
                 text = if (card.suit == Suit.HEARTS) "💜" else card.suit.symbol,
                 color = textColor,
-                fontSize = if (largePrint) 42.sp else 36.sp,
+                fontSize = if (largePrint) 28.sp else 24.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )
@@ -669,7 +423,7 @@ private fun AceCardCenterView(
             Text(
                 text = card.suit.symbol,
                 color = textColor,
-                fontSize = if (largePrint) 44.sp else 38.sp,
+                fontSize = if (largePrint) 29.sp else 25.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )
@@ -694,7 +448,7 @@ private fun NumberCardCenterView(
             Text(
                 text = if (card.suit == Suit.HEARTS) "❤️" else card.suit.symbol,
                 color = textColor,
-                fontSize = if (largePrint) 38.sp else 32.sp,
+                fontSize = if (largePrint) 25.sp else 21.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )
@@ -703,7 +457,7 @@ private fun NumberCardCenterView(
             Text(
                 text = card.suit.symbol,
                 color = textColor,
-                fontSize = if (largePrint) 38.sp else 32.sp,
+                fontSize = if (largePrint) 25.sp else 21.sp,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center
             )

@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,7 +86,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -135,9 +139,6 @@ fun GameScreen(
     val showWinDialog by viewModel.showWinDialog.collectAsState()
     val isGamePaused by viewModel.isGamePaused.collectAsState()
 
-    val aiAnalysis by viewModel.aiAnalysis.collectAsState()
-    val isAiAnalyzing by viewModel.isAiAnalyzing.collectAsState()
-    var showAiCoachDialog by remember { mutableStateOf(false) }
     var showShopDialog by remember { mutableStateOf(false) }
 
     var showExitConfirm by remember { mutableStateOf(false) }
@@ -195,10 +196,6 @@ fun GameScreen(
                 onTimerClick = { viewModel.togglePause() },
                 onMenuClick = { showMenuDialog = true },
                 onThemesClick = onOpenThemes,
-                onAiCoachClick = {
-                    viewModel.requestAiCoachAnalysis(onOutOfTokens = { showShopDialog = true })
-                    showAiCoachDialog = true
-                },
                 selectedLocation = selectedLocation,
                 onCancelSelection = { viewModel.clearSelection() }
             )
@@ -455,8 +452,9 @@ fun GameScreen(
 
         // Play / New Game Dialog
         if (showPlayDialog) {
-            var isWinnableChecked by remember { mutableStateOf(false) }
-            var isVegasChecked by remember { mutableStateOf(false) }
+            var selectedMode by remember { mutableStateOf(gameState.gameMode) }
+            var isWinnableChecked by remember { mutableStateOf(gameState.isWinnableDeal) }
+            var isVegasChecked by remember { mutableStateOf(gameState.isVegasScoring) }
 
             AlertDialog(
                 onDismissRequest = { showPlayDialog = false },
@@ -472,14 +470,55 @@ fun GameScreen(
                 text = {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Text(
-                            text = "Game Modes & Deals:",
-                            color = SleekSlate300,
+                            text = "Select Draw Mode:",
+                            color = SleekSlate200,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                onClick = { selectedMode = GameMode.DRAW_1 },
+                                modifier = Modifier.weight(1f),
+                                color = if (selectedMode == GameMode.DRAW_1) SleekEmerald500.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.05f),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(
+                                    width = if (selectedMode == GameMode.DRAW_1) 1.5.dp else 0.5.dp,
+                                    color = if (selectedMode == GameMode.DRAW_1) SleekEmerald400 else Color.White.copy(alpha = 0.15f)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text("🂡 Draw 1", fontWeight = FontWeight.Bold, color = if (selectedMode == GameMode.DRAW_1) SleekEmerald400 else SleekSlate300)
+                                }
+                            }
+
+                            Surface(
+                                onClick = { selectedMode = GameMode.DRAW_3 },
+                                modifier = Modifier.weight(1f),
+                                color = if (selectedMode == GameMode.DRAW_3) SleekEmerald500.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.05f),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(
+                                    width = if (selectedMode == GameMode.DRAW_3) 1.5.dp else 0.5.dp,
+                                    color = if (selectedMode == GameMode.DRAW_3) SleekEmerald400 else Color.White.copy(alpha = 0.15f)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text("🂡🂡🂡 Draw 3", fontWeight = FontWeight.Bold, color = if (selectedMode == GameMode.DRAW_3) SleekEmerald400 else SleekSlate300)
+                                }
+                            }
+                        }
 
                         // Winnable Deal Toggle Card
                         Surface(
@@ -543,7 +582,7 @@ fun GameScreen(
                             onClick = {
                                 showPlayDialog = false
                                 viewModel.startNewGame(
-                                    mode = GameMode.DRAW_1,
+                                    mode = selectedMode,
                                     isWinnableDeal = isWinnableChecked,
                                     isVegasScoring = isVegasChecked
                                 )
@@ -552,23 +591,7 @@ fun GameScreen(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Draw 1 Card", fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-
-                        Button(
-                            onClick = {
-                                showPlayDialog = false
-                                viewModel.startNewGame(
-                                    mode = GameMode.DRAW_3,
-                                    isWinnableDeal = isWinnableChecked,
-                                    isVegasScoring = isVegasChecked
-                                )
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A2F)),
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Draw 3 Cards", fontWeight = FontWeight.Bold, color = SleekSlate100)
+                            Text("Deal New Game", fontWeight = FontWeight.Bold, color = Color.White)
                         }
 
                         OutlinedButton(
@@ -644,11 +667,6 @@ fun GameScreen(
                             showMenuDialog = false
                             onOpenAchievements()
                         }
-                        GameMenuRow(icon = Icons.Default.SmartToy, title = "🤖 AI Solitaire Coach") {
-                            showMenuDialog = false
-                            viewModel.requestAiCoachAnalysis(onOutOfTokens = { showShopDialog = true })
-                            showAiCoachDialog = true
-                        }
                         GameMenuRow(icon = Icons.Default.ShoppingCart, title = "🪙 Shop & VIP Store") {
                             showMenuDialog = false
                             showShopDialog = true
@@ -681,21 +699,6 @@ fun GameScreen(
                     TextButton(onClick = { showMenuDialog = false }) {
                         Text("Close", color = SleekSlate300)
                     }
-                }
-            )
-        }
-
-        // AI Solitaire Coach Dialog
-        if (showAiCoachDialog || aiAnalysis != null) {
-            AiCoachDialog(
-                analysis = aiAnalysis,
-                isLoading = isAiAnalyzing,
-                userSettings = userSettings,
-                userPrefs = viewModel.userPrefs,
-                onApplyMove = { viewModel.applyAiRecommendedMove() },
-                onDismiss = {
-                    showAiCoachDialog = false
-                    viewModel.dismissAiCoach()
                 }
             )
         }
@@ -850,7 +853,6 @@ fun PortraitGameTopHeader(
     onTimerClick: () -> Unit = {},
     onMenuClick: () -> Unit,
     onThemesClick: () -> Unit,
-    onAiCoachClick: () -> Unit,
     selectedLocation: CardLocation?,
     onCancelSelection: () -> Unit
 ) {
@@ -885,9 +887,9 @@ fun PortraitGameTopHeader(
             border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f))
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // SCORE
                 Column(
@@ -896,40 +898,44 @@ fun PortraitGameTopHeader(
                     Text(
                         text = "SCORE",
                         color = SleekSlate400,
-                        fontSize = 8.5.sp,
+                        fontSize = 8.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
                     )
                     Text(
                         text = "${gameState.score}",
                         color = Color.White,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
                 // TIME (Tap to Pause / Resume)
                 if (showTimer) {
+                    val displaySeconds = gameState.elapsedTimeSeconds
+                    val timerColor = if (isPaused) Color(0xFFFFD54F) else Color.White
+                    val timerLabel = if (isPaused) "⏸️ PAUSED" else "⏱️ TIME"
+
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .clickable(onClick = onTimerClick)
                             .background(if (isPaused) Color(0xFFFFD54F).copy(alpha = 0.2f) else Color.Transparent)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
                             .testTag("game_timer_button")
                     ) {
                         Text(
-                            text = if (isPaused) "⏸️ PAUSED" else "⏱️ TIME",
+                            text = timerLabel,
                             color = if (isPaused) Color(0xFFFFD54F) else SleekSlate400,
-                            fontSize = 8.5.sp,
+                            fontSize = 8.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.5.sp
                         )
                         Text(
-                            text = formatTime(gameState.elapsedTimeSeconds),
-                            color = if (isPaused) Color(0xFFFFD54F) else Color.White,
-                            fontSize = 12.sp,
+                            text = formatTime(displaySeconds),
+                            color = timerColor,
+                            fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -942,14 +948,14 @@ fun PortraitGameTopHeader(
                     Text(
                         text = "MOVES",
                         color = SleekSlate400,
-                        fontSize = 8.5.sp,
+                        fontSize = 8.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
                     )
                     Text(
                         text = "${gameState.moveCount}",
                         color = Color.White,
-                        fontSize = 12.sp,
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -963,68 +969,45 @@ fun PortraitGameTopHeader(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = "Cancel ✕",
+                            text = "✕",
                             color = Color(0xFFFFE082),
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                         )
                     }
                 }
             }
         }
 
-        // Right: AI Coach & Themes Palette Buttons
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // Right: Themes Palette Button with Notification Dot
+        Box(
+            modifier = Modifier.size(36.dp)
         ) {
-            // 🤖 AI Solitaire Coach Button
             IconButton(
-                onClick = onAiCoachClick,
+                onClick = onThemesClick,
                 modifier = Modifier
-                    .size(36.dp)
-                    .background(Color(0xFF2E1065).copy(alpha = 0.85f), CircleShape)
-                    .border(1.2.dp, Color(0xFF8B5CF6), CircleShape)
-                    .testTag("ai_coach_button")
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.35f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                    .testTag("themes_button")
             ) {
                 Icon(
-                    Icons.Default.SmartToy,
-                    contentDescription = "AI Coach",
-                    tint = Color(0xFFDDD6FE),
-                    modifier = Modifier.size(19.dp)
+                    Icons.Default.Palette,
+                    contentDescription = "Themes",
+                    tint = SleekSlate100,
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
-            // 🎨 Themes Palette Button with Notification Dot
+            // Small red badge dot
             Box(
-                modifier = Modifier.size(36.dp)
-            ) {
-                IconButton(
-                    onClick = onThemesClick,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.35f), CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                        .testTag("themes_button")
-                ) {
-                    Icon(
-                        Icons.Default.Palette,
-                        contentDescription = "Themes",
-                        tint = SleekSlate100,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                // Small red badge dot
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(Color(0xFFE53935), CircleShape)
-                        .border(1.dp, Color.White, CircleShape)
-                        .align(Alignment.TopEnd)
-                )
-            }
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(Color(0xFFE53935), CircleShape)
+                    .border(1.dp, Color.White, CircleShape)
+                    .align(Alignment.TopEnd)
+            )
         }
     }
 }
@@ -1211,7 +1194,10 @@ fun PortraitTopCardRow(
                     )
                 }
             } else {
-                CardSlotPlaceholder(iconSymbol = "↺", label = "DEAL")
+                CardSlotPlaceholder(
+                    iconSymbol = "↺",
+                    label = "DEAL"
+                )
             }
         }
     }
@@ -1489,60 +1475,74 @@ fun CompactGameBottomBar(
             }
         }
 
-        // Floating rounded pill
+        // Floating rounded 5D control bar
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
-            color = Color.Black.copy(alpha = 0.55f),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(0.75.dp, Color.White.copy(alpha = 0.12f))
+                .height(74.dp),
+            color = Color(0xEE0B1220),
+            shape = RoundedCornerShape(26.dp),
+            border = BorderStroke(1.2.dp, Brush.horizontalGradient(listOf(Color(0x33FFFFFF), Color(0x88FFFFFF), Color(0x33FFFFFF))))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Undo
-                BottomBarButton(
+                // Undo - 5D Ruby / Coral Gem
+                FiveDimensionalGameButton(
                     icon = Icons.AutoMirrored.Filled.Undo,
                     label = "Undo",
+                    gradient = listOf(Color(0xFFFF5252), Color(0xFFFF1744), Color(0xFFD50000), Color(0xFF880E4F)),
+                    borderColor = Color(0xFFFF8A80),
+                    labelColor = Color(0xFFFFCDD2),
                     testTag = "bottom_undo",
                     onClick = onUndo
                 )
 
-                // Hint
-                BottomBarButton(
+                // Hint - 5D Sunburst Gold Gem
+                FiveDimensionalGameButton(
                     icon = Icons.Default.Lightbulb,
                     label = "Hint",
+                    gradient = listOf(Color(0xFFFFF176), Color(0xFFFFCA28), Color(0xFFFF9800), Color(0xFFE65100)),
+                    borderColor = Color(0xFFFFE082),
+                    labelColor = Color(0xFFFFE082),
                     testTag = "bottom_hint",
                     onClick = onHint
                 )
 
-                // Play (Center main deal action)
-                BottomBarButton(
+                // Play - 5D Radiant Emerald Crown Gem (Centerpiece)
+                FiveDimensionalGameButton(
                     icon = Icons.Default.PlayArrow,
                     label = "Play",
-                    tint = SleekEmerald400,
+                    gradient = listOf(Color(0xFF69F0AE), Color(0xFF00E676), Color(0xFF00C853), Color(0xFF00796B), Color(0xFF004D40)),
+                    borderColor = Color(0xFFB9F6CA),
+                    labelColor = Color(0xFFB9F6CA),
+                    isProminent = true,
                     testTag = "bottom_play",
                     onClick = onPlay
                 )
 
-                // Magic Wand
-                BottomBarButton(
+                // Magic Wand - 5D Cosmic Amethyst Gem
+                FiveDimensionalGameButton(
                     icon = Icons.Default.AutoAwesome,
                     label = "Magic",
-                    tint = Color(0xFFFFD54F),
+                    gradient = listOf(Color(0xFFFF4081), Color(0xFFE040FB), Color(0xFF9C27B0), Color(0xFF6A1B9A), Color(0xFF311B92)),
+                    borderColor = Color(0xFFF48FB1),
+                    labelColor = Color(0xFFF8BBD0),
                     testTag = "bottom_magic",
                     onClick = onMagicWand
                 )
 
-                // Settings
-                BottomBarButton(
+                // Settings - 5D Electric Sapphire Gem
+                FiveDimensionalGameButton(
                     icon = Icons.Default.Settings,
                     label = "Settings",
+                    gradient = listOf(Color(0xFF40C4FF), Color(0xFF00B0FF), Color(0xFF0288D1), Color(0xFF01579B), Color(0xFF0A192F)),
+                    borderColor = Color(0xFF80D8FF),
+                    labelColor = Color(0xFFB3E5FC),
                     testTag = "bottom_settings",
                     onClick = onSettings
                 )
@@ -1562,34 +1562,102 @@ fun CompactGameBottomBar(
     }
 }
 
+/**
+ * High-end 5D volumetric tactile game button with multi-stop rich gradient,
+ * specular dome reflection, 3D border bevel, and colorful glowing drop shadow.
+ */
 @Composable
-fun BottomBarButton(
+fun FiveDimensionalGameButton(
     icon: ImageVector,
     label: String,
-    tint: Color = SleekSlate200,
+    gradient: List<Color>,
+    borderColor: Color,
+    labelColor: Color,
+    isProminent: Boolean = false,
     testTag: String,
     onClick: () -> Unit
 ) {
+    val buttonWidth = if (isProminent) 58.dp else 50.dp
+    val buttonHeight = if (isProminent) 46.dp else 40.dp
+    val iconSize = if (isProminent) 28.dp else 24.dp
+    val cornerRadius = if (isProminent) 15.dp else 13.dp
+
     Column(
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .padding(horizontal = 2.dp, vertical = 2.dp)
             .testTag(testTag),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = tint,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.height(1.dp))
+        // 5D Tactile Volumetric Gem Button
+        Box(
+            modifier = Modifier
+                .width(buttonWidth)
+                .height(buttonHeight)
+                .shadow(
+                    elevation = if (isProminent) 8.dp else 5.dp,
+                    shape = RoundedCornerShape(cornerRadius),
+                    ambientColor = gradient.first().copy(alpha = 0.7f),
+                    spotColor = gradient[1].copy(alpha = 0.9f)
+                )
+                .clip(RoundedCornerShape(cornerRadius))
+                .background(Brush.verticalGradient(gradient))
+                .border(
+                    width = if (isProminent) 1.8.dp else 1.4.dp,
+                    brush = Brush.verticalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.95f),
+                            borderColor,
+                            borderColor.copy(alpha = 0.5f),
+                            Color.Black.copy(alpha = 0.4f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(cornerRadius)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            // Specular glass dome reflection (curved highlight on top half for 5D depth)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val highlightPath = Path().apply {
+                    moveTo(0f, 0f)
+                    lineTo(size.width, 0f)
+                    cubicTo(
+                        size.width, size.height * 0.44f,
+                        0f, size.height * 0.52f,
+                        0f, size.height * 0.22f
+                    )
+                    close()
+                }
+                drawPath(
+                    path = highlightPath,
+                    brush = Brush.verticalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.55f),
+                            Color.White.copy(alpha = 0.08f)
+                        )
+                    )
+                )
+            }
+
+            // Crisp pure white 3D Icon with depth
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = Color.White,
+                modifier = Modifier.size(iconSize)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(2.dp))
+
+        // Vibrant crisp label
         Text(
             text = label,
-            color = tint,
-            fontSize = 9.5.sp,
-            fontWeight = FontWeight.SemiBold
+            color = labelColor,
+            fontSize = if (isProminent) 11.sp else 10.sp,
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1
         )
     }
 }
