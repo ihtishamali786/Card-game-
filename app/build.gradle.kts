@@ -26,52 +26,16 @@ android {
 
   signingConfigs {
     create("release") {
-      val releaseKeystore = file("${rootDir}/release-keystore.jks")
       val envKeystorePath = System.getenv("KEYSTORE_PATH")
-      val keystoreFile = when {
-        releaseKeystore.exists() -> releaseKeystore
-        !envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists() -> file(envKeystorePath)
-        else -> file("${rootDir}/debug.keystore")
+      val keystoreFile = if (!envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists()) {
+        file(envKeystorePath)
+      } else {
+        file("${rootDir}/debug.keystore")
       }
       storeFile = keystoreFile
-
-      val pass = when {
-        keystoreFile == releaseKeystore -> "release123"
-        keystoreFile.name == "debug.keystore" -> "android"
-        else -> System.getenv("STORE_PASSWORD") ?: "android"
-      }
-      storePassword = pass
-      keyPassword = when {
-        keystoreFile == releaseKeystore -> "release123"
-        else -> System.getenv("KEY_PASSWORD") ?: pass
-      }
-
-      val envAlias = System.getenv("KEY_ALIAS")
-      if (keystoreFile == releaseKeystore) {
-        keyAlias = "release"
-      } else if (!envAlias.isNullOrBlank()) {
-        keyAlias = envAlias
-      } else if (keystoreFile.name == "debug.keystore") {
-        keyAlias = "androiddebugkey"
-      } else if (keystoreFile.exists()) {
-        try {
-          val ks = KeyStore.getInstance(KeyStore.getDefaultType())
-          keystoreFile.inputStream().use { stream ->
-            ks.load(stream, pass.toCharArray())
-            val aliases = ks.aliases().toList()
-            keyAlias = when {
-              aliases.contains("upload") -> "upload"
-              aliases.contains("androiddebugkey") -> "androiddebugkey"
-              aliases.isNotEmpty() -> aliases.first()
-              else -> "androiddebugkey"
-            }
-          }
-        } catch (_: Exception) {
-          keyAlias = "androiddebugkey"
-        }
-      } else {
-        keyAlias = "androiddebugkey"
-      }
+      storePassword = System.getenv("STORE_PASSWORD") ?: "android"
+      keyAlias = System.getenv("KEY_ALIAS") ?: "androiddebugkey"
+      keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -144,27 +108,17 @@ dependencies {
   implementation(libs.firebase.analytics)
   implementation(libs.play.services.ads)
   implementation(libs.play.app.update)
-  // implementation(libs.coil.compose)
-  implementation(libs.converter.moshi)
-  implementation(libs.firebase.ai)
-  // Uncomment to use Firestore:
-  // implementation(libs.firebase.firestore)
-
-  // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
-  // Sign-In via Credential Manager:
-  // implementation(libs.firebase.auth)
-  // implementation(libs.androidx.credentials)
-  // implementation(libs.androidx.credentials.play.services)
-  // implementation(libs.googleid)
-  implementation(libs.firebase.appcheck.recaptcha)
-  implementation(libs.firebase.appcheck.debug)
+  // implementation(libs.converter.moshi)
+  // implementation(libs.firebase.ai)
+  // implementation(libs.firebase.appcheck.recaptcha)
+  // implementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.logging.interceptor)
-  implementation(libs.moshi.kotlin)
+  // implementation(libs.logging.interceptor)
+  // implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
   // implementation(libs.play.services.location)
-  implementation(libs.retrofit)
+  // implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -182,7 +136,7 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
-  "ksp"(libs.moshi.kotlin.codegen)
+  // "ksp"(libs.moshi.kotlin.codegen)
 }
 
 tasks.register<Zip>("createObb") {
