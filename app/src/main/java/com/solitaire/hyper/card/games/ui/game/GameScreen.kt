@@ -178,6 +178,13 @@ fun GameScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
+        if (userSettings.backgroundDim > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = userSettings.backgroundDim))
+            )
+        }
         val availableWidth = maxWidth
         val colSpacing = 4.dp
         val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
@@ -314,12 +321,6 @@ fun GameScreen(
                 onUndo = { viewModel.undo() },
                 onAutoComplete = { viewModel.triggerAutoComplete() }
             )
-
-            // Bottom Banner Ad
-            BannerAdView(
-                isAdFree = userSettings.isAdFreeActive(),
-                modifier = Modifier.fillMaxWidth()
-            )
         }
 
         // Win Celebratory Waterfall (Iconic Cascade Animation)
@@ -338,7 +339,7 @@ fun GameScreen(
                     viewModel.dismissWinDialog()
                     hasDoubledCoins = false
                     if (activity != null) {
-                        AdManager.showInterstitialIfReady(activity, isAdFree = userSettings.isAdFreeActive()) {
+                        AdManager.onGameCompleted(activity, isAdFree = userSettings.isAdFreeActive()) {
                             viewModel.proceedToNextLevel()
                         }
                     } else {
@@ -361,7 +362,7 @@ fun GameScreen(
                     viewModel.dismissWinDialog()
                     hasDoubledCoins = false
                     if (activity != null) {
-                        AdManager.showInterstitialIfReady(activity, isAdFree = userSettings.isAdFreeActive()) {
+                        AdManager.onGameCompleted(activity, isAdFree = userSettings.isAdFreeActive()) {
                             viewModel.startNewGame(mode = gameState.gameMode)
                         }
                     } else {
@@ -372,7 +373,7 @@ fun GameScreen(
                     viewModel.dismissWinDialog()
                     hasDoubledCoins = false
                     if (activity != null) {
-                        AdManager.showInterstitialIfReady(activity, isAdFree = userSettings.isAdFreeActive()) {
+                        AdManager.onGameCompleted(activity, isAdFree = userSettings.isAdFreeActive()) {
                             onNavigateBack()
                         }
                     } else {

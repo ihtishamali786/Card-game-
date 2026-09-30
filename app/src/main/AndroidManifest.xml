@@ -26,6 +26,20 @@
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-2835586363285222~3345131403" />
 
+        <!-- Disable automated measurement collection on devices without Measurement Service -->
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+        <meta-data
+            android:name="google_analytics_default_allow_ad_personalization_signals"
+            android:value="false" />
+
+        <!-- Configure AdServices to avoid unhandled measurement service binding errors -->
+        <property
+            android:name="android.adservices.AD_SERVICES_CONFIG"
+            android:resource="@xml/gma_ad_services_config"
+            tools:replace="android:resource" />
+
 
         <activity
             android:name=".MainActivity"

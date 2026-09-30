@@ -2,10 +2,14 @@ package com.solitaire.hyper.card.games.ui.customization
 
 import android.app.Activity
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,16 +24,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Stars
-import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,11 +43,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import com.solitaire.hyper.card.games.ui.shop.ShopDialog
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -58,16 +64,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.solitaire.hyper.card.games.ads.AdManager
-import com.solitaire.hyper.card.games.ads.BannerAdView
 import com.solitaire.hyper.card.games.data.preferences.UserPreferencesRepository
 import com.solitaire.hyper.card.games.data.preferences.UserSettings
 import com.solitaire.hyper.card.games.game.model.Card
@@ -83,6 +86,7 @@ import com.solitaire.hyper.card.games.ui.theme.SleekSlate100
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate400
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,301 +95,212 @@ fun CustomizationScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val activity = context as? Activity
     val scope = rememberCoroutineScope()
     val settings by userPrefs.userSettingsFlow.collectAsState(initial = UserSettings())
 
-    var showShopDialog by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Table Felt", "Card Back", "Card Face")
+    val tabs = listOf("Table (56)", "Backs (25)", "Faces (25)", "Suits & Colors", "Combos")
 
-    var filterType by remember { mutableStateOf("ALL") } // ALL, FREE, PREMIUM
+    var selectedCategory by remember { mutableStateOf<TableCategory?>(null) }
+    var pickingFor by remember { mutableStateOf("BACKGROUND") }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                if (pickingFor == "BACKGROUND") {
+                    userPrefs.updateCustomBackgroundUri(uri.toString())
+                    userPrefs.updateBackground("THEME_CUSTOM_PHOTO")
+                    Toast.makeText(context, "Custom Table background applied!", Toast.LENGTH_SHORT).show()
+                } else {
+                    userPrefs.updateCustomCardBackUri(uri.toString())
+                    userPrefs.updateCardBack("BACK_CUSTOM_PHOTO")
+                    Toast.makeText(context, "Custom Card Back applied!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     val currentBg = CustomizationRegistry.getBackground(settings.backgroundId)
     val currentBack = CustomizationRegistry.getCardBack(settings.cardBackId)
     val currentFace = CustomizationRegistry.getCardFace(settings.cardFaceId)
+    val currentSuit = CustomizationRegistry.getSuitStyle(settings.suitStyleId)
+    val currentScheme = CustomizationRegistry.getSuitColorScheme(settings.suitColorSchemeId)
 
-    val sampleFaceUpCard = remember { Card(id = 99, suit = Suit.HEARTS, rank = Rank.KING, isFaceUp = true) }
-    val sampleFaceDownCard = remember { Card(id = 98, suit = Suit.HEARTS, rank = Rank.KING, isFaceUp = false) }
+    val sampleCard1 = remember { Card(id = 1, suit = Suit.HEARTS, rank = Rank.ACE, isFaceUp = true) }
+    val sampleCard2 = remember { Card(id = 2, suit = Suit.SPADES, rank = Rank.KING, isFaceUp = true) }
+    val sampleCardDown = remember { Card(id = 3, suit = Suit.DIAMONDS, rank = Rank.JACK, isFaceUp = false) }
 
-    val isVipActive = settings.isVipActive()
-    val isAdFreeActive = settings.isAdFreeActive()
+    // Contrast check
+    val contrastWarning = remember(currentFace, currentScheme, currentBg) {
+        val bgRed = currentBg.primaryColor.red > 0.5f && currentBg.primaryColor.green < 0.3f
+        if (bgRed && currentScheme.id == "SCHEME_STANDARD" && currentFace.isDarkSurface) {
+            "Low contrast notice: Red suits on red table. Consider Four-Colour or High Contrast scheme."
+        } else null
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("3D Themes & Store", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(end = 12.dp)
-                        ) {
-                            // Store & VIP Action Pill
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFF3B2A06),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700)),
-                                modifier = Modifier.clickable { showShopDialog = true }
-                            ) {
-                                Text(
-                                    text = "👑 VIP Store",
-                                    color = Color(0xFFFFD700),
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
-
-                            // Coins Badge (Clickable to open Store)
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFF2E2405),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFD700).copy(alpha = 0.5f)),
-                                modifier = Modifier.clickable { showShopDialog = true }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("🪙", fontSize = 13.sp)
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(
-                                        text = "${settings.coins}",
-                                        color = Color(0xFFFFD700),
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.5.sp
-                                    )
-                                    Spacer(Modifier.width(3.dp))
-                                    Text("+", color = SleekEmerald400, fontWeight = FontWeight.Black, fontSize = 12.sp)
-                                }
-                            }
-                        }
-                    }
+                    Text(
+                        text = "Card & Table Customization",
+                        color = SleekSlate100,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack, modifier = Modifier.testTag("back_button")) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = SleekSlate100
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SleekHeaderDark,
-                    titleContentColor = SleekSlate100,
-                    navigationIconContentColor = SleekSlate300
-                )
+                actions = {
+                    IconButton(onClick = {
+                        scope.launch {
+                            val rFace = CustomizationRegistry.cardFaces.random(Random).id
+                            val rSuit = CustomizationRegistry.suitStyles.random(Random).id
+                            val rScheme = CustomizationRegistry.suitColorSchemes.random(Random).id
+                            val rBack = CustomizationRegistry.cardBacks.filter { it.id != "BACK_CUSTOM_PHOTO" }.random(Random).id
+                            val rBg = CustomizationRegistry.backgrounds.filter { it.id != "THEME_CUSTOM_PHOTO" }.random(Random).id
+                            userPrefs.applyPresetCombo(rFace, rSuit, rScheme, rBack, rBg)
+                            Toast.makeText(context, "Surprise style randomized!", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(Icons.Default.Shuffle, contentDescription = "Randomize", tint = SleekEmerald400)
+                    }
+                    IconButton(onClick = {
+                        scope.launch {
+                            userPrefs.resetCustomizationToDefault()
+                            Toast.makeText(context, "Reset to Classic Default", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(Icons.Default.RestartAlt, contentDescription = "Reset Default", tint = SleekSlate300)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SleekHeaderDark)
             )
         },
-        bottomBar = {
-            BannerAdView(isAdFree = isAdFreeActive)
-        }
-    ) { paddingValues ->
+        containerColor = SleekBgDark
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(SleekBgDark)
+                .padding(padding)
         ) {
-            // Live Interactive Preview Box with 3D Depth
-            Box(
+            // ==========================================
+            // LIVE INTERACTIVE PREVIEW AREA
+            // ==========================================
+            Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(136.dp)
-                    .background(currentBg.brush),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = SleekHeaderDark,
+                border = androidx.compose.foundation.BorderStroke(1.dp, SleekBorderSubtle)
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(138.dp)
+                        .background(currentBg.brush)
                 ) {
-                    CardView(
-                        card = sampleFaceUpCard,
-                        cardBack = currentBack,
-                        cardFace = currentFace,
-                        modifier = Modifier.size(64.dp, 92.dp)
-                    )
-                    CardView(
-                        card = sampleFaceDownCard,
-                        cardBack = currentBack,
-                        cardFace = currentFace,
-                        modifier = Modifier.size(64.dp, 92.dp)
-                    )
-                }
-
-                // VIP Active Indicator Overlay
-                if (isVipActive) {
+                    // Dim overlay
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .background(
-                                Brush.horizontalGradient(listOf(Color(0xFFFFD700), Color(0xFFFF9100))),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = settings.backgroundDim))
+                            .blur(settings.backgroundBlur.dp)
+                    )
+
+                    // Cards preview row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(10.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CardView(
+                            card = sampleCard1,
+                            modifier = Modifier.size(width = 68.dp, height = 98.dp),
+                            cardBack = currentBack,
+                            cardFace = currentFace,
+                            suitStyle = currentSuit,
+                            suitScheme = currentScheme,
+                            cardCornerRadius = settings.cardCornerRadius,
+                            cardIndexSize = settings.cardIndexSize,
+                            numeralsStyle = settings.numeralsStyle
+                        )
+                        CardView(
+                            card = sampleCard2,
+                            modifier = Modifier.size(width = 68.dp, height = 98.dp),
+                            cardBack = currentBack,
+                            cardFace = currentFace,
+                            suitStyle = currentSuit,
+                            suitScheme = currentScheme,
+                            cardCornerRadius = settings.cardCornerRadius,
+                            cardIndexSize = settings.cardIndexSize,
+                            numeralsStyle = settings.numeralsStyle
+                        )
+                        CardView(
+                            card = sampleCardDown,
+                            modifier = Modifier.size(width = 68.dp, height = 98.dp),
+                            cardBack = currentBack,
+                            cardFace = currentFace,
+                            customCardBackUri = settings.customCardBackUri,
+                            cardCornerRadius = settings.cardCornerRadius
+                        )
+                    }
+
+                    // Active theme badge
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.65f)
                     ) {
                         Text(
-                            "👑 3D VIP: ${settings.getVipRemainingMinutes()}m left",
-                            color = Color.Black,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "${currentBg.name} • ${currentFace.name}",
+                            color = SleekEmerald400,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                         )
                     }
                 }
             }
 
-            // Monetization & Video Ads Action Strip
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, SleekBorderSubtle)
-            ) {
-                Column(modifier = Modifier.padding(10.dp)) {
+            // Contrast warning banner
+            if (contrastWarning != null) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 2.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF78350F).copy(alpha = 0.35f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B))
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Watch Video for +250 Coins
-                        Button(
-                            onClick = {
-                                if (activity != null) {
-                                    AdManager.showRewardedAd(
-                                        activity = activity,
-                                        onRewardEarned = {
-                                            scope.launch {
-                                                userPrefs.addCoins(250)
-                                                Toast.makeText(context, "+250 Coins Earned!", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        onDismissOrFailed = {
-                                            // No coins awarded if ad was not watched completely or was blocked
-                                        }
-                                    )
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B3D2F)),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .testTag("watch_ad_coins_btn")
-                        ) {
-                            Icon(Icons.Default.PlayCircle, contentDescription = null, tint = SleekEmerald400, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("+250 Coins", color = SleekEmerald400, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(8.dp))
-
-                        // Pay 1,000 Coins for 1 Hour Ad-Free
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    if (settings.coins >= 1000) {
-                                        val ok = userPrefs.activateAdFreeOneHour()
-                                        if (ok) {
-                                            Toast.makeText(context, "1-Hour Ad-Free Pass Activated!", Toast.LENGTH_SHORT).show()
-                                        }
-                                    } else {
-                                        Toast.makeText(context, "Need 1,000 Coins! Watch video ads to earn coins.", Toast.LENGTH_LONG).show()
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isAdFreeActive) Color(0xFF143026) else Color(0xFF2A1C40)
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .testTag("ad_free_1h_btn")
-                        ) {
-                            Icon(Icons.Default.Shield, contentDescription = null, tint = if (isAdFreeActive) SleekEmerald400 else Color(0xFFCE93D8), modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                if (isAdFreeActive) "${settings.getAdFreeRemainingMinutes()}m Ad-Free" else "No Ads (1000🪙)",
-                                color = if (isAdFreeActive) SleekEmerald400 else Color(0xFFCE93D8),
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    // 5 Video Ads for 1-Hour VIP Progress
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("👑 1-Hour VIP 3D Pass:", color = SleekSlate100, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    if (isVipActive) "ACTIVE (${settings.getVipRemainingMinutes()}m left)"
-                                    else "${settings.rewardedAdsWatchedForVip}/5 Video Ads",
-                                    color = if (isVipActive) Color(0xFFFFD700) else SleekEmerald400,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            LinearProgressIndicator(
-                                progress = { if (isVipActive) 1f else (settings.rewardedAdsWatchedForVip / 5f) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(5.dp)
-                                    .clip(RoundedCornerShape(3.dp)),
-                                color = Color(0xFFFFD700),
-                                trackColor = Color.White.copy(alpha = 0.1f)
-                            )
-                        }
-
-                        Spacer(Modifier.width(10.dp))
-
-                        if (!isVipActive) {
-                            Button(
-                                onClick = {
-                                    if (activity != null) {
-                                        AdManager.showRewardedAd(
-                                            activity = activity,
-                                            onRewardEarned = {
-                                                scope.launch {
-                                                    val vipUnlocked = userPrefs.recordRewardedAdForVip()
-                                                    if (vipUnlocked) {
-                                                        Toast.makeText(context, "🎉 1-Hour 3D VIP Pass Unlocked!", Toast.LENGTH_LONG).show()
-                                                    } else {
-                                                        Toast.makeText(context, "Watched ad towards VIP pass!", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }
-                                            },
-                                            onDismissOrFailed = {
-                                                // No VIP progress awarded if video ad was not watched completely or was blocked
-                                            }
-                                        )
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5C4708)),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.height(34.dp)
-                            ) {
-                                Text("Watch Ad", color = Color(0xFFFFD700), fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
+                        Text(text = contrastWarning, color = Color(0xFFFDE68A), fontSize = 11.sp)
                     }
                 }
             }
 
-            // Tab Row (Table Felt, Card Back, Card Face)
+            // ==========================================
+            // PRIMARY TABS
+            // ==========================================
             PrimaryTabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = SleekHeaderDark,
@@ -398,377 +313,509 @@ fun CustomizationScreen(
                         text = {
                             Text(
                                 text = title,
-                                color = if (selectedTab == index) SleekEmerald400 else SleekSlate400,
+                                fontSize = 12.sp,
                                 fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = 13.sp
+                                color = if (selectedTab == index) SleekEmerald400 else SleekSlate400
                             )
                         }
                     )
                 }
             }
 
-            // Category Filter Chips (All, Free, 3D Premium)
+            // ==========================================
+            // TAB CONTENT
+            // ==========================================
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                when (selectedTab) {
+                    0 -> TableThemesTab(
+                        settings = settings,
+                        selectedCategory = selectedCategory,
+                        onCategorySelect = { selectedCategory = it },
+                        onSelectTheme = { scope.launch { userPrefs.updateBackground(it.id) } },
+                        onPickPhoto = {
+                            pickingFor = "BACKGROUND"
+                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                        onDimChange = { scope.launch { userPrefs.updateBackgroundDim(it) } },
+                        onBlurChange = { scope.launch { userPrefs.updateBackgroundBlur(it) } }
+                    )
+                    1 -> CardBacksTab(
+                        settings = settings,
+                        onSelectBack = { scope.launch { userPrefs.updateCardBack(it.id) } },
+                        onPickPhoto = {
+                            pickingFor = "CARD_BACK"
+                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                    )
+                    2 -> CardFacesTab(
+                        settings = settings,
+                        onSelectFace = { scope.launch { userPrefs.updateCardFace(it.id) } },
+                        onIndexSizeChange = { scope.launch { userPrefs.updateCardIndexSize(it) } },
+                        onCornerRadiusChange = { scope.launch { userPrefs.updateCardCornerRadius(it) } },
+                        onNumeralsChange = { scope.launch { userPrefs.updateNumeralsStyle(it) } }
+                    )
+                    3 -> SuitsAndColorsTab(
+                        settings = settings,
+                        onSelectSuit = { scope.launch { userPrefs.updateSuitStyle(it.id) } },
+                        onSelectScheme = { scope.launch { userPrefs.updateSuitColorScheme(it.id) } }
+                    )
+                    4 -> PresetsTab(
+                        settings = settings,
+                        onSelectCombo = {
+                            scope.launch {
+                                userPrefs.applyPresetCombo(
+                                    it.cardFaceId,
+                                    it.suitStyleId,
+                                    it.suitSchemeId,
+                                    it.cardBackId,
+                                    it.backgroundId
+                                )
+                                Toast.makeText(context, "Applied ${it.name} Combo!", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onDailySurpriseToggle = { scope.launch { userPrefs.updateDailySurpriseTheme(it) } }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TableThemesTab(
+    settings: UserSettings,
+    selectedCategory: TableCategory?,
+    onCategorySelect: (TableCategory?) -> Unit,
+    onSelectTheme: (BackgroundTheme) -> Unit,
+    onPickPhoto: () -> Unit,
+    onDimChange: (Float) -> Unit,
+    onBlurChange: (Float) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Dim & Blur sliders row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Text(text = "Dim: ${(settings.backgroundDim * 100).toInt()}%", color = SleekSlate300, fontSize = 11.sp)
+                Slider(
+                    value = settings.backgroundDim,
+                    onValueChange = onDimChange,
+                    valueRange = 0.0f..0.8f,
+                    colors = SliderDefaults.colors(thumbColor = SleekEmerald400, activeTrackColor = SleekEmerald500)
+                )
+            }
+            Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(text = "Blur: ${settings.backgroundBlur.toInt()}dp", color = SleekSlate300, fontSize = 11.sp)
+                Slider(
+                    value = settings.backgroundBlur,
+                    onValueChange = onBlurChange,
+                    valueRange = 0.0f..15.0f,
+                    colors = SliderDefaults.colors(thumbColor = SleekEmerald400, activeTrackColor = SleekEmerald500)
+                )
+            }
+        }
+
+        // Category filter chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            FilterChip(
+                selected = selectedCategory == null,
+                onClick = { onCategorySelect(null) },
+                label = { Text("All (56)") },
+                colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SleekEmerald500)
+            )
+            TableCategory.values().forEach { cat ->
+                FilterChip(
+                    selected = selectedCategory == cat,
+                    onClick = { onCategorySelect(cat) },
+                    label = { Text(cat.displayName) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SleekEmerald500)
+                )
+            }
+            Button(
+                onClick = onPickPhoto,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("My Photo", fontSize = 11.sp)
+            }
+        }
+
+        // Grid of Themes
+        val filtered = remember(selectedCategory) {
+            if (selectedCategory == null) CustomizationRegistry.backgrounds
+            else CustomizationRegistry.backgrounds.filter { it.category == selectedCategory }
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(filtered) { bg ->
+                val isSelected = settings.backgroundId == bg.id
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(90.dp)
+                        .clickable { onSelectTheme(bg) },
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        if (isSelected) 2.5.dp else 1.dp,
+                        if (isSelected) SleekEmerald400 else SleekBorderSubtle
+                    )
+                ) {
+                    Box(modifier = Modifier.fillMaxSize().background(bg.brush).padding(8.dp)) {
+                        Column(modifier = Modifier.align(Alignment.BottomStart)) {
+                            Text(text = bg.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(text = bg.subtitle, color = Color.White.copy(alpha = 0.7f), fontSize = 9.sp, maxLines = 1)
+                        }
+                        if (isSelected) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = SleekEmerald400,
+                                modifier = Modifier.align(Alignment.TopEnd).size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CardBacksTab(
+    settings: UserSettings,
+    onSelectBack: (CardBackTheme) -> Unit,
+    onPickPhoto: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "25 Handcrafted Back Designs", color = SleekSlate300, fontSize = 12.sp)
+            OutlinedButton(
+                onClick = onPickPhoto,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Use My Photo", fontSize = 11.sp)
+            }
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(CustomizationRegistry.cardBacks) { back ->
+                val isSelected = settings.cardBackId == back.id
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(115.dp)
+                        .clickable { onSelectBack(back) },
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(
+                        if (isSelected) 2.5.dp else 1.dp,
+                        if (isSelected) SleekEmerald400 else SleekBorderSubtle
+                    )
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        CardView(
+                            card = Card(id = 0, suit = Suit.SPADES, rank = Rank.ACE, isFaceUp = false),
+                            modifier = Modifier.fillMaxSize(),
+                            cardBack = back,
+                            customCardBackUri = if (back.id == "BACK_CUSTOM_PHOTO") settings.customCardBackUri else null
+                        )
+                        if (isSelected) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .background(SleekEmerald500, CircleShape)
+                                    .size(18.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CardFacesTab(
+    settings: UserSettings,
+    onSelectFace: (CardFaceTheme) -> Unit,
+    onIndexSizeChange: (String) -> Unit,
+    onCornerRadiusChange: (String) -> Unit,
+    onNumeralsChange: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Ergonomics controls: Index Size, Corner Radius, Numerals
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Index size
+            listOf("STANDARD" to "Std Index", "LARGE" to "Large Index", "EXTRA_LARGE" to "Senior XL").forEach { (id, label) ->
+                FilterChip(
+                    selected = settings.cardIndexSize == id,
+                    onClick = { onIndexSizeChange(id) },
+                    label = { Text(label, fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SleekEmerald500)
+                )
+            }
+            // Numerals
+            listOf("WESTERN" to "1 2 3", "EASTERN_ARABIC" to "١ ٢ ٣").forEach { (id, label) ->
+                FilterChip(
+                    selected = settings.numeralsStyle == id,
+                    onClick = { onNumeralsChange(id) },
+                    label = { Text(label, fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF0284C7))
+                )
+            }
+            // Corner radius
+            listOf("SHARP" to "Sharp Edge", "MEDIUM" to "Med Radius", "ROUND" to "Round Edge").forEach { (id, label) ->
+                FilterChip(
+                    selected = settings.cardCornerRadius == id,
+                    onClick = { onCornerRadiusChange(id) },
+                    label = { Text(label, fontSize = 11.sp) },
+                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF7C3AED))
+                )
+            }
+        }
+
+        // 25 Card Faces Grid
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(CustomizationRegistry.cardFaces) { face ->
+                val isSelected = settings.cardFaceId == face.id
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(95.dp)
+                        .clickable { onSelectFace(face) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = SleekHeaderDark,
+                    border = androidx.compose.foundation.BorderStroke(
+                        if (isSelected) 2.5.dp else 1.dp,
+                        if (isSelected) SleekEmerald400 else SleekBorderSubtle
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CardView(
+                            card = Card(id = 0, suit = Suit.HEARTS, rank = Rank.ACE, isFaceUp = true),
+                            modifier = Modifier.size(width = 46.dp, height = 66.dp),
+                            cardFace = face,
+                            cardCornerRadius = settings.cardCornerRadius,
+                            numeralsStyle = settings.numeralsStyle
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = face.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(text = face.description, color = SleekSlate400, fontSize = 9.sp, maxLines = 2)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SuitsAndColorsTab(
+    settings: UserSettings,
+    onSelectSuit: (SuitStyleTheme) -> Unit,
+    onSelectScheme: (SuitColorScheme) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Suit Color Schemes (4 options)
+        Text(text = "Suit Colour Schemes (4 Options)", color = SleekEmerald400, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            CustomizationRegistry.suitColorSchemes.forEach { scheme ->
+                val isSelected = settings.suitColorSchemeId == scheme.id
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSelectScheme(scheme) },
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isSelected) SleekEmerald500.copy(alpha = 0.25f) else SleekHeaderDark,
+                    border = androidx.compose.foundation.BorderStroke(
+                        if (isSelected) 2.dp else 1.dp,
+                        if (isSelected) SleekEmerald400 else SleekBorderSubtle
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text("♥", color = scheme.heartsColor, fontSize = 12.sp)
+                            Text("♦", color = scheme.diamondsColor, fontSize = 12.sp)
+                            Text("♣", color = scheme.clubsColor, fontSize = 12.sp)
+                            Text("♠", color = scheme.spadesColor, fontSize = 12.sp)
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(text = scheme.name.split(" ").first(), color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text(text = "Suit Icon Styles (12 Styles)", color = SleekEmerald400, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+        // 12 Suit Icon Styles Grid
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(CustomizationRegistry.suitStyles) { suit ->
+                val isSelected = settings.suitStyleId == suit.id
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(70.dp)
+                        .clickable { onSelectSuit(suit) },
+                    shape = RoundedCornerShape(10.dp),
+                    color = SleekHeaderDark,
+                    border = androidx.compose.foundation.BorderStroke(
+                        if (isSelected) 2.dp else 1.dp,
+                        if (isSelected) SleekEmerald400 else SleekBorderSubtle
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "♠ ♥", fontSize = 18.sp, color = SleekEmerald400)
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(text = suit.name, color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                            Text(text = suit.description, color = SleekSlate400, fontSize = 8.5.sp, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PresetsTab(
+    settings: UserSettings,
+    onSelectCombo: (PresetCombo) -> Unit,
+    onDailySurpriseToggle: (Boolean) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = SleekHeaderDark,
+            border = androidx.compose.foundation.BorderStroke(1.dp, SleekBorderSubtle)
+        ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                listOf("ALL" to "All", "FREE" to "Free", "PREMIUM" to "3D Premium 👑").forEach { (type, label) ->
-                    FilterChip(
-                        selected = filterType == type,
-                        onClick = { filterType = type },
-                        label = { Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = SleekEmerald500,
-                            selectedLabelColor = Color.White,
-                            containerColor = SleekHeaderDark,
-                            labelColor = SleekSlate300
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderColor = SleekBorderSubtle,
-                            enabled = true,
-                            selected = filterType == type
-                        )
-                    )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Daily Surprise Theme", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Wake up each morning to a brand new curated theme combo!", color = SleekSlate400, fontSize = 11.sp)
                 }
-            }
-
-            // Content Grid
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
-            ) {
-                when (selectedTab) {
-                    0 -> BackgroundsGrid(
-                        currentId = settings.backgroundId,
-                        filterType = filterType,
-                        settings = settings,
-                        onSelect = { id -> scope.launch { userPrefs.updateBackground(id) } },
-                        onUnlock = { id, cost ->
-                            scope.launch {
-                                if (settings.coins >= cost) {
-                                    val ok = userPrefs.unlockItem(id, cost)
-                                    if (ok) {
-                                        userPrefs.updateBackground(id)
-                                        Toast.makeText(context, "Unlocked & Equipped!", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else {
-                                    Toast.makeText(context, "Need $cost Coins! Watch video ads to earn more.", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        }
+                androidx.compose.material3.Switch(
+                    checked = settings.dailySurpriseTheme,
+                    onCheckedChange = onDailySurpriseToggle,
+                    colors = androidx.compose.material3.SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = SleekEmerald500
                     )
-                    1 -> CardBacksGrid(
-                        currentId = settings.cardBackId,
-                        filterType = filterType,
-                        settings = settings,
-                        onSelect = { id -> scope.launch { userPrefs.updateCardBack(id) } },
-                        onUnlock = { id, cost ->
-                            scope.launch {
-                                if (settings.coins >= cost) {
-                                    val ok = userPrefs.unlockItem(id, cost)
-                                    if (ok) {
-                                        userPrefs.updateCardBack(id)
-                                        Toast.makeText(context, "Unlocked & Equipped!", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else {
-                                    Toast.makeText(context, "Need $cost Coins! Watch video ads to earn more.", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        }
-                    )
-                    2 -> CardFacesGrid(
-                        currentId = settings.cardFaceId,
-                        filterType = filterType,
-                        settings = settings,
-                        onSelect = { id -> scope.launch { userPrefs.updateCardFace(id) } },
-                        onUnlock = { id, cost ->
-                            scope.launch {
-                                if (settings.coins >= cost) {
-                                    val ok = userPrefs.unlockItem(id, cost)
-                                    if (ok) {
-                                        userPrefs.updateCardFace(id)
-                                        Toast.makeText(context, "Unlocked & Equipped!", Toast.LENGTH_SHORT).show()
-                                    }
-                                } else {
-                                    Toast.makeText(context, "Need $cost Coins! Watch video ads to earn more.", Toast.LENGTH_LONG).show()
-                                }
-                            }
-                        }
-                    )
-                }
+                )
             }
         }
 
-        // Shop & VIP Dialog
-        if (showShopDialog) {
-            ShopDialog(
-                userSettings = settings,
-                userPrefs = userPrefs,
-                onDismiss = { showShopDialog = false }
-            )
-        }
-    }
-}
+        Text(text = "One-Tap Preset Combos", color = SleekEmerald400, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
 
-@Composable
-fun BackgroundsGrid(
-    currentId: String,
-    filterType: String,
-    settings: UserSettings,
-    onSelect: (String) -> Unit,
-    onUnlock: (String, Int) -> Unit
-) {
-    val items = CustomizationRegistry.backgrounds.filter { bg ->
-        when (filterType) {
-            "FREE" -> !bg.isPremium
-            "PREMIUM" -> bg.isPremium
-            else -> true
-        }
-    }
-
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(items) { bg ->
-            val isSelected = bg.id == currentId
-            val isUnlocked = !bg.isPremium || settings.isItemUnlocked(bg.id)
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(88.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable {
-                        if (isUnlocked) onSelect(bg.id) else onUnlock(bg.id, bg.coinCost)
-                    }
-                    .then(
-                        if (isSelected) Modifier.border(2.5.dp, SleekEmerald400, RoundedCornerShape(12.dp))
-                        else Modifier.border(1.dp, SleekBorderSubtle, RoundedCornerShape(12.dp))
-                    )
-                    .testTag("bg_${bg.id}")
-            ) {
-                Box(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(1),
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(CustomizationRegistry.presetCombos) { combo ->
+                Surface(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(bg.brush)
-                        .padding(8.dp)
+                        .fillMaxWidth()
+                        .clickable { onSelectCombo(combo) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = SleekHeaderDark,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, SleekBorderSubtle)
                 ) {
-                    Column(modifier = Modifier.align(Alignment.BottomStart)) {
-                        Text(
-                            text = bg.name,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                        if (bg.isPremium) {
-                            Text(
-                                text = if (isUnlocked) "UNLOCKED" else "${bg.coinCost} Coins",
-                                color = if (isUnlocked) SleekEmerald400 else Color(0xFFFFD700),
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 10.sp
-                            )
-                        } else {
-                            Text("FREE", color = SleekSlate300, fontSize = 10.sp)
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SleekEmerald400, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = combo.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(text = combo.description, color = SleekSlate300, fontSize = 11.sp)
                         }
-                    }
-
-                    if (isSelected) {
-                        Box(
-                            modifier = Modifier
-                                .size(22.dp)
-                                .background(SleekEmerald400, CircleShape)
-                                .align(Alignment.TopEnd),
-                            contentAlignment = Alignment.Center
+                        Button(
+                            onClick = { onSelectCombo(combo) },
+                            colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(Icons.Default.Check, contentDescription = null, tint = SleekBgDark, modifier = Modifier.size(15.dp))
-                        }
-                    } else if (!isUnlocked) {
-                        Box(
-                            modifier = Modifier
-                                .size(22.dp)
-                                .background(Color.Black.copy(alpha = 0.7f), CircleShape)
-                                .align(Alignment.TopEnd),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(13.dp))
+                            Text("Apply", fontSize = 11.sp)
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CardBacksGrid(
-    currentId: String,
-    filterType: String,
-    settings: UserSettings,
-    onSelect: (String) -> Unit,
-    onUnlock: (String, Int) -> Unit
-) {
-    val items = CustomizationRegistry.cardBacks.filter { back ->
-        when (filterType) {
-            "FREE" -> !back.isPremium
-            "PREMIUM" -> back.isPremium
-            else -> true
-        }
-    }
-
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(items) { back ->
-            val isSelected = back.id == currentId
-            val isUnlocked = !back.isPremium || settings.isItemUnlocked(back.id)
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(118.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable {
-                        if (isUnlocked) onSelect(back.id) else onUnlock(back.id, back.coinCost)
-                    }
-                    .then(
-                        if (isSelected) Modifier.border(2.5.dp, SleekEmerald400, RoundedCornerShape(12.dp))
-                        else Modifier.border(1.dp, SleekBorderSubtle, RoundedCornerShape(12.dp))
-                    )
-                    .testTag("cardback_${back.id}"),
-                colors = CardDefaults.cardColors(containerColor = SleekHeaderDark)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Box {
-                        CardView(
-                            card = Card(id = 1, suit = Suit.SPADES, rank = Rank.ACE, isFaceUp = false),
-                            cardBack = back,
-                            modifier = Modifier.size(42.dp, 60.dp)
-                        )
-                        if (!isUnlocked) {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .background(Color.Black.copy(alpha = 0.8f), CircleShape)
-                                    .align(Alignment.TopEnd),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(12.dp))
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = back.name,
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = if (!back.isPremium) "FREE" else if (isUnlocked) "UNLOCKED" else "${back.coinCost} Coins",
-                        color = if (!back.isPremium) SleekSlate300 else if (isUnlocked) SleekEmerald400 else Color(0xFFFFD700),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CardFacesGrid(
-    currentId: String,
-    filterType: String,
-    settings: UserSettings,
-    onSelect: (String) -> Unit,
-    onUnlock: (String, Int) -> Unit
-) {
-    val items = CustomizationRegistry.cardFaces.filter { face ->
-        when (filterType) {
-            "FREE" -> !face.isPremium
-            "PREMIUM" -> face.isPremium
-            else -> true
-        }
-    }
-
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(items) { face ->
-            val isSelected = face.id == currentId
-            val isUnlocked = !face.isPremium || settings.isItemUnlocked(face.id)
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(118.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .clickable {
-                        if (isUnlocked) onSelect(face.id) else onUnlock(face.id, face.coinCost)
-                    }
-                    .then(
-                        if (isSelected) Modifier.border(2.5.dp, SleekEmerald400, RoundedCornerShape(12.dp))
-                        else Modifier.border(1.dp, SleekBorderSubtle, RoundedCornerShape(12.dp))
-                    )
-                    .testTag("cardface_${face.id}"),
-                colors = CardDefaults.cardColors(containerColor = SleekHeaderDark)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Box {
-                        CardView(
-                            card = Card(id = 1, suit = Suit.HEARTS, rank = Rank.KING, isFaceUp = true),
-                            cardFace = face,
-                            modifier = Modifier.size(42.dp, 60.dp)
-                        )
-                        if (!isUnlocked) {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .background(Color.Black.copy(alpha = 0.8f), CircleShape)
-                                    .align(Alignment.TopEnd),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Lock, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(12.dp))
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = face.name,
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = if (!face.isPremium) "FREE" else if (isUnlocked) "UNLOCKED" else "${face.coinCost} Coins",
-                        color = if (!face.isPremium) SleekSlate300 else if (isUnlocked) SleekEmerald400 else Color(0xFFFFD700),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
                 }
             }
         }

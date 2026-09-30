@@ -28,7 +28,20 @@ data class UserSettings(
     val defaultDrawMode: String = "DRAW_1",
     val backgroundId: String = "CLASSIC_FELT",
     val cardBackId: String = "BACK_CRIMSON_ANVIL",
-    val cardFaceId: String = "FACE_SENIOR_CLASSIC",
+    val cardFaceId: String = "FACE_CLASSIC_STANDARD",
+    val suitStyleId: String = "SUIT_CLASSIC_FILLED",
+    val suitColorSchemeId: String = "SCHEME_STANDARD",
+    val customCardBackUri: String? = null,
+    val customBackgroundUri: String? = null,
+    val backgroundDim: Float = 0.30f,
+    val backgroundBlur: Float = 0.0f,
+    val cardCornerRadius: String = "MEDIUM",
+    val cardIndexSize: String = "STANDARD",
+    val numeralsStyle: String = "WESTERN",
+    val dailySurpriseTheme: Boolean = false,
+    val winnableDealsOnly: Boolean = false,
+    val unlimitedUndo: Boolean = true,
+    val reduceMotion: Boolean = false,
     val autoCompleteEnabled: Boolean = true,
     val notificationsEnabled: Boolean = true,
     val showTimer: Boolean = true,
@@ -93,6 +106,19 @@ class UserPreferencesRepository(private val context: Context) {
         val KEY_AI_TOKENS = intPreferencesKey("ai_tokens_inventory")
         val KEY_VIP_PERMANENT = booleanPreferencesKey("vip_permanent_unlocked")
         val KEY_REWARDED_ADS_TOTAL = intPreferencesKey("rewarded_ads_total_watched")
+        val KEY_SUIT_STYLE = stringPreferencesKey("suit_style_id")
+        val KEY_SUIT_COLOR_SCHEME = stringPreferencesKey("suit_color_scheme_id")
+        val KEY_CUSTOM_CARD_BACK = stringPreferencesKey("custom_card_back_uri")
+        val KEY_CUSTOM_BACKGROUND = stringPreferencesKey("custom_background_uri")
+        val KEY_BACKGROUND_DIM = androidx.datastore.preferences.core.floatPreferencesKey("background_dim")
+        val KEY_BACKGROUND_BLUR = androidx.datastore.preferences.core.floatPreferencesKey("background_blur")
+        val KEY_CARD_CORNER_RADIUS = stringPreferencesKey("card_corner_radius")
+        val KEY_CARD_INDEX_SIZE = stringPreferencesKey("card_index_size")
+        val KEY_NUMERALS_STYLE = stringPreferencesKey("numerals_style")
+        val KEY_DAILY_SURPRISE_THEME = booleanPreferencesKey("daily_surprise_theme")
+        val KEY_WINNABLE_DEALS = booleanPreferencesKey("winnable_deals_only")
+        val KEY_UNLIMITED_UNDO = booleanPreferencesKey("unlimited_undo")
+        val KEY_REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -114,7 +140,20 @@ class UserPreferencesRepository(private val context: Context) {
                 defaultDrawMode = prefs[PreferencesKeys.KEY_DRAW_MODE] ?: "DRAW_1",
                 backgroundId = prefs[PreferencesKeys.KEY_BACKGROUND] ?: "CLASSIC_FELT",
                 cardBackId = prefs[PreferencesKeys.KEY_CARD_BACK] ?: "BACK_CRIMSON_ANVIL",
-                cardFaceId = prefs[PreferencesKeys.KEY_CARD_FACE] ?: "FACE_SENIOR_CLASSIC",
+                cardFaceId = prefs[PreferencesKeys.KEY_CARD_FACE] ?: "FACE_CLASSIC_STANDARD",
+                suitStyleId = prefs[PreferencesKeys.KEY_SUIT_STYLE] ?: "SUIT_CLASSIC_FILLED",
+                suitColorSchemeId = prefs[PreferencesKeys.KEY_SUIT_COLOR_SCHEME] ?: "SCHEME_STANDARD",
+                customCardBackUri = prefs[PreferencesKeys.KEY_CUSTOM_CARD_BACK],
+                customBackgroundUri = prefs[PreferencesKeys.KEY_CUSTOM_BACKGROUND],
+                backgroundDim = prefs[PreferencesKeys.KEY_BACKGROUND_DIM] ?: 0.30f,
+                backgroundBlur = prefs[PreferencesKeys.KEY_BACKGROUND_BLUR] ?: 0.0f,
+                cardCornerRadius = prefs[PreferencesKeys.KEY_CARD_CORNER_RADIUS] ?: "MEDIUM",
+                cardIndexSize = prefs[PreferencesKeys.KEY_CARD_INDEX_SIZE] ?: "STANDARD",
+                numeralsStyle = prefs[PreferencesKeys.KEY_NUMERALS_STYLE] ?: "WESTERN",
+                dailySurpriseTheme = prefs[PreferencesKeys.KEY_DAILY_SURPRISE_THEME] ?: false,
+                winnableDealsOnly = prefs[PreferencesKeys.KEY_WINNABLE_DEALS] ?: false,
+                unlimitedUndo = prefs[PreferencesKeys.KEY_UNLIMITED_UNDO] ?: true,
+                reduceMotion = prefs[PreferencesKeys.KEY_REDUCE_MOTION] ?: false,
                 autoCompleteEnabled = prefs[PreferencesKeys.KEY_AUTO_COMPLETE] ?: true,
                 notificationsEnabled = prefs[PreferencesKeys.KEY_NOTIFICATIONS] ?: true,
                 showTimer = prefs[PreferencesKeys.KEY_SHOW_TIMER] ?: true,
@@ -170,6 +209,88 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun updateCardFace(id: String) {
         context.dataStore.edit { it[PreferencesKeys.KEY_CARD_FACE] = id }
+    }
+
+    suspend fun updateSuitStyle(id: String) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_SUIT_STYLE] = id }
+    }
+
+    suspend fun updateSuitColorScheme(id: String) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_SUIT_COLOR_SCHEME] = id }
+    }
+
+    suspend fun updateCustomCardBackUri(uri: String?) {
+        context.dataStore.edit { prefs ->
+            if (uri != null) prefs[PreferencesKeys.KEY_CUSTOM_CARD_BACK] = uri
+            else prefs.remove(PreferencesKeys.KEY_CUSTOM_CARD_BACK)
+        }
+    }
+
+    suspend fun updateCustomBackgroundUri(uri: String?) {
+        context.dataStore.edit { prefs ->
+            if (uri != null) prefs[PreferencesKeys.KEY_CUSTOM_BACKGROUND] = uri
+            else prefs.remove(PreferencesKeys.KEY_CUSTOM_BACKGROUND)
+        }
+    }
+
+    suspend fun updateBackgroundDim(dim: Float) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_BACKGROUND_DIM] = dim }
+    }
+
+    suspend fun updateBackgroundBlur(blur: Float) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_BACKGROUND_BLUR] = blur }
+    }
+
+    suspend fun updateCardCornerRadius(radius: String) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_CARD_CORNER_RADIUS] = radius }
+    }
+
+    suspend fun updateCardIndexSize(size: String) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_CARD_INDEX_SIZE] = size }
+    }
+
+    suspend fun updateNumeralsStyle(style: String) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_NUMERALS_STYLE] = style }
+    }
+
+    suspend fun updateDailySurpriseTheme(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_DAILY_SURPRISE_THEME] = enabled }
+    }
+
+    suspend fun updateWinnableDealsOnly(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_WINNABLE_DEALS] = enabled }
+    }
+
+    suspend fun updateUnlimitedUndo(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_UNLIMITED_UNDO] = enabled }
+    }
+
+    suspend fun updateReduceMotion(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_REDUCE_MOTION] = enabled }
+    }
+
+    suspend fun applyPresetCombo(faceId: String, suitId: String, schemeId: String, backId: String, bgId: String) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferencesKeys.KEY_CARD_FACE] = faceId
+            prefs[PreferencesKeys.KEY_SUIT_STYLE] = suitId
+            prefs[PreferencesKeys.KEY_SUIT_COLOR_SCHEME] = schemeId
+            prefs[PreferencesKeys.KEY_CARD_BACK] = backId
+            prefs[PreferencesKeys.KEY_BACKGROUND] = bgId
+        }
+    }
+
+    suspend fun resetCustomizationToDefault() {
+        context.dataStore.edit { prefs ->
+            prefs[PreferencesKeys.KEY_CARD_FACE] = "FACE_CLASSIC_STANDARD"
+            prefs[PreferencesKeys.KEY_SUIT_STYLE] = "SUIT_CLASSIC_FILLED"
+            prefs[PreferencesKeys.KEY_SUIT_COLOR_SCHEME] = "SCHEME_STANDARD"
+            prefs[PreferencesKeys.KEY_CARD_BACK] = "BACK_GEOMETRIC_DIAMONDS"
+            prefs[PreferencesKeys.KEY_BACKGROUND] = "THEME_CASINO_GREEN"
+            prefs[PreferencesKeys.KEY_BACKGROUND_DIM] = 0.30f
+            prefs[PreferencesKeys.KEY_BACKGROUND_BLUR] = 0.0f
+            prefs.remove(PreferencesKeys.KEY_CUSTOM_CARD_BACK)
+            prefs.remove(PreferencesKeys.KEY_CUSTOM_BACKGROUND)
+        }
     }
 
     suspend fun updateAutoComplete(enabled: Boolean) {

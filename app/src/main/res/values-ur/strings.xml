@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">سولیٹیئر ہائپر کارڈ گیمز</string>
+    <string name="play">کھیلیں</string>
+    <string name="continue_game">جاری رکھیں</string>
+    <string name="new_game">نیا کھیل</string>
+    <string name="restart">دوبارہ شروع کریں</string>
+    <string name="daily_challenge">روزانہ چیلنج</string>
+    <string name="statistics">شماریات</string>
+    <string name="customization">تھیمز اور تاش</string>
+    <string name="settings">ترتیبات</string>
+    <string name="achievements">کامیابیاں</string>
+    <string name="undo">واپس</string>
+    <string name="hint">اشارہ</string>
+    <string name="auto_complete">خودکار مکمل</string>
+    <string name="score">اسکور</string>
+    <string name="time">وقت</string>
+    <string name="moves">چالیں</string>
+    <string name="you_win">مبارک ہو!</string>
+    <string name="victory_msg">آپ نے کھیل جیت لیا!</string>
+    <string name="draw_1">ڈرا 1</string>
+    <string name="draw_3">ڈرا 3</string>
+    <string name="sound">آواز کے اثرات</string>
+    <string name="music">موسیقی</string>
+    <string name="vibration">ارتعاش</string>
+    <string name="left_handed">بائیں ہاتھ کا موڈ</string>
+    <string name="privacy_policy">پرائیویسی پالیسی</string>
+    <string name="terms_and_conditions">شرائط و ضوابط</string>
+    <string name="about">ہمارے بارے میں</string>
+</resources>

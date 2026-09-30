@@ -30,6 +30,11 @@ object SolitaireEngine {
         return deck
     }
 
+    /**
+     * Checks if the game is won (all 52 cards placed onto foundations).
+     */
+    fun isGameWon(state: GameState): Boolean = state.isGameWon || state.totalFoundationCards == 52
+
     val WINNABLE_SEEDS = longArrayOf(
         1001L, 1005L, 1012L, 1014L, 1025L, 1033L, 1042L, 1050L, 1063L, 1074L,
         1081L, 1092L, 1100L, 1115L, 1128L, 1137L, 1145L, 1159L, 1162L, 1178L,

@@ -138,6 +138,7 @@ fun SolitaireAppNavigation(
         activity?.let {
             AdManager.preloadAppOpen(it)
             AdManager.showAppOpenAdIfReady(it, userSettings.isAdFreeActive())
+            AdManager.markFirstLaunchComplete()
         }
         // Check for Google Play Store updates on app startup
         AppUpdateHelper.checkForAppUpdate(context)

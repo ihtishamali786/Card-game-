@@ -96,4 +96,29 @@ class SolitaireEngineTest {
         assertEquals(24, restored.stock.size)
         assertEquals(0, restored.waste.size)
     }
+
+    @Test
+    fun `win detection triggers when all 52 cards are on foundations`() {
+        val winningFoundations = Suit.entries.map { suit ->
+            Rank.entries.mapIndexed { idx, rank ->
+                Card(id = idx + 1, suit = suit, rank = rank, isFaceUp = true)
+            }
+        }
+        val winState = SolitaireEngine.newGame().copy(
+            stock = emptyList(),
+            waste = emptyList(),
+            tableau = List(7) { emptyList() },
+            foundations = winningFoundations
+        )
+        assertTrue(SolitaireEngine.isGameWon(winState))
+    }
+
+    @Test
+    fun `standard and vegas scoring modes initialize properly`() {
+        val standardGame = SolitaireEngine.newGame(isVegasScoring = false)
+        assertEquals(0, standardGame.score)
+
+        val vegasGame = SolitaireEngine.newGame(isVegasScoring = true)
+        assertEquals(-52, vegasGame.score)
+    }
 }

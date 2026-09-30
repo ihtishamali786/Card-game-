@@ -76,11 +76,44 @@ object AdManager {
     private var appOpenLoadTime: Long = 0L
     private var isShowingAppOpenAd = false
 
-    // Periodic Video/Interstitial timer (every 15-20 minutes: 15 * 60 * 1000 ms)
-    private const val PERIODIC_AD_INTERVAL_MS = 15 * 60 * 1000L
-    private var lastAdShownTimestamp: Long = System.currentTimeMillis()
+    // Periodic Video/Interstitial timer (at least 2 minutes between interstitials)
+    private const val MIN_INTERSTITIAL_INTERVAL_MS = 2 * 60 * 1000L
+    private var lastAdShownTimestamp: Long = 0L
+    private var completedGamesCount: Int = 0
+    private var hasCompletedFirstLaunch: Boolean = false
+    private var lastAppOpenShownTimestamp: Long = 0L
 
     private var isInitialized = false
+
+    fun markFirstLaunchComplete() {
+        hasCompletedFirstLaunch = true
+    }
+
+    /**
+     * Records a completed game and evaluates if an interstitial should be shown between games.
+     * Enforces:
+     * - Only between games (never during game)
+     * - At most once every 3 completed games
+     * - Never within 2 minutes of the last ad
+     */
+    fun onGameCompleted(activity: Activity, isAdFree: Boolean, onComplete: () -> Unit = {}) {
+        if (isAdFree) {
+            onComplete()
+            return
+        }
+        completedGamesCount++
+        val elapsed = System.currentTimeMillis() - lastAdShownTimestamp
+        if (completedGamesCount >= 3 && elapsed >= MIN_INTERSTITIAL_INTERVAL_MS) {
+            Log.d(TAG, "Frequency cap reached: 3 games completed and >2 mins. Showing interstitial...")
+            completedGamesCount = 0
+            lastAdShownTimestamp = System.currentTimeMillis()
+            showInterstitialIfReady(activity, isAdFree = false) {
+                onComplete()
+            }
+        } else {
+            onComplete()
+        }
+    }
 
     fun initialize(context: Context) {
         if (isInitialized) return
@@ -104,24 +137,11 @@ object AdManager {
     }
 
     /**
-     * Checks if 15+ minutes have passed since the last ad, and displays an ad if ready.
-     * Called on natural gameplay checkpoints (e.g., deal new game, restart, pause).
+     * Policy compliance: Interstitials are suppressed during active gameplay checkpoints.
+     * Ads only occur between completed games per Play policy and Section 6 specification.
      */
     fun checkAndShowPeriodicTimeAd(activity: Activity, isAdFree: Boolean, onComplete: () -> Unit = {}) {
-        if (isAdFree) {
-            onComplete()
-            return
-        }
-        val elapsed = System.currentTimeMillis() - lastAdShownTimestamp
-        if (elapsed >= PERIODIC_AD_INTERVAL_MS) {
-            Log.d(TAG, "Periodic ad trigger reached (${elapsed / 60000} minutes elapsed). Showing interstitial...")
-            lastAdShownTimestamp = System.currentTimeMillis()
-            showInterstitialIfReady(activity, isAdFree = false) {
-                onComplete()
-            }
-        } else {
-            onComplete()
-        }
+        onComplete()
     }
 
     /**
@@ -163,7 +183,8 @@ object AdManager {
                         appOpenAd = null
                         isAppOpenLoading = false
                         Log.w(TAG, "AppOpenAd failed to load: ${error.message}")
-                        if (appOpenAdUnitId != TEST_APP_OPEN_ID) {
+                        // Only attempt test fallback in DEBUG builds, NEVER in release builds
+                        if (BuildConfig.DEBUG && appOpenAdUnitId != TEST_APP_OPEN_ID) {
                             val testRequest = AdRequest.Builder().build()
                             AppOpenAd.load(
                                 context,
@@ -194,7 +215,10 @@ object AdManager {
     }
 
     fun showAppOpenAdIfReady(activity: Activity, isAdFree: Boolean, onDismiss: () -> Unit = {}) {
-        if (isAdFree || isShowingAppOpenAd) {
+        // Enforce: max once per 4 hours, never on first launch, respect ad-free
+        val fourHoursMs = 4 * 3600 * 1000L
+        val now = System.currentTimeMillis()
+        if (isAdFree || isShowingAppOpenAd || !hasCompletedFirstLaunch || (now - lastAppOpenShownTimestamp) < fourHoursMs) {
             onDismiss()
             return
         }
@@ -202,6 +226,7 @@ object AdManager {
         val ad = appOpenAd
         if (ad != null && isAppOpenAvailable()) {
             isShowingAppOpenAd = true
+            lastAppOpenShownTimestamp = now
             ad.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
                     appOpenAd = null
@@ -249,7 +274,7 @@ object AdManager {
                         interstitialAd = null
                         isInterstitialLoading = false
                         Log.w(TAG, "Interstitial failed to load: ${error.message}")
-                        if (!interstitialFallbackAttempted && interstitialAdUnitId != TEST_INTERSTITIAL_ID) {
+                        if (BuildConfig.DEBUG && !interstitialFallbackAttempted && interstitialAdUnitId != TEST_INTERSTITIAL_ID) {
                             interstitialFallbackAttempted = true
                             val testRequest = AdRequest.Builder().build()
                             InterstitialAd.load(
@@ -328,7 +353,7 @@ object AdManager {
                         rewardedInterstitialAd = null
                         isRewardedInterstitialLoading = false
                         Log.w(TAG, "Rewarded interstitial failed to load: ${error.message}")
-                        if (!rewardedInterstitialFallbackAttempted && rewardedInterstitialAdUnitId != TEST_REWARDED_INTERSTITIAL_ID) {
+                        if (BuildConfig.DEBUG && !rewardedInterstitialFallbackAttempted && rewardedInterstitialAdUnitId != TEST_REWARDED_INTERSTITIAL_ID) {
                             rewardedInterstitialFallbackAttempted = true
                             val testRequest = AdRequest.Builder().build()
                             RewardedInterstitialAd.load(
@@ -375,7 +400,7 @@ object AdManager {
                         rewardedAd = null
                         isRewardedLoading = false
                         Log.w(TAG, "Rewarded ad failed to load: ${error.message}")
-                        if (!rewardedFallbackAttempted && rewardedAdUnitId != TEST_REWARDED_ID) {
+                        if (BuildConfig.DEBUG && !rewardedFallbackAttempted && rewardedAdUnitId != TEST_REWARDED_ID) {
                             rewardedFallbackAttempted = true
                             val testRequest = AdRequest.Builder().build()
                             RewardedAd.load(

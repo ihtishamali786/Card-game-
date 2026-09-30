@@ -2,8 +2,9 @@ package com.solitaire.hyper.card.games.sound
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioFormat
 import android.media.AudioManager
-import android.media.SoundPool
+import android.media.AudioTrack
 import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
@@ -13,20 +14,14 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.util.Collections
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
 
 /**
- * High-performance, zero-latency Sound & Haptics Engine for Solitaire.
- * Uses Android's native SoundPool for instant audio feedback without allocation lag,
- * synthesizing realistic physical card snaps, crystal foundation chimes, victory fanfare,
- * and spinning wheel ratchets.
+ * High-performance, zero-codec audio and haptics engine for Solitaire.
+ * Uses direct in-memory PCM AudioTrack (MODE_STATIC) with ToneGenerator fallback.
+ * Bypasses MediaCodec and Codec2 bufferpools to eliminate system resource errors on emulators.
  */
 class SoundManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Default)
@@ -39,124 +34,92 @@ class SoundManager(private val context: Context) {
         context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 
-    private val soundPool: SoundPool = SoundPool.Builder()
-        .setMaxStreams(10)
-        .setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_GAME)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-        )
-        .build()
-
-    private val loadedSounds = Collections.synchronizedSet(mutableSetOf<Int>())
-
-    @Volatile private var soundCardMove: Int = 0
-    @Volatile private var soundCardFlip: Int = 0
-    @Volatile private var soundFoundationSnap: Int = 0
-    @Volatile private var soundVictory: Int = 0
-    @Volatile private var soundSpinTick: Int = 0
-    @Volatile private var soundSpinReward: Int = 0
-    @Volatile private var soundInvalidMove: Int = 0
-
     private val toneGenerator: ToneGenerator? = try {
         ToneGenerator(AudioManager.STREAM_MUSIC, 75)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         null
     }
+
+    @Volatile private var trackCardMove: AudioTrack? = null
+    @Volatile private var trackFoundationSnap: AudioTrack? = null
+    @Volatile private var trackCardFlip: AudioTrack? = null
+    @Volatile private var trackVictory: AudioTrack? = null
+    @Volatile private var trackSpinTick: AudioTrack? = null
+    @Volatile private var trackSpinReward: AudioTrack? = null
+    @Volatile private var trackInvalidMove: AudioTrack? = null
 
     var soundEnabled: Boolean = true
     var vibrationEnabled: Boolean = true
 
     init {
-        soundPool.setOnLoadCompleteListener { _, sampleId, status ->
-            if (status == 0) {
-                loadedSounds.add(sampleId)
-            }
-        }
         scope.launch {
-            initAudioAssets()
+            initAudioTracks()
         }
     }
 
-    private fun initAudioAssets() {
+    private fun initAudioTracks() {
         try {
-            val cacheDir = context.cacheDir.resolve("solitaire_audio")
-            if (!cacheDir.exists()) cacheDir.mkdirs()
-
-            val moveFile = cacheDir.resolve("card_move.wav")
-            if (!moveFile.exists() || moveFile.length() < 44) {
-                writeWav(moveFile, generateCardMoveSamples())
-            }
-            soundCardMove = soundPool.load(moveFile.absolutePath, 1)
-
-            val foundationFile = cacheDir.resolve("foundation_snap.wav")
-            if (!foundationFile.exists() || foundationFile.length() < 44) {
-                writeWav(foundationFile, generateFoundationSnapSamples())
-            }
-            soundFoundationSnap = soundPool.load(foundationFile.absolutePath, 1)
-
-            val flipFile = cacheDir.resolve("card_flip.wav")
-            if (!flipFile.exists() || flipFile.length() < 44) {
-                writeWav(flipFile, generateCardFlipSamples())
-            }
-            soundCardFlip = soundPool.load(flipFile.absolutePath, 1)
-
-            val victoryFile = cacheDir.resolve("victory_fanfare.wav")
-            if (!victoryFile.exists() || victoryFile.length() < 44) {
-                writeWav(victoryFile, generateVictorySamples())
-            }
-            soundVictory = soundPool.load(victoryFile.absolutePath, 1)
-
-            val spinTickFile = cacheDir.resolve("spin_tick.wav")
-            if (!spinTickFile.exists() || spinTickFile.length() < 44) {
-                writeWav(spinTickFile, generateSpinTickSamples())
-            }
-            soundSpinTick = soundPool.load(spinTickFile.absolutePath, 1)
-
-            val spinRewardFile = cacheDir.resolve("spin_reward.wav")
-            if (!spinRewardFile.exists() || spinRewardFile.length() < 44) {
-                writeWav(spinRewardFile, generateSpinRewardSamples())
-            }
-            soundSpinReward = soundPool.load(spinRewardFile.absolutePath, 1)
-
-            val invalidFile = cacheDir.resolve("invalid_move.wav")
-            if (!invalidFile.exists() || invalidFile.length() < 44) {
-                writeWav(invalidFile, generateInvalidMoveSamples())
-            }
-            soundInvalidMove = soundPool.load(invalidFile.absolutePath, 1)
+            val sampleRate = 22050
+            trackCardMove = createStaticTrack(generateCardMoveSamples(sampleRate), sampleRate)
+            trackFoundationSnap = createStaticTrack(generateFoundationSnapSamples(sampleRate), sampleRate)
+            trackCardFlip = createStaticTrack(generateCardFlipSamples(sampleRate), sampleRate)
+            trackVictory = createStaticTrack(generateVictorySamples(sampleRate), sampleRate)
+            trackSpinTick = createStaticTrack(generateSpinTickSamples(sampleRate), sampleRate)
+            trackSpinReward = createStaticTrack(generateSpinRewardSamples(sampleRate), sampleRate)
+            trackInvalidMove = createStaticTrack(generateInvalidMoveSamples(sampleRate), sampleRate)
         } catch (e: Exception) {
-            Log.w("SoundManager", "Error initializing audio assets: ${e.message}")
+            Log.w("SoundManager", "Direct AudioTrack init fallback: ${e.message}")
         }
     }
 
-    private fun writeWav(file: File, samples: ShortArray, sampleRate: Int = 22050) {
-        val dataSize = samples.size * 2
-        val totalSize = 36 + dataSize
-        val buffer = ByteBuffer.allocate(44 + dataSize).order(ByteOrder.LITTLE_ENDIAN)
+    private fun createStaticTrack(samples: ShortArray, sampleRate: Int): AudioTrack? {
+        return try {
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
 
-        buffer.put("RIFF".toByteArray())
-        buffer.putInt(totalSize)
-        buffer.put("WAVE".toByteArray())
+            val audioFormat = AudioFormat.Builder()
+                .setSampleRate(sampleRate)
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .build()
 
-        buffer.put("fmt ".toByteArray())
-        buffer.putInt(16) // Subchunk1Size
-        buffer.putShort(1) // PCM
-        buffer.putShort(1) // Mono
-        buffer.putInt(sampleRate)
-        buffer.putInt(sampleRate * 2) // ByteRate
-        buffer.putShort(2) // BlockAlign
-        buffer.putShort(16) // BitsPerSample
-
-        buffer.put("data".toByteArray())
-        buffer.putInt(dataSize)
-
-        for (s in samples) {
-            buffer.putShort(s)
+            val track = AudioTrack(
+                audioAttributes,
+                audioFormat,
+                samples.size * 2,
+                AudioTrack.MODE_STATIC,
+                AudioManager.AUDIO_SESSION_ID_GENERATE
+            )
+            track.write(samples, 0, samples.size)
+            track
+        } catch (e: Exception) {
+            null
         }
+    }
 
-        FileOutputStream(file).use { fos ->
-            fos.write(buffer.array())
+    private fun playTrackOrTone(track: AudioTrack?, fallbackTone: Int, toneDurationMs: Int) {
+        if (!soundEnabled) return
+        var played = false
+        if (track != null) {
+            try {
+                if (track.state == AudioTrack.STATE_INITIALIZED) {
+                    track.stop()
+                    track.reloadStaticData()
+                    track.play()
+                    played = true
+                }
+            } catch (_: Exception) {
+                played = false
+            }
+        }
+        if (!played) {
+            try {
+                toneGenerator?.startTone(fallbackTone, toneDurationMs)
+            } catch (_: Exception) {
+                // Gracefully handled
+            }
         }
     }
 
@@ -290,44 +253,43 @@ class SoundManager(private val context: Context) {
 
     fun playCardMove() {
         if (!soundEnabled) return
-        playOrFallback(soundCardMove, ToneGenerator.TONE_PROP_BEEP, 30, volume = 0.85f)
+        playTrackOrTone(trackCardMove, ToneGenerator.TONE_PROP_BEEP, 30)
         triggerHaptic(durationMs = 12, amplitude = 35)
     }
 
     fun playFoundationSnap() {
         if (!soundEnabled) return
-        playOrFallback(soundFoundationSnap, ToneGenerator.TONE_PROP_ACK, 70, volume = 0.95f)
+        playTrackOrTone(trackFoundationSnap, ToneGenerator.TONE_PROP_ACK, 70)
         triggerHaptic(durationMs = 25, amplitude = 70)
     }
 
     fun playCardFlip() {
         if (!soundEnabled) return
-        playOrFallback(soundCardFlip, ToneGenerator.TONE_PROP_BEEP, 25, volume = 0.75f)
+        playTrackOrTone(trackCardFlip, ToneGenerator.TONE_PROP_BEEP, 25)
         triggerHaptic(durationMs = 15, amplitude = 40)
     }
 
     fun playVictory() {
         if (!soundEnabled) return
-        playOrFallback(soundVictory, ToneGenerator.TONE_PROP_PROMPT, 500, volume = 1.0f)
+        playTrackOrTone(trackVictory, ToneGenerator.TONE_PROP_PROMPT, 500)
         triggerHaptic(durationMs = 80, amplitude = 120)
     }
 
     fun playSpinTick() {
         if (!soundEnabled) return
-        val randomRate = (0.95f + (Math.random() * 0.1f).toFloat())
-        playOrFallback(soundSpinTick, ToneGenerator.TONE_PROP_BEEP, 20, volume = 0.7f, rate = randomRate)
+        playTrackOrTone(trackSpinTick, ToneGenerator.TONE_PROP_BEEP, 20)
         triggerHaptic(durationMs = 8, amplitude = 25)
     }
 
     fun playSpinReward() {
         if (!soundEnabled) return
-        playOrFallback(soundSpinReward, ToneGenerator.TONE_PROP_ACK, 250, volume = 1.0f)
+        playTrackOrTone(trackSpinReward, ToneGenerator.TONE_PROP_ACK, 250)
         triggerHaptic(durationMs = 60, amplitude = 100)
     }
 
     fun playInvalidMove() {
         if (!soundEnabled) return
-        playOrFallback(soundInvalidMove, ToneGenerator.TONE_PROP_NACK, 50, volume = 0.6f)
+        playTrackOrTone(trackInvalidMove, ToneGenerator.TONE_PROP_NACK, 50)
         triggerHaptic(durationMs = 30, amplitude = 50)
     }
 
@@ -341,26 +303,6 @@ class SoundManager(private val context: Context) {
         playCardFlip()
     }
 
-    private fun playOrFallback(soundId: Int, fallbackTone: Int, toneDurationMs: Int, volume: Float = 1.0f, rate: Float = 1.0f) {
-        if (!soundEnabled) return
-        var played = false
-        if (soundId != 0 && loadedSounds.contains(soundId)) {
-            try {
-                val streamId = soundPool.play(soundId, volume, volume, 1, 0, rate)
-                played = (streamId != 0)
-            } catch (e: Exception) {
-                played = false
-            }
-        }
-        if (!played) {
-            try {
-                toneGenerator?.startTone(fallbackTone, toneDurationMs)
-            } catch (e: Exception) {
-                // Graceful
-            }
-        }
-    }
-
     private fun triggerHaptic(durationMs: Long, amplitude: Int = 50) {
         if (!vibrationEnabled || vibrator == null || !vibrator.hasVibrator()) return
         try {
@@ -371,8 +313,8 @@ class SoundManager(private val context: Context) {
                 @Suppress("DEPRECATION")
                 vibrator.vibrate(durationMs)
             }
-        } catch (e: Exception) {
-            Log.w("SoundManager", "Haptic feedback unavailable: ${e.message}")
+        } catch (_: Exception) {
+            // Ignored
         }
     }
 }

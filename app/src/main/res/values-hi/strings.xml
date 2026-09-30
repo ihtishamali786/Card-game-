@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">सॉलिटेयर हाइपर कार्ड गेम्स</string>
+    <string name="play">खेलें</string>
+    <string name="continue_game">जारी रखें</string>
+    <string name="new_game">नया खेल</string>
+    <string name="restart">पुनः प्रारंभ करें</string>
+    <string name="daily_challenge">दैनिक चुनौती</string>
+    <string name="statistics">आंकड़े</string>
+    <string name="customization">थीम और कार्ड</string>
+    <string name="settings">सेटिंग्स</string>
+    <string name="achievements">उपलब्धियां</string>
+    <string name="undo">पूर्ववत करें</string>
+    <string name="hint">संकेत</string>
+    <string name="auto_complete">स्वतः पूर्ण</string>
+    <string name="score">स्कोर</string>
+    <string name="time">समय</string>
+    <string name="moves">चालें</string>
+    <string name="you_win">बधाई हो!</string>
+    <string name="victory_msg">आपने खेल पूरा कर लिया!</string>
+    <string name="draw_1">ड्रॉ 1</string>
+    <string name="draw_3">ड्रॉ 3</string>
+    <string name="sound">ध्वनि प्रभाव</string>
+    <string name="music">संगीत</string>
+    <string name="vibration">कंपन</string>
+    <string name="left_handed">बाएं हाथ का मोड</string>
+    <string name="privacy_policy">गोपनीयता नीति</string>
+    <string name="terms_and_conditions">नियम और शर्तें</string>
+    <string name="about">के बारे में</string>
+</resources>

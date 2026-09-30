@@ -289,10 +289,10 @@ fun SettingsScreen(
         if (showAboutDialog) {
             AlertDialog(
                 onDismissRequest = { showAboutDialog = false },
-                title = { Text("Solitaire-Hyper Card Games") },
+                title = { Text("Solitaire-Hyper Card Games", fontWeight = FontWeight.Bold) },
                 text = {
-                    Column {
-                        Text("Version ${BuildConfig.VERSION_NAME} (Play Console Release)")
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        Text("Version ${BuildConfig.VERSION_NAME} (Play Console Release)", fontWeight = FontWeight.SemiBold, color = SleekEmerald400)
                         Spacer(Modifier.height(8.dp))
                         Text(
                             "A master-crafted Klondike Solitaire card experience with daily challenges, " +
@@ -300,7 +300,19 @@ fun SettingsScreen(
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(10.dp))
+                        Text("Image & Art Credits / Licences", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = SleekEmerald400)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "• Table Wallpapers & Theme Palettes: Royalty-free vector artwork and scenic landscape photography (Unsplash/Pexels public license, non-commercial & commercial permitted without attribution requirements).\n" +
+                                    "• Card Back Designs: Original procedural vector compositions created for Solitaire Hyper.\n" +
+                                    "• Card Faces & Suit Pips: Custom SVG mathematical paths and Material Design Symbols.\n" +
+                                    "• No copyrighted trademarks, logos, or religious monuments are used.",
+                            fontSize = 11.5.sp,
+                            color = SleekSlate300,
+                            lineHeight = 16.sp
+                        )
+                        Spacer(Modifier.height(10.dp))
                         Text("Package: com.solitaire.hyper.card.games", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                 },

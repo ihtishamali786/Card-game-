@@ -15,13 +15,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -36,8 +37,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -47,17 +46,56 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.solitaire.hyper.card.games.game.model.Card
-import com.solitaire.hyper.card.games.game.model.CardColor
 import com.solitaire.hyper.card.games.game.model.Rank
 import com.solitaire.hyper.card.games.game.model.Suit
+import com.solitaire.hyper.card.games.ui.customization.CardBackPattern
 import com.solitaire.hyper.card.games.ui.customization.CardBackTheme
 import com.solitaire.hyper.card.games.ui.customization.CardFaceStyle
 import com.solitaire.hyper.card.games.ui.customization.CardFaceTheme
 import com.solitaire.hyper.card.games.ui.customization.CustomizationRegistry
+import com.solitaire.hyper.card.games.ui.customization.SuitColorScheme
+import com.solitaire.hyper.card.games.ui.customization.SuitIconStyle
+import com.solitaire.hyper.card.games.ui.customization.SuitStyleTheme
 import kotlin.math.cos
 import kotlin.math.sin
 
-val CardCornerRadius = 8.dp
+/**
+ * Maps standard ranks to Western or Eastern Arabic numerals.
+ */
+fun formatRank(rank: Rank, numeralsStyle: String): String {
+    if (numeralsStyle != "EASTERN_ARABIC") return rank.display
+    return when (rank) {
+        Rank.ACE -> "A"
+        Rank.TWO -> "٢"
+        Rank.THREE -> "٣"
+        Rank.FOUR -> "٤"
+        Rank.FIVE -> "٥"
+        Rank.SIX -> "٦"
+        Rank.SEVEN -> "٧"
+        Rank.EIGHT -> "٨"
+        Rank.NINE -> "٩"
+        Rank.TEN -> "١٠"
+        Rank.JACK -> "J"
+        Rank.QUEEN -> "Q"
+        Rank.KING -> "K"
+    }
+}
+
+/**
+ * Returns the effective color for the suit based on the chosen scheme and card face tone.
+ */
+fun getSuitColor(suit: Suit, scheme: SuitColorScheme, isDarkFace: Boolean): Color {
+    val base = when (suit) {
+        Suit.HEARTS -> scheme.heartsColor
+        Suit.DIAMONDS -> scheme.diamondsColor
+        Suit.CLUBS -> scheme.clubsColor
+        Suit.SPADES -> scheme.spadesColor
+    }
+    if (isDarkFace && (base == Color(0xFF0F172A) || base == Color(0xFF1E293B) || base == Color(0xFF000000))) {
+        return Color(0xFFE2E8F0)
+    }
+    return base
+}
 
 @Composable
 fun CardView(
@@ -65,6 +103,12 @@ fun CardView(
     modifier: Modifier = Modifier,
     cardBack: CardBackTheme = CustomizationRegistry.cardBacks.first(),
     cardFace: CardFaceTheme = CustomizationRegistry.cardFaces.first(),
+    suitStyle: SuitStyleTheme = CustomizationRegistry.suitStyles.first(),
+    suitScheme: SuitColorScheme = CustomizationRegistry.suitColorSchemes.first(),
+    customCardBackUri: String? = null,
+    cardCornerRadius: String = "MEDIUM",
+    cardIndexSize: String = "STANDARD",
+    numeralsStyle: String = "WESTERN",
     isSelected: Boolean = false,
     isValidTarget: Boolean = false,
     isHinted: Boolean = false,
@@ -83,14 +127,19 @@ fun CardView(
         label = "pulse_glow"
     )
 
-    val shape = RoundedCornerShape(CardCornerRadius)
+    val cornerRadiusDp = when (cardCornerRadius) {
+        "SHARP" -> 2.dp
+        "ROUND" -> 14.dp
+        else -> 8.dp
+    }
+    val shape = RoundedCornerShape(cornerRadiusDp)
 
     val borderModifier = when {
         isSelected -> Modifier.border(3.dp, Color(0xFFFFC107), shape)
         isValidTarget -> Modifier.border(3.dp, Color(0xFF00E5FF).copy(alpha = pulseGlow), shape)
         isHinted -> Modifier.border(2.5.dp, Color(0xFF34D399).copy(alpha = pulseGlow), shape)
         card?.isFaceUp == true -> Modifier.border(0.75.dp, Color(0x22000000), shape)
-        else -> Modifier.border(1.dp, Color(0x33B71C1C), shape)
+        else -> Modifier.border(1.dp, cardBack.accentColor.copy(alpha = 0.4f), shape)
     }
 
     val elevation: Dp = when {
@@ -112,21 +161,24 @@ fun CardView(
                 } else Modifier
             ),
         shape = shape,
-        color = if (card == null) Color.Transparent else if (card.isFaceUp) Color.White else cardBack.baseColor
+        color = if (card == null) Color.Transparent else if (card.isFaceUp) cardFace.surfaceColor else cardBack.baseColor
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             if (card == null) {
-                // Empty placeholder slot
                 CardSlotPlaceholder(isValidTarget = isValidTarget)
             } else if (!card.isFaceUp) {
-                // Card back
-                CardBackView(cardBack = cardBack)
+                CardBackView(cardBack = cardBack, customPhotoUri = customCardBackUri)
             } else {
-                // Face-up card
-                CardFaceView(card = card, cardFace = cardFace, largePrint = largePrint)
+                CardFaceView(
+                    card = card,
+                    cardFace = cardFace,
+                    suitStyle = suitStyle,
+                    suitScheme = suitScheme,
+                    cardIndexSize = if (largePrint) "EXTRA_LARGE" else cardIndexSize,
+                    numeralsStyle = numeralsStyle
+                )
             }
 
-            // High-visibility selection indicator
             if (isSelected) {
                 Box(
                     modifier = Modifier
@@ -135,16 +187,10 @@ fun CardView(
                         .background(Color(0xFFFFC107), CircleShape)
                         .padding(horizontal = 4.dp, vertical = 1.dp)
                 ) {
-                    Text(
-                        text = "✓",
-                        color = Color.Black,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    Text(text = "✓", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 }
             }
 
-            // High-visibility valid target badge
             if (isValidTarget && card != null) {
                 Box(
                     modifier = Modifier
@@ -153,686 +199,367 @@ fun CardView(
                         .background(Color(0xFF00E5FF).copy(alpha = 0.9f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 4.dp, vertical = 1.dp)
                 ) {
-                    Text(
-                        text = "DROP",
-                        color = Color.Black,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                    Text(text = "DROP", color = Color.Black, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
         }
     }
 }
 
-/**
- * Renders the face of the playing card with custom themes matching user photos.
- */
 @Composable
 fun CardFaceView(
     card: Card,
     cardFace: CardFaceTheme,
+    suitStyle: SuitStyleTheme = CustomizationRegistry.suitStyles.first(),
+    suitScheme: SuitColorScheme = CustomizationRegistry.suitColorSchemes.first(),
+    cardIndexSize: String = "STANDARD",
+    numeralsStyle: String = "WESTERN",
     largePrint: Boolean = false
 ) {
     val style = cardFace.style
-
-    // 1. Theme-specific colors
-    val textColor = when (style) {
-        CardFaceStyle.SENIOR_CLASSIC, CardFaceStyle.CRIMSON_ANVIL, CardFaceStyle.STANDARD -> {
-            if (card.color == CardColor.RED) Color(0xFFD32F2F) else Color(0xFF111827)
-        }
-        CardFaceStyle.SILVER_DRAGON -> {
-            if (card.color == CardColor.RED) Color(0xFFB91C1C) else Color(0xFF111827)
-        }
-        CardFaceStyle.GOLDEN_HEARTS -> {
-            if (card.color == CardColor.RED) Color(0xFFD50000) else Color(0xFF3E2723)
-        }
-        CardFaceStyle.VINTAGE_TAVERN -> {
-            if (card.color == CardColor.RED) Color(0xFF781824) else Color(0xFF1A1A1A)
-        }
-        CardFaceStyle.BAROQUE_ACES -> {
-            if (card.color == CardColor.RED) Color(0xFF991B1B) else Color(0xFF1F2937)
-        }
-        CardFaceStyle.AZTEC_MANDALA -> {
-            if (card.color == CardColor.RED) Color(0xFFC62828) else Color(0xFF121212)
-        }
-        CardFaceStyle.MODERN_POPART -> {
-            if (card.color == CardColor.RED) Color(0xFFFF1744) else Color(0xFF0F172A)
-        }
-    }
+    val isDark = cardFace.isDarkSurface
+    val suitColor = getSuitColor(card.suit, suitScheme, isDark)
 
     val fontFamily = when (style) {
-        CardFaceStyle.VINTAGE_TAVERN, CardFaceStyle.BAROQUE_ACES -> FontFamily.Serif
+        CardFaceStyle.VINTAGE_IVORY, CardFaceStyle.CARVED_WOOD, CardFaceStyle.MUGHAL_MINIATURE -> FontFamily.Serif
+        CardFaceStyle.PIXEL_RETRO -> FontFamily.Monospace
         else -> FontFamily.SansSerif
     }
 
-    // Indices sizing - Clear & Bold matching authentic game screenshots
-    val cornerRankSize = if (largePrint) 23.sp else 19.5.sp
-    val cornerRankLineHeight = if (largePrint) 24.sp else 20.sp
-
-    // Background modifier
-    val bgModifier = when (style) {
-        CardFaceStyle.SENIOR_CLASSIC, CardFaceStyle.CRIMSON_ANVIL -> Modifier.background(Color.White)
-        CardFaceStyle.SILVER_DRAGON -> Modifier.background(
-            Brush.linearGradient(listOf(Color(0xFFE8E8EC), Color(0xFFFFFFFF), Color(0xFFD1D5DB), Color(0xFFE5E7EB)))
-        )
-        CardFaceStyle.GOLDEN_HEARTS -> Modifier.background(
-            Brush.linearGradient(listOf(Color(0xFFFFDF73), Color(0xFFE5B83B), Color(0xFFFFF0A6), Color(0xFFCF9C22)))
-        )
-        CardFaceStyle.VINTAGE_TAVERN -> Modifier.background(Color(0xFFF3EBDA))
-        CardFaceStyle.BAROQUE_ACES -> Modifier.background(Color(0xFFFAF7EE))
-        CardFaceStyle.AZTEC_MANDALA -> Modifier.background(Color(0xFFFCFCFC))
-        CardFaceStyle.MODERN_POPART -> Modifier.background(Color(0xFFFFFFFF))
-        CardFaceStyle.STANDARD -> Modifier.background(Color.White)
+    val (rankSize, rankLineHeight, suitSize) = when (cardIndexSize) {
+        "EXTRA_LARGE" -> Triple(22.sp, 23.sp, 15.sp)
+        "LARGE" -> Triple(18.5.sp, 19.5.sp, 13.sp)
+        else -> Triple(15.sp, 16.sp, 11.sp)
     }
+
+    val formattedRank = formatRank(card.rank, numeralsStyle)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .then(bgModifier)
+            .background(cardFace.surfaceColor)
             .padding(2.dp)
     ) {
-        // Theme framing line & ornaments
+        // Decorative edge border
         Canvas(modifier = Modifier.fillMaxSize()) {
             val pad = 1.2.dp.toPx()
             val w = size.width - 2 * pad
             val h = size.height - 2 * pad
-
-            when (style) {
-                CardFaceStyle.SENIOR_CLASSIC, CardFaceStyle.CRIMSON_ANVIL, CardFaceStyle.STANDARD -> {
-                    // Crisp clean border framing the card surface
-                    drawRoundRect(
-                        color = Color(0x18000000),
-                        topLeft = Offset(pad, pad),
-                        size = Size(w, h),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.6.dp.toPx())
-                    )
-                }
-                CardFaceStyle.SILVER_DRAGON -> {
-                    drawRoundRect(
-                        color = Color(0xFF9CA3AF),
-                        topLeft = Offset(pad, pad),
-                        size = Size(w, h),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.7.dp.toPx())
-                    )
-                }
-                CardFaceStyle.GOLDEN_HEARTS -> {
-                    drawRoundRect(
-                        color = Color(0xFFB45309).copy(alpha = 0.7f),
-                        topLeft = Offset(pad, pad),
-                        size = Size(w, h),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.8.dp.toPx())
-                    )
-                }
-                CardFaceStyle.VINTAGE_TAVERN -> {
-                    drawRoundRect(
-                        color = Color(0xFF781824).copy(alpha = 0.45f),
-                        topLeft = Offset(pad, pad),
-                        size = Size(w, h),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.8.dp.toPx())
-                    )
-                }
-                CardFaceStyle.BAROQUE_ACES -> {
-                    drawRoundRect(
-                        color = Color(0xFFB8860B).copy(alpha = 0.65f),
-                        topLeft = Offset(pad, pad),
-                        size = Size(w, h),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.9.dp.toPx())
-                    )
-                }
-                CardFaceStyle.AZTEC_MANDALA -> {
-                    drawRoundRect(
-                        color = Color(0xFF1F2937).copy(alpha = 0.4f),
-                        topLeft = Offset(pad, pad),
-                        size = Size(w, h),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.6.dp.toPx())
-                    )
-                }
-                CardFaceStyle.MODERN_POPART -> {
-                    drawRoundRect(
-                        color = Color(0xFF00E5FF).copy(alpha = 0.5f),
-                        topLeft = Offset(pad, pad),
-                        size = Size(w, h),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-                        style = Stroke(width = 0.7.dp.toPx())
-                    )
-                }
-            }
-        }
-
-        // Top-Left Index: Bold attractive rank only (no small suit sign, only single sign in card center)
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 3.5.dp, top = 2.dp)
-        ) {
-            Text(
-                text = card.rank.display,
-                color = textColor,
-                fontSize = cornerRankSize,
-                fontWeight = FontWeight.Black,
-                fontFamily = fontFamily,
-                lineHeight = cornerRankLineHeight
+            val frameColor = if (isDark) Color(0x33FFFFFF) else Color(0x18000000)
+            drawRoundRect(
+                color = frameColor,
+                topLeft = Offset(pad, pad),
+                size = Size(w, h),
+                cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                style = Stroke(width = 0.6.dp.toPx())
             )
         }
 
-        // Center Illustration / Emblems (Single Bold Sign for all cards: J, Q, K, A, and numbers)
+        // Top-Left Index (Rank & small Suit Icon)
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 2.5.dp, top = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = formattedRank,
+                color = suitColor,
+                fontSize = rankSize,
+                fontWeight = FontWeight.Black,
+                fontFamily = fontFamily,
+                lineHeight = rankLineHeight
+            )
+            SuitIconDisplay(
+                suit = card.suit,
+                style = suitStyle.style,
+                color = suitColor,
+                size = suitSize
+            )
+        }
+
+        // Center Area (Illustrated Ace, Number pips, or Court Art)
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             contentAlignment = Alignment.Center
         ) {
             when {
-                // Ace Cards: Large prominent bold suit symbol
                 card.rank == Rank.ACE -> {
-                    AceCardCenterView(card = card, cardFace = cardFace, textColor = textColor, largePrint = largePrint)
+                    SuitIconDisplay(
+                        suit = card.suit,
+                        style = suitStyle.style,
+                        color = suitColor,
+                        size = 34.sp
+                    )
                 }
-                // Court Royalty Cards (Jack, Queen, King): Single bold suit sign (no picture/portrait)
                 card.rank in listOf(Rank.JACK, Rank.QUEEN, Rank.KING) -> {
-                    Text(
-                        text = card.suit.symbol,
-                        color = textColor,
-                        fontSize = if (largePrint) 28.sp else 24.sp,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center
-                    )
+                    CourtCardCenterView(card = card, cardFace = cardFace, suitColor = suitColor)
                 }
-                // Number Cards (2 to 10): Single bold suit sign
                 else -> {
-                    NumberCardCenterView(card = card, cardFace = cardFace, textColor = textColor, largePrint = largePrint)
+                    NumberCardPipLayout(card = card, suitStyle = suitStyle.style, suitColor = suitColor)
                 }
             }
         }
 
-        // Bottom-Right Index: Kept clean white for authentic Senior Friendly / Large card layout
-        if (style != CardFaceStyle.SENIOR_CLASSIC && style != CardFaceStyle.CRIMSON_ANVIL && style != CardFaceStyle.STANDARD) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 2.5.dp, bottom = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+        // Bottom-Right Index (Rank & small Suit Icon rotated 180 degrees)
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .rotate(180f)
+                .padding(start = 2.5.dp, top = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = formattedRank,
+                color = suitColor,
+                fontSize = rankSize * 0.85f,
+                fontWeight = FontWeight.Black,
+                fontFamily = fontFamily,
+                lineHeight = rankLineHeight * 0.85f
+            )
+            SuitIconDisplay(
+                suit = card.suit,
+                style = suitStyle.style,
+                color = suitColor,
+                size = suitSize * 0.85f
+            )
+        }
+    }
+}
+
+@Composable
+fun SuitIconDisplay(
+    suit: Suit,
+    style: SuitIconStyle,
+    color: Color,
+    size: androidx.compose.ui.unit.TextUnit
+) {
+    val symbol = suit.symbol
+    when (style) {
+        SuitIconStyle.OUTLINE -> {
+            Text(
+                text = symbol,
+                color = color,
+                fontSize = size,
+                fontWeight = FontWeight.Light,
+                textAlign = TextAlign.Center
+            )
+        }
+        SuitIconStyle.THREE_D_EMBOSSED, SuitIconStyle.GOLD_FOIL -> {
+            Text(
+                text = symbol,
+                color = color,
+                fontSize = size,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center
+            )
+        }
+        SuitIconStyle.PIXEL -> {
+            Text(
+                text = symbol,
+                color = color,
+                fontSize = size,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center
+            )
+        }
+        else -> {
+            Text(
+                text = symbol,
+                color = color,
+                fontSize = size,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun CourtCardCenterView(
+    card: Card,
+    cardFace: CardFaceTheme,
+    suitColor: Color
+) {
+    val letter = when (card.rank) {
+        Rank.JACK -> "J"
+        Rank.QUEEN -> "Q"
+        Rank.KING -> "K"
+        else -> ""
+    }
+    val crownIcon = when (card.rank) {
+        Rank.KING -> "👑"
+        Rank.QUEEN -> "👸"
+        Rank.JACK -> "⚔️"
+        else -> ""
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(text = crownIcon, fontSize = 14.sp)
+        Text(
+            text = "$letter ${card.suit.symbol}",
+            color = suitColor,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun NumberCardPipLayout(
+    card: Card,
+    suitStyle: SuitIconStyle,
+    suitColor: Color
+) {
+    val count = card.rank.value
+    // Compact elegant pip distribution
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        val rows = when {
+            count <= 3 -> count
+            count <= 6 -> 2
+            count <= 8 -> 3
+            else -> 4
+        }
+        val pipsPerRow = if (count <= 3) 1 else 2
+
+        repeat(rows) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
             ) {
-                Text(
-                    text = card.rank.display,
-                    color = textColor,
-                    fontSize = cornerRankSize * 0.85f,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = fontFamily,
-                    lineHeight = cornerRankLineHeight
-                )
+                repeat(pipsPerRow) {
+                    SuitIconDisplay(
+                        suit = card.suit,
+                        style = suitStyle,
+                        color = suitColor,
+                        size = 14.sp
+                    )
+                }
             }
         }
     }
 }
 
-/**
- * Center graphics for Ace cards.
- */
 @Composable
-private fun AceCardCenterView(
-    card: Card,
-    cardFace: CardFaceTheme,
-    textColor: Color,
-    largePrint: Boolean
+fun CardBackView(
+    cardBack: CardBackTheme,
+    customPhotoUri: String? = null
 ) {
-    val style = cardFace.style
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(cardBack.baseColor)
+            .padding(3.dp)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+            val cx = w / 2f
+            val cy = h / 2f
 
-    when (style) {
-        CardFaceStyle.SENIOR_CLASSIC, CardFaceStyle.CRIMSON_ANVIL, CardFaceStyle.STANDARD -> {
-            Text(
-                text = card.suit.symbol,
-                color = textColor,
-                fontSize = if (largePrint) 30.sp else 25.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
+            // Frame border
+            drawRoundRect(
+                color = cardBack.accentColor.copy(alpha = 0.5f),
+                topLeft = Offset(0f, 0f),
+                size = Size(w, h),
+                cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx()),
+                style = Stroke(width = 1.2.dp.toPx())
             )
-        }
-        CardFaceStyle.BAROQUE_ACES -> {
-            Text(
-                text = card.suit.symbol,
-                color = textColor,
-                fontSize = if (largePrint) 28.sp else 24.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
-        }
-        CardFaceStyle.AZTEC_MANDALA -> {
-            Text(
-                text = card.suit.symbol,
-                color = textColor,
-                fontSize = if (largePrint) 28.sp else 24.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
-        }
-        CardFaceStyle.MODERN_POPART -> {
-            Text(
-                text = if (card.suit == Suit.HEARTS) "💜" else card.suit.symbol,
-                color = textColor,
-                fontSize = if (largePrint) 28.sp else 24.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
-        }
-        else -> {
-            Text(
-                text = card.suit.symbol,
-                color = textColor,
-                fontSize = if (largePrint) 29.sp else 25.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
 
-/**
- * Center graphics for Number cards (2 to 10).
- */
-@Composable
-private fun NumberCardCenterView(
-    card: Card,
-    cardFace: CardFaceTheme,
-    textColor: Color,
-    largePrint: Boolean
-) {
-    val style = cardFace.style
-
-    when (style) {
-        CardFaceStyle.MODERN_POPART -> {
-            Text(
-                text = if (card.suit == Suit.HEARTS) "❤️" else card.suit.symbol,
-                color = textColor,
-                fontSize = if (largePrint) 25.sp else 21.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
-        }
-        else -> {
-            Text(
-                text = card.suit.symbol,
-                color = textColor,
-                fontSize = if (largePrint) 25.sp else 21.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-/**
- * Renders the Card Back with custom geometry and artwork matching user photos.
- */
-@Composable
-fun CardBackView(cardBack: CardBackTheme) {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val w = size.width
-        val h = size.height
-
-        // Outer base background
-        drawRect(
-            color = cardBack.baseColor,
-            size = size
-        )
-
-        // Inner margin frame
-        val margin = 3.dp.toPx()
-        drawRoundRect(
-            color = cardBack.accentColor.copy(alpha = 0.45f),
-            topLeft = Offset(margin, margin),
-            size = Size(w - 2 * margin, h - 2 * margin),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx()),
-            style = Stroke(width = 1.2.dp.toPx())
-        )
-
-        val cx = w / 2
-        val cy = h / 2
-
-        when (cardBack.patternType) {
-            // ⭐ 1. PHOTO 3: Crimson Anvil Royal Forge (Main Board Default Back)
-            CardBackTheme.PatternType.CRIMSON_ANVIL -> {
-                val r = minOf(w, h) * 0.38f
-                // Crimson hearth fire glow ring
-                drawCircle(
-                    color = Color(0xFFB71C1C).copy(alpha = 0.35f),
-                    radius = r,
-                    center = Offset(cx, cy)
-                )
-                drawCircle(
-                    color = Color(0xFFD4AF37), // Forge gold trim
-                    radius = r * 0.72f,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 1.6.dp.toPx())
-                )
-                // Forged Anvil silhouette in steel & gold
-                val anvilW = r * 0.75f
-                val anvilH = r * 0.35f
-                drawRect(
-                    color = Color(0xFFD4AF37),
-                    topLeft = Offset(cx - anvilW / 2, cy - anvilH / 2),
-                    size = Size(anvilW, anvilH)
-                )
-                // Anvil horn (left)
-                val hornPath = Path().apply {
-                    moveTo(cx - anvilW / 2, cy - anvilH / 2)
-                    lineTo(cx - anvilW * 0.75f, cy - anvilH * 0.2f)
-                    lineTo(cx - anvilW / 2, cy + anvilH / 2)
-                    close()
+            when (cardBack.patternType) {
+                CardBackPattern.GEOMETRIC_DIAMONDS -> {
+                    val step = 8.dp.toPx()
+                    var x = 0f
+                    while (x < w + h) {
+                        drawLine(color = cardBack.accentColor.copy(alpha = 0.25f), start = Offset(x, 0f), end = Offset(x - h, h), strokeWidth = 1.dp.toPx())
+                        drawLine(color = cardBack.accentColor.copy(alpha = 0.25f), start = Offset(x - h, 0f), end = Offset(x, h), strokeWidth = 1.dp.toPx())
+                        x += step
+                    }
+                    drawCircle(color = cardBack.accentColor, radius = minOf(w, h) * 0.2f, center = Offset(cx, cy), style = Stroke(width = 1.5.dp.toPx()))
                 }
-                drawPath(hornPath, color = Color(0xFFD4AF37))
-                // Central crimson flame ruby
-                drawCircle(
-                    color = Color(0xFFD50000),
-                    radius = 3.5.dp.toPx(),
-                    center = Offset(cx, cy)
-                )
-                // Crossed forge swords
-                drawLine(
-                    color = Color(0xFFFAF7F2),
-                    start = Offset(cx - r * 0.5f, cy - r * 0.5f),
-                    end = Offset(cx + r * 0.5f, cy + r * 0.5f),
-                    strokeWidth = 1.2.dp.toPx()
-                )
-                drawLine(
-                    color = Color(0xFFFAF7F2),
-                    start = Offset(cx + r * 0.5f, cy - r * 0.5f),
-                    end = Offset(cx - r * 0.5f, cy + r * 0.5f),
-                    strokeWidth = 1.2.dp.toPx()
-                )
-            }
-
-            // 2. PHOTO 1: Silver Dragon Waterproof
-            CardBackTheme.PatternType.SILVER_DRAGON -> {
-                val r = minOf(w, h) * 0.40f
-                // Metallic burst rays radiating from dragon
-                for (angle in 0 until 16) {
-                    val rad = Math.toRadians(angle * 22.5)
-                    val ex = cx + (r * cos(rad)).toFloat()
-                    val ey = cy + (r * sin(rad)).toFloat()
-                    drawLine(
-                        color = Color(0xFFD4D4D8).copy(alpha = 0.35f),
-                        start = Offset(cx, cy),
-                        end = Offset(ex, ey),
-                        strokeWidth = 1.dp.toPx()
-                    )
+                CardBackPattern.MANDALA, CardBackPattern.ARABESQUE -> {
+                    val r = minOf(w, h) * 0.35f
+                    for (i in 0 until 8) {
+                        val angle = Math.toRadians(i * 45.0)
+                        val ox = cx + (r * 0.4f * cos(angle)).toFloat()
+                        val oy = cy + (r * 0.4f * sin(angle)).toFloat()
+                        drawCircle(color = cardBack.accentColor.copy(alpha = 0.35f), radius = r * 0.3f, center = Offset(ox, oy), style = Stroke(width = 1.dp.toPx()))
+                    }
+                    drawCircle(color = cardBack.accentColor, radius = r * 0.6f, center = Offset(cx, cy), style = Stroke(width = 1.5.dp.toPx()))
                 }
-                // Coiled dragon circular crest
-                drawCircle(
-                    color = Color(0xFFD4D4D8),
-                    radius = r * 0.65f,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 2.dp.toPx())
-                )
-                drawCircle(
-                    color = Color(0xFFFFFFFF),
-                    radius = r * 0.35f,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-                drawCircle(
-                    color = Color(0xFFE4E4E7),
-                    radius = 3.5.dp.toPx(),
-                    center = Offset(cx, cy)
-                )
-            }
-
-            // 3. PHOTO 2: 24K Golden Hearts Luxury
-            CardBackTheme.PatternType.GOLDEN_HEARTS -> {
-                val r = minOf(w, h) * 0.38f
-                // 24K Diamond lattice weave
-                val step = 8.dp.toPx()
-                var x = 0f
-                while (x < w + h) {
-                    drawLine(
-                        color = Color(0xFFFFD700).copy(alpha = 0.3f),
-                        start = Offset(x, 0f),
-                        end = Offset(x - h, h),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                    drawLine(
-                        color = Color(0xFFFFD700).copy(alpha = 0.3f),
-                        start = Offset(x - h, 0f),
-                        end = Offset(x, h),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                    x += step
+                CardBackPattern.DRAGON -> {
+                    val r = minOf(w, h) * 0.38f
+                    for (angle in 0 until 12) {
+                        val rad = Math.toRadians(angle * 30.0)
+                        val ex = cx + (r * cos(rad)).toFloat()
+                        val ey = cy + (r * sin(rad)).toFloat()
+                        drawLine(color = cardBack.accentColor.copy(alpha = 0.4f), start = Offset(cx, cy), end = Offset(ex, ey), strokeWidth = 1.2.dp.toPx())
+                    }
+                    drawCircle(color = cardBack.accentColor, radius = r * 0.6f, center = Offset(cx, cy), style = Stroke(width = 2.dp.toPx()))
                 }
-                // Center luxury bullion seal
-                drawCircle(
-                    color = Color(0xFFFFD700),
-                    radius = r * 0.6f,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 2.dp.toPx())
-                )
-                drawCircle(
-                    color = Color(0xFFD50000), // Ruby core
-                    radius = r * 0.25f,
-                    center = Offset(cx, cy)
-                )
-            }
-
-            // 4. PHOTO 4: Vintage Tavern Kings
-            CardBackTheme.PatternType.VINTAGE_TAVERN -> {
-                val r = minOf(w, h) * 0.35f
-                // Tavern woodcut Celtic compass seal
-                drawCircle(
-                    color = Color(0xFFC8963E),
-                    radius = r,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 1.8.dp.toPx())
-                )
-                drawCircle(
-                    color = Color(0xFF781824).copy(alpha = 0.5f),
-                    radius = r * 0.7f,
-                    center = Offset(cx, cy)
-                )
-                // 4 compass arms
-                val arm = r * 0.85f
-                drawLine(color = Color(0xFFC8963E), start = Offset(cx - arm, cy), end = Offset(cx + arm, cy), strokeWidth = 1.5.dp.toPx())
-                drawLine(color = Color(0xFFC8963E), start = Offset(cx, cy - arm), end = Offset(cx, cy + arm), strokeWidth = 1.5.dp.toPx())
-            }
-
-            // 5. PHOTO 5: Reformation Baroque Aces
-            CardBackTheme.PatternType.BAROQUE_ACES -> {
-                val r = minOf(w, h) * 0.36f
-                // Double baroque gold rosettes & cross seal
-                drawCircle(
-                    color = Color(0xFFB8860B),
-                    radius = r,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-                drawCircle(
-                    color = Color(0xFFB8860B).copy(alpha = 0.35f),
-                    radius = r * 0.65f,
-                    center = Offset(cx, cy)
-                )
-                // Cross seal
-                val arm = r * 0.45f
-                drawLine(color = Color(0xFFFFFFFF), start = Offset(cx - arm, cy), end = Offset(cx + arm, cy), strokeWidth = 2.dp.toPx())
-                drawLine(color = Color(0xFFFFFFFF), start = Offset(cx, cy - arm), end = Offset(cx, cy + arm), strokeWidth = 2.dp.toPx())
-            }
-
-            // 6. PHOTO 6: Aztec Tribal Mandala
-            CardBackTheme.PatternType.AZTEC_MANDALA -> {
-                val r = minOf(w, h) * 0.38f
-                // Concentric Aztec sunstone wheel
-                drawCircle(
-                    color = Color(0xFFD32F2F),
-                    radius = r,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 2.dp.toPx())
-                )
-                drawCircle(
-                    color = Color(0xFFFFB300),
-                    radius = r * 0.68f,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
-                drawCircle(
-                    color = Color(0xFFD32F2F),
-                    radius = r * 0.35f,
-                    center = Offset(cx, cy)
-                )
-            }
-
-            // 7. PHOTO 7: Modern Pop Art Avant-Garde
-            CardBackTheme.PatternType.MODERN_POPART -> {
-                val r = minOf(w, h) * 0.38f
-                // Pop art neon diagonal chevron & neon heart
-                val step = 7.dp.toPx()
-                var y = 0f
-                while (y < h) {
-                    drawLine(
-                        color = Color(0xFF00E5FF).copy(alpha = 0.25f),
-                        start = Offset(0f, y),
-                        end = Offset(w, y),
-                        strokeWidth = 0.8.dp.toPx()
-                    )
-                    y += step
+                CardBackPattern.CIRCUIT_BOARD -> {
+                    val step = 10.dp.toPx()
+                    var y = step
+                    while (y < h) {
+                        drawLine(color = cardBack.accentColor.copy(alpha = 0.3f), start = Offset(0f, y), end = Offset(w, y), strokeWidth = 1.dp.toPx())
+                        drawCircle(color = cardBack.accentColor, radius = 2.5.dp.toPx(), center = Offset(cx, y))
+                        y += step
+                    }
                 }
-                drawCircle(
-                    color = Color(0xFFFF007F),
-                    radius = r * 0.6f,
-                    center = Offset(cx, cy),
-                    style = Stroke(width = 2.dp.toPx())
-                )
-                drawCircle(
-                    color = Color(0xFF00E5FF),
-                    radius = r * 0.25f,
-                    center = Offset(cx, cy)
-                )
-            }
-
-            CardBackTheme.PatternType.SLEEK_EMERALD -> {
-                val r = minOf(w, h) * 0.36f
-                drawCircle(color = cardBack.accentColor.copy(alpha = 0.22f), radius = r, center = Offset(cx, cy))
-                drawCircle(color = cardBack.accentColor.copy(alpha = 0.5f), radius = r * 0.65f, center = Offset(cx, cy), style = Stroke(width = 1.2.dp.toPx()))
-                val arm = 5.dp.toPx()
-                drawLine(color = cardBack.accentColor, start = Offset(cx - arm, cy), end = Offset(cx + arm, cy), strokeWidth = 1.6.dp.toPx())
-                drawLine(color = cardBack.accentColor, start = Offset(cx, cy - arm), end = Offset(cx, cy + arm), strokeWidth = 1.6.dp.toPx())
-            }
-
-            CardBackTheme.PatternType.ROYAL_CREST -> {
-                val r = minOf(w, h) * 0.32f
-                drawCircle(color = cardBack.accentColor.copy(alpha = 0.3f), radius = r, center = Offset(cx, cy), style = Stroke(width = 1.dp.toPx()))
-                drawRect(color = cardBack.accentColor.copy(alpha = 0.5f), topLeft = Offset(cx - r * 0.4f, cy - r * 0.4f), size = Size(r * 0.8f, r * 0.8f))
-            }
-
-            CardBackTheme.PatternType.DIAMOND_GEOMETRY -> {
-                val step = 8.dp.toPx()
-                var x = 0f
-                while (x < w + h) {
-                    drawLine(color = cardBack.accentColor.copy(alpha = 0.25f), start = Offset(x, 0f), end = Offset(x - h, h), strokeWidth = 1.dp.toPx())
-                    drawLine(color = cardBack.accentColor.copy(alpha = 0.25f), start = Offset(x - h, 0f), end = Offset(x, h), strokeWidth = 1.dp.toPx())
-                    x += step
+                CardBackPattern.CHECKERBOARD -> {
+                    val tileSize = 7.dp.toPx()
+                    var x = 0f
+                    var row = 0
+                    while (x < w) {
+                        var y = 0f
+                        var col = 0
+                        while (y < h) {
+                            if ((row + col) % 2 == 0) {
+                                drawRect(color = cardBack.accentColor.copy(alpha = 0.25f), topLeft = Offset(x, y), size = Size(tileSize, tileSize))
+                            }
+                            y += tileSize
+                            col++
+                        }
+                        x += tileSize
+                        row++
+                    }
                 }
-            }
-
-            CardBackTheme.PatternType.CLASSIC_TARTAN -> {
-                val step = 6.dp.toPx()
-                var x = 0f
-                while (x < w) {
-                    drawLine(color = cardBack.accentColor.copy(alpha = 0.2f), start = Offset(x, 0f), end = Offset(x, h), strokeWidth = 1.dp.toPx())
-                    x += step
+                CardBackPattern.STARRY_NIGHT, CardBackPattern.GALAXY_SWIRL -> {
+                    val r = minOf(w, h) * 0.35f
+                    for (i in 0 until 16) {
+                        val angle = Math.toRadians(i * 22.5)
+                        val dist = (r * (0.2f + (i % 4) * 0.2f))
+                        val sx = cx + (dist * cos(angle)).toFloat()
+                        val sy = cy + (dist * sin(angle)).toFloat()
+                        drawCircle(color = Color.White.copy(alpha = 0.8f), radius = 1.8.dp.toPx(), center = Offset(sx, sy))
+                    }
+                    drawCircle(color = cardBack.accentColor, radius = r * 0.5f, center = Offset(cx, cy), style = Stroke(width = 1.dp.toPx()))
                 }
-                var y = 0f
-                while (y < h) {
-                    drawLine(color = cardBack.accentColor.copy(alpha = 0.2f), start = Offset(0f, y), end = Offset(w, y), strokeWidth = 1.dp.toPx())
-                    y += step
+                CardBackPattern.ORNATE_CREST -> {
+                    val r = minOf(w, h) * 0.35f
+                    drawCircle(color = cardBack.accentColor, radius = r, center = Offset(cx, cy), style = Stroke(width = 1.6.dp.toPx()))
+                    drawCircle(color = cardBack.accentColor.copy(alpha = 0.4f), radius = r * 0.7f, center = Offset(cx, cy))
+                    drawLine(color = cardBack.accentColor, start = Offset(cx - r, cy), end = Offset(cx + r, cy), strokeWidth = 1.5.dp.toPx())
+                    drawLine(color = cardBack.accentColor, start = Offset(cx, cy - r), end = Offset(cx, cy + r), strokeWidth = 1.5.dp.toPx())
                 }
-            }
-
-            CardBackTheme.PatternType.HOLOGRAPHIC_3D -> {
-                val r = minOf(w, h) * 0.42f
-                drawCircle(color = Color(0xFF00E5FF).copy(alpha = 0.35f), radius = r, center = Offset(cx, cy))
-                drawCircle(color = Color(0xFFFF007F).copy(alpha = 0.4f), radius = r * 0.72f, center = Offset(cx, cy), style = Stroke(width = 2.dp.toPx()))
-                drawCircle(color = Color(0xFF76FF03).copy(alpha = 0.6f), radius = r * 0.45f, center = Offset(cx, cy), style = Stroke(width = 1.5.dp.toPx()))
-                drawCircle(color = Color.White.copy(alpha = 0.85f), radius = r * 0.2f, center = Offset(cx, cy))
-            }
-
-            CardBackTheme.PatternType.GOLD_FOIL_3D -> {
-                val r = minOf(w, h) * 0.38f
-                drawCircle(color = Color(0xFFFFD700).copy(alpha = 0.6f), radius = r, center = Offset(cx, cy), style = Stroke(width = 2.dp.toPx()))
-                drawCircle(color = Color(0xFFFFE082).copy(alpha = 0.4f), radius = r * 0.78f, center = Offset(cx, cy), style = Stroke(width = 1.2.dp.toPx()))
-                val dSize = r * 0.5f
-                drawLine(color = Color(0xFFFFD700), start = Offset(cx - dSize, cy), end = Offset(cx, cy - dSize), strokeWidth = 2.dp.toPx())
-                drawLine(color = Color(0xFFFFD700), start = Offset(cx, cy - dSize), end = Offset(cx + dSize, cy), strokeWidth = 2.dp.toPx())
-                drawLine(color = Color(0xFFFFD700), start = Offset(cx + dSize, cy), end = Offset(cx, cy + dSize), strokeWidth = 2.dp.toPx())
-                drawLine(color = Color(0xFFFFD700), start = Offset(cx, cy + dSize), end = Offset(cx - dSize, cy), strokeWidth = 2.dp.toPx())
-            }
-
-            CardBackTheme.PatternType.DRAGON_3D -> {
-                val r = minOf(w, h) * 0.38f
-                drawCircle(color = Color(0xFFFFB300).copy(alpha = 0.5f), radius = r, center = Offset(cx, cy))
-                drawCircle(color = Color(0xFFD50000).copy(alpha = 0.7f), radius = r * 0.65f, center = Offset(cx, cy), style = Stroke(width = 2.5.dp.toPx()))
-                val arm = r * 0.4f
-                drawLine(color = Color(0xFFFFD700), start = Offset(cx - arm, cy - arm), end = Offset(cx + arm, cy + arm), strokeWidth = 2.dp.toPx())
-                drawLine(color = Color(0xFFFFD700), start = Offset(cx + arm, cy - arm), end = Offset(cx - arm, cy + arm), strokeWidth = 2.dp.toPx())
-            }
-
-            CardBackTheme.PatternType.CYBERPUNK_3D -> {
-                val step = 6.dp.toPx()
-                var x = 0f
-                while (x < w) {
-                    drawLine(color = Color(0xFF00E5FF).copy(alpha = 0.2f), start = Offset(x, 0f), end = Offset(x, h), strokeWidth = 0.8.dp.toPx())
-                    x += step
+                else -> {
+                    // Universal luxury lattice & central medallion for other patterns
+                    val r = minOf(w, h) * 0.32f
+                    drawCircle(color = cardBack.accentColor.copy(alpha = 0.35f), radius = r, center = Offset(cx, cy), style = Stroke(width = 1.4.dp.toPx()))
+                    drawCircle(color = cardBack.accentColor.copy(alpha = 0.15f), radius = r * 0.6f, center = Offset(cx, cy))
+                    drawCircle(color = cardBack.accentColor, radius = 3.dp.toPx(), center = Offset(cx, cy))
                 }
-                drawRect(color = Color(0xFFFF007F).copy(alpha = 0.7f), topLeft = Offset(cx - 10.dp.toPx(), cy - 10.dp.toPx()), size = Size(20.dp.toPx(), 20.dp.toPx()), style = Stroke(width = 1.5.dp.toPx()))
-            }
-
-            CardBackTheme.PatternType.CRYSTAL_3D -> {
-                val r = minOf(w, h) * 0.36f
-                for (angle in 0 until 8) {
-                    val rad = Math.toRadians(angle * 45.0)
-                    val ex = cx + (r * cos(rad)).toFloat()
-                    val ey = cy + (r * sin(rad)).toFloat()
-                    drawLine(color = Color(0xFF80D8FF).copy(alpha = 0.6f), start = Offset(cx, cy), end = Offset(ex, ey), strokeWidth = 1.2.dp.toPx())
-                }
-                drawCircle(color = Color.White.copy(alpha = 0.8f), radius = 3.dp.toPx(), center = Offset(cx, cy))
-            }
-
-            CardBackTheme.PatternType.BEACH_5D -> {
-                // 5D Tropical Beach Lagoon: Aqua waves & golden sunburst
-                val r = minOf(w, h) * 0.36f
-                drawCircle(color = Color(0xFFFFD54F).copy(alpha = 0.6f), radius = r * 0.5f, center = Offset(cx, cy - r * 0.2f))
-                for (i in 1..4) {
-                    val waveY = cy + (i * 5.dp.toPx())
-                    drawLine(
-                        color = Color(0xFF00E5FF).copy(alpha = 0.8f),
-                        start = Offset(cx - r * 0.8f, waveY),
-                        end = Offset(cx + r * 0.8f, waveY),
-                        strokeWidth = 1.5.dp.toPx()
-                    )
-                }
-                drawCircle(color = Color(0xFF00E5FF), radius = r, center = Offset(cx, cy), style = Stroke(width = 1.2.dp.toPx()))
-            }
-
-            CardBackTheme.PatternType.FLORAL_4D -> {
-                // 4D Royal Blossom Floral: 8 radiating lotus petals
-                val r = minOf(w, h) * 0.38f
-                for (angle in 0 until 8) {
-                    val rad = Math.toRadians(angle * 45.0)
-                    val px = cx + (r * 0.7f * cos(rad)).toFloat()
-                    val py = cy + (r * 0.7f * sin(rad)).toFloat()
-                    drawCircle(color = Color(0xFFFF4081).copy(alpha = 0.65f), radius = r * 0.32f, center = Offset(px, py))
-                }
-                drawCircle(color = Color(0xFFFFD700), radius = r * 0.22f, center = Offset(cx, cy))
-                drawCircle(color = Color(0xFFFF80AB), radius = r, center = Offset(cx, cy), style = Stroke(width = 1.2.dp.toPx()))
-            }
-
-            else -> {
-                drawCircle(
-                    color = cardBack.accentColor.copy(alpha = 0.35f),
-                    radius = minOf(w, h) * 0.25f,
-                    center = Offset(w / 2, h / 2),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
             }
         }
     }
@@ -840,67 +567,39 @@ fun CardBackView(cardBack: CardBackTheme) {
 
 @Composable
 fun CardSlotPlaceholder(
-    modifier: Modifier = Modifier,
-    iconSymbol: String? = null,
+    isValidTarget: Boolean = false,
     label: String? = null,
-    isValidTarget: Boolean = false
+    iconSymbol: String? = null
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "slot_pulse")
-    val pulseGlow by infiniteTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(500),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "slot_pulse_glow"
-    )
-
-    val shape = RoundedCornerShape(CardCornerRadius)
-    val borderColor = if (isValidTarget) {
-        Color(0xFF00E5FF).copy(alpha = pulseGlow)
-    } else {
-        Color.White.copy(alpha = 0.15f)
-    }
-    val borderWidth = if (isValidTarget) 2.5.dp else 1.5.dp
-    val bgColor = if (isValidTarget) {
-        Color(0xFF00E5FF).copy(alpha = 0.12f)
-    } else {
-        Color.Black.copy(alpha = 0.20f)
-    }
-
     Box(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .border(width = borderWidth, color = borderColor, shape = shape)
-            .background(color = bgColor, shape = shape),
+            .background(Color(0x12FFFFFF), RoundedCornerShape(8.dp))
+            .border(
+                1.dp,
+                if (isValidTarget) Color(0xFF00E5FF) else Color(0x30FFFFFF),
+                RoundedCornerShape(8.dp)
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            if (iconSymbol != null) {
+            if (!iconSymbol.isNullOrEmpty()) {
                 Text(
                     text = iconSymbol,
-                    color = if (isValidTarget) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.35f),
-                    fontSize = 16.sp,
+                    color = Color(0x40FFFFFF),
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
-            if (isValidTarget) {
-                Text(
-                    text = label ?: "TAP",
-                    color = Color(0xFF00E5FF),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            } else if (label != null) {
+            if (!label.isNullOrEmpty()) {
                 Text(
                     text = label,
-                    color = Color.White.copy(alpha = 0.25f),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.SemiBold
+                    color = if (isValidTarget) Color(0xFF00E5FF) else Color(0x55FFFFFF),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
