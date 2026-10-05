@@ -63,6 +63,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import kotlin.math.roundToInt
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.mutableStateListOf
+import com.solitaire.hyper.card.games.ui.components.CardFlightOverlay
+import com.solitaire.hyper.card.games.ui.components.CardPositionRegistry
+import com.solitaire.hyper.card.games.ui.components.ActiveCardFlight
 import com.solitaire.hyper.card.games.ui.components.WinningCascadeCanvas
 import com.solitaire.hyper.card.games.ui.components.RulesDialog
 import com.solitaire.hyper.card.games.ads.AdManager
@@ -171,12 +177,43 @@ fun GameScreen(
         showExitConfirm = true
     }
 
+    val positionRegistry = remember { CardPositionRegistry() }
+    var rootLayoutCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val activeFlights = remember { mutableStateListOf<ActiveCardFlight>() }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.cardFlightEvents.collect { event ->
+            val start = positionRegistry.getPosition(event.from)
+            val target = positionRegistry.getPosition(event.to)
+            if (start != null && target != null && (start - target).getDistance() > 10f) {
+                activeFlights.add(
+                    ActiveCardFlight(
+                        id = event.id,
+                        card = event.card,
+                        startOffset = start,
+                        targetOffset = target,
+                        durationMs = event.durationMs
+                    )
+                )
+            }
+        }
+    }
+
+    val recordPosition: (String, LayoutCoordinates) -> Unit = { key, coords ->
+        rootLayoutCoordinates?.let { root ->
+            if (coords.isAttached && root.isAttached) {
+                positionRegistry.register(key, root.localPositionOf(coords, Offset.Zero))
+            }
+        }
+    }
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(currentBackground.brush)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .onGloballyPositioned { rootLayoutCoordinates = it }
     ) {
         if (userSettings.backgroundDim > 0f) {
             Box(
@@ -188,7 +225,7 @@ fun GameScreen(
         val availableWidth = maxWidth
         val colSpacing = 4.dp
         val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
-        val cardHeight = cardWidth * 1.38f
+        val cardHeight = cardWidth * 1.444f
         val density = androidx.compose.ui.platform.LocalDensity.current
         Column(
             modifier = Modifier
@@ -214,7 +251,7 @@ fun GameScreen(
                 val availableWidth = maxWidth
                 val colSpacing = 4.dp
                 val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
-                val cardHeight = cardWidth * 1.38f
+                val cardHeight = cardWidth * 1.444f
 
                 PortraitTopCardRow(
                     gameState = gameState,
@@ -232,7 +269,8 @@ fun GameScreen(
                     onWasteClick = { viewModel.onCardClicked(CardLocation.Waste) },
                     onWasteDoubleClick = { viewModel.onCardDoubleClicked(CardLocation.Waste) },
                     onFoundationClick = { index -> viewModel.onFoundationClicked(index) },
-                    onCardDrop = { from, to -> viewModel.onCardDropped(from, to) }
+                    onCardDrop = { from, to -> viewModel.onCardDropped(from, to) },
+                    onPositionRecorded = recordPosition
                 )
             }
 
@@ -280,7 +318,7 @@ fun GameScreen(
                 val availableWidth = maxWidth
                 val colSpacing = 4.dp
                 val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
-                val cardHeight = cardWidth * 1.38f
+                val cardHeight = cardWidth * 1.444f
 
                 TableauArea(
                     gameState = gameState,
@@ -304,7 +342,8 @@ fun GameScreen(
                     },
                     onCardDrop = { from, to ->
                         viewModel.onCardDropped(from, to)
-                    }
+                    },
+                    onPositionRecorded = recordPosition
                 )
             }
 
@@ -322,6 +361,19 @@ fun GameScreen(
                 onAutoComplete = { viewModel.triggerAutoComplete() }
             )
         }
+
+        // Card Flight Interpolation Overlay
+        CardFlightOverlay(
+            flights = activeFlights,
+            cardWidth = cardWidth,
+            cardHeight = cardHeight,
+            cardBack = currentCardBack,
+            cardFace = currentCardFace,
+            largePrint = userSettings.largePrintMode,
+            onFlightFinished = { flightId ->
+                activeFlights.removeAll { it.id == flightId }
+            }
+        )
 
         // Win Celebratory Waterfall (Iconic Cascade Animation)
         if (showWinDialog) {
@@ -1037,7 +1089,8 @@ fun PortraitTopCardRow(
     onWasteClick: () -> Unit,
     onWasteDoubleClick: () -> Unit,
     onFoundationClick: (Int) -> Unit,
-    onCardDrop: ((from: CardLocation, to: CardLocation) -> Unit)? = null
+    onCardDrop: ((from: CardLocation, to: CardLocation) -> Unit)? = null,
+    onPositionRecorded: ((String, LayoutCoordinates) -> Unit)? = null
 ) {
     val density = androidx.compose.ui.platform.LocalDensity.current
 
@@ -1056,6 +1109,7 @@ fun PortraitTopCardRow(
                     .size(cardWidth, cardHeight)
                     .clickable { onFoundationClick(i) }
                     .testTag("foundation_pile_$i")
+                    .onGloballyPositioned { onPositionRecorded?.invoke("foundation_$i", it) }
             ) {
                 if (topCard != null) {
                     CardView(
@@ -1089,6 +1143,7 @@ fun PortraitTopCardRow(
             modifier = Modifier
                 .size(cardWidth, cardHeight)
                 .testTag("waste_pile")
+                .onGloballyPositioned { onPositionRecorded?.invoke("waste", it) }
         ) {
             val wasteTop = gameState.waste.lastOrNull()
             if (wasteTop != null) {
@@ -1171,6 +1226,7 @@ fun PortraitTopCardRow(
                 .size(cardWidth, cardHeight)
                 .clickable(onClick = onStockClick)
                 .testTag("stock_pile")
+                .onGloballyPositioned { onPositionRecorded?.invoke("stock", it) }
         ) {
             if (gameState.stock.isNotEmpty()) {
                 CardView(
@@ -1245,7 +1301,8 @@ fun TableauArea(
     onCardClick: (colIdx: Int, cardIdx: Int) -> Unit,
     onCardDoubleClick: (colIdx: Int, cardIdx: Int) -> Unit,
     onEmptyColumnClick: (colIdx: Int) -> Unit,
-    onCardDrop: (from: CardLocation, to: CardLocation) -> Unit
+    onCardDrop: (from: CardLocation, to: CardLocation) -> Unit,
+    onPositionRecorded: ((String, LayoutCoordinates) -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -1270,7 +1327,8 @@ fun TableauArea(
                 onCardClick = { cardIdx -> onCardClick(colIdx, cardIdx) },
                 onCardDoubleClick = { cardIdx -> onCardDoubleClick(colIdx, cardIdx) },
                 onEmptyClick = { onEmptyColumnClick(colIdx) },
-                onCardDrop = onCardDrop
+                onCardDrop = onCardDrop,
+                onPositionRecorded = onPositionRecorded
             )
         }
     }
@@ -1292,7 +1350,8 @@ fun TableauColumnView(
     onCardClick: (cardIdx: Int) -> Unit,
     onCardDoubleClick: (cardIdx: Int) -> Unit,
     onEmptyClick: () -> Unit,
-    onCardDrop: (from: CardLocation, to: CardLocation) -> Unit
+    onCardDrop: (from: CardLocation, to: CardLocation) -> Unit,
+    onPositionRecorded: ((String, LayoutCoordinates) -> Unit)? = null
 ) {
     val isColumnValidTarget = validTargets.contains(CardLocation.Tableau(colIndex))
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -1305,6 +1364,7 @@ fun TableauColumnView(
         modifier = Modifier
             .width(cardWidth)
             .fillMaxSize()
+            .onGloballyPositioned { onPositionRecorded?.invoke("tableau_$colIndex", it) }
     ) {
         val maxAvailH = maxHeight
         if (cards.isEmpty()) {
@@ -1312,6 +1372,10 @@ fun TableauColumnView(
                 modifier = Modifier
                     .size(cardWidth, cardHeight)
                     .clickable(onClick = onEmptyClick)
+                    .onGloballyPositioned {
+                        onPositionRecorded?.invoke("tableau_$colIndex", it)
+                        onPositionRecorded?.invoke("tableau_${colIndex}_top", it)
+                    }
             ) {
                 CardSlotPlaceholder(
                     iconSymbol = "K",
@@ -1325,12 +1389,13 @@ fun TableauColumnView(
             val faceUpCount = maxOf(0, totalCount - faceDownCount)
 
             // Dynamic compression so cards always stay inside bounds
-            val baseDownStep = 10.dp
-            val baseUpStep = 18.dp
+            // Master spec: face-down about 13% of height, face-up about 30% (32% in Large Print)
+            val baseDownStep = cardHeight * 0.13f
+            val baseUpStep = if (largePrint) cardHeight * 0.32f else cardHeight * 0.30f
             val nominalTotalH = cardHeight + (baseDownStep * faceDownCount) + (baseUpStep * maxOf(0, faceUpCount - 1))
 
             val compression = if (nominalTotalH > maxAvailH && nominalTotalH > cardHeight) {
-                ((maxAvailH - cardHeight) / (nominalTotalH - cardHeight)).coerceIn(0.45f, 1.0f)
+                ((maxAvailH - cardHeight) / (nominalTotalH - cardHeight)).coerceIn(0.40f, 1.0f)
             } else 1.0f
 
             val downStep = (baseDownStep * compression).coerceAtLeast(6.dp)
@@ -1360,6 +1425,12 @@ fun TableauColumnView(
                     .offset { currentCardOffset }
                     .zIndex(zIndex)
                     .size(cardWidth, cardHeight)
+                    .onGloballyPositioned {
+                        onPositionRecorded?.invoke("tableau_${colIndex}_$cardIdx", it)
+                        if (cardIdx == cards.lastIndex) {
+                            onPositionRecorded?.invoke("tableau_${colIndex}_top", it)
+                        }
+                    }
 
                 val gestureModifier = if (card.isFaceUp) {
                     baseModifier.pointerInput(card.id) {

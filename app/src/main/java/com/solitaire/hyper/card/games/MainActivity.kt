@@ -294,7 +294,8 @@ fun SolitaireAppNavigation(
             )
             Screen.SETTINGS -> SettingsScreen(
                 userPrefs = userPrefs,
-                onBack = { navigateBackFromSubScreen() }
+                onBack = { navigateBackFromSubScreen() },
+                onOpenCustomization = { navigateTo(Screen.CUSTOMIZATION) }
             )
         }
     }

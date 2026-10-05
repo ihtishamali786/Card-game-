@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ad-services-config>
     <!-- Configures Privacy Sandbox AdServices attribution for Google Mobile Ads SDK -->
-    <attribution allowAdPartners="false" />
+    <attribution allowAdPartners="false" allowAllToAccess="false" />
+    <topics allowAdPartners="false" allowAllToAccess="false" />
+    <protected-audience allowAdPartners="false" allowAllToAccess="false" />
 </ad-services-config>

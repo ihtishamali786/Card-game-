@@ -17,6 +17,9 @@ import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
 import com.solitaire.hyper.card.games.BuildConfig
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Manages Google AdMob ad units with policy-compliant, fail-safe lifecycles.
@@ -124,14 +127,19 @@ object AdManager {
                 .build()
             MobileAds.setRequestConfiguration(requestConfig)
 
-            MobileAds.initialize(context) { initStatus ->
-                Log.d(TAG, "MobileAds initialized: $initStatus")
-                isInitialized = true
-                preloadInterstitial(context)
-                preloadRewarded(context)
-                preloadAppOpen(context)
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    MobileAds.initialize(context) { initStatus ->
+                        Log.d(TAG, "MobileAds initialized: $initStatus")
+                        isInitialized = true
+                        preloadInterstitial(context)
+                        preloadAppOpen(context)
+                    }
+                } catch (e: Throwable) {
+                    Log.w(TAG, "AdMob initialization inner exception: ${e.message}")
+                }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.w(TAG, "AdMob initialization skipped/failed: ${e.message}")
         }
     }
@@ -487,14 +495,39 @@ object AdManager {
                 rewardEarned = true
             }
         } else {
-            preloadRewardedInterstitial(activity)
-            preloadRewarded(activity)
-            android.widget.Toast.makeText(
+            val adRequest = AdRequest.Builder().build()
+            RewardedAd.load(
                 activity,
-                "Video ad loading or blocked by DNS/AdBlocker. Please verify connection and retry.",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-            onDismissOrFailed()
+                rewardedAdUnitId,
+                adRequest,
+                object : RewardedAdLoadCallback() {
+                    override fun onAdLoaded(ad: RewardedAd) {
+                        rewardedAd = null
+                        var rewardEarned = false
+                        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+                            override fun onAdDismissedFullScreenContent() {
+                                if (rewardEarned) onRewardEarned() else onDismissOrFailed()
+                            }
+
+                            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                                onDismissOrFailed()
+                            }
+                        }
+                        ad.show(activity) { _ ->
+                            rewardEarned = true
+                        }
+                    }
+
+                    override fun onAdFailedToLoad(error: LoadAdError) {
+                        android.widget.Toast.makeText(
+                            activity,
+                            "Ad temporarily unavailable. Please retry shortly.",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        onDismissOrFailed()
+                    }
+                }
+            )
         }
     }
 }

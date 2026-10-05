@@ -17,12 +17,16 @@ import com.solitaire.hyper.card.games.game.model.Hint
 import com.solitaire.hyper.card.games.sound.SoundManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.solitaire.hyper.card.games.ui.components.CardFlightEvent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -35,6 +39,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _gameState = MutableStateFlow(GameState())
     val gameState: StateFlow<GameState> = _gameState.asStateFlow()
+
+    private val _cardFlightEvents = MutableSharedFlow<CardFlightEvent>(extraBufferCapacity = 16)
+    val cardFlightEvents: SharedFlow<CardFlightEvent> = _cardFlightEvents.asSharedFlow()
+
+    private fun emitFlight(card: Card?, from: CardLocation, to: CardLocation, durationMs: Int = 220) {
+        if (card != null) {
+            _cardFlightEvents.tryEmit(
+                CardFlightEvent(
+                    card = card,
+                    from = from,
+                    to = to,
+                    durationMs = durationMs
+                )
+            )
+        }
+    }
 
     private val _userSettings = MutableStateFlow(UserSettings())
     val userSettings: StateFlow<UserSettings> = _userSettings.asStateFlow()
@@ -161,6 +181,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         val result = SolitaireEngine.drawCards(_gameState.value)
         if (result != null) {
+            val move = result.second
+            if (move is GameMove.StockDraw) {
+                move.drawnCards.forEach { card ->
+                    emitFlight(card, CardLocation.Stock, CardLocation.Waste, durationMs = 180)
+                }
+            } else if (move is GameMove.StockRecycle) {
+                move.recycledCards.firstOrNull()?.let { card ->
+                    emitFlight(card, CardLocation.Waste, CardLocation.Stock, durationMs = 200)
+                }
+            }
             _gameState.value = result.first
             undoStack.add(result.second)
             _statusMessage.value = "Drew card from stock"
@@ -234,6 +264,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 if (quickMove != null) {
                     val card = getCardAtLocation(location)
                     val cardName = if (card != null) "${card.rank.display}${card.suit.symbol}" else "Card"
+                    val move = quickMove.second as? GameMove.CardMove
+                    if (move != null) {
+                        move.cards.forEach { c -> emitFlight(c, move.from, move.to) }
+                    } else if (card != null) {
+                        emitFlight(card, location, CardLocation.Foundation(0))
+                    }
                     _gameState.value = quickMove.first
                     undoStack.add(quickMove.second)
                     _selectedLocation.value = null
@@ -275,6 +311,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 if (moveResult != null) {
                     val movedCard = getCardAtLocation(currentSelected)
                     val cardName = if (movedCard != null) "${movedCard.rank.display}${movedCard.suit.symbol}" else "Card"
+                    val move = moveResult.second as? GameMove.CardMove
+                    if (move != null) {
+                        move.cards.forEach { c -> emitFlight(c, move.from, move.to) }
+                    } else if (movedCard != null) {
+                        emitFlight(movedCard, currentSelected, location)
+                    }
                     _gameState.value = moveResult.first
                     undoStack.add(moveResult.second)
                     _selectedLocation.value = null
@@ -293,6 +335,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         if (quickMove != null) {
                             val card = getCardAtLocation(location)
                             val cardName = if (card != null) "${card.rank.display}${card.suit.symbol}" else "Card"
+                            val move = quickMove.second as? GameMove.CardMove
+                            if (move != null) {
+                                move.cards.forEach { c -> emitFlight(c, move.from, move.to) }
+                            } else if (card != null) {
+                                emitFlight(card, location, CardLocation.Foundation(0))
+                            }
                             _gameState.value = quickMove.first
                             undoStack.add(quickMove.second)
                             _selectedLocation.value = null
@@ -335,10 +383,16 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (selected != null) {
             val moveResult = SolitaireEngine.moveCards(_gameState.value, selected, target)
             if (moveResult != null) {
-                _gameState.value = moveResult.first
-                undoStack.add(moveResult.second)
                 val card = getCardAtLocation(selected)
                 val cardName = if (card != null) "${card.rank.display}${card.suit.symbol}" else "Card"
+                val move = moveResult.second as? GameMove.CardMove
+                if (move != null) {
+                    move.cards.forEach { c -> emitFlight(c, move.from, move.to) }
+                } else if (card != null) {
+                    emitFlight(card, selected, target)
+                }
+                _gameState.value = moveResult.first
+                undoStack.add(moveResult.second)
                 _selectedLocation.value = null
                 _validTargets.value = emptySet()
                 _statusMessage.value = "✓ Matched $cardName to Foundation!"
@@ -369,8 +423,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _selectedLocation.value = null
         _validTargets.value = emptySet()
 
+        val card = getCardAtLocation(location)
         val result = SolitaireEngine.doubleTapToMove(_gameState.value, location)
         if (result != null) {
+            val move = result.second as? GameMove.CardMove
+            if (move != null) {
+                move.cards.forEach { c -> emitFlight(c, move.from, move.to) }
+            } else if (card != null) {
+                emitFlight(card, location, CardLocation.Foundation(0))
+            }
             _gameState.value = result.first
             undoStack.add(result.second)
             _statusMessage.value = "✓ Matched to Foundation!"
@@ -382,8 +443,15 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun onEmptyColumnClicked(colIndex: Int) {
         val selected = _selectedLocation.value ?: return
         val target = CardLocation.Tableau(colIndex)
+        val card = getCardAtLocation(selected)
         val moveResult = SolitaireEngine.moveCards(_gameState.value, selected, target)
         if (moveResult != null) {
+            val move = moveResult.second as? GameMove.CardMove
+            if (move != null) {
+                move.cards.forEach { c -> emitFlight(c, move.from, move.to) }
+            } else if (card != null) {
+                emitFlight(card, selected, target)
+            }
             _gameState.value = moveResult.first
             undoStack.add(moveResult.second)
             _selectedLocation.value = null
@@ -407,6 +475,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (undoStack.isEmpty() || _gameState.value.isGameWon || _isAutoCompleting.value) return
         val lastMove = undoStack.removeAt(undoStack.lastIndex)
         val restored = SolitaireEngine.undo(_gameState.value, lastMove)
+        when (lastMove) {
+            is GameMove.CardMove -> {
+                lastMove.cards.forEach { c -> emitFlight(c, lastMove.to, lastMove.from, durationMs = 200) }
+            }
+            is GameMove.StockDraw -> {
+                lastMove.drawnCards.forEach { c -> emitFlight(c, CardLocation.Waste, CardLocation.Stock, durationMs = 200) }
+            }
+            is GameMove.StockRecycle -> {
+                lastMove.recycledCards.firstOrNull()?.let { c -> emitFlight(c, CardLocation.Stock, CardLocation.Waste, durationMs = 200) }
+            }
+        }
         _gameState.value = restored
         _selectedLocation.value = null
         _validTargets.value = emptySet()
@@ -527,9 +606,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             while (_gameState.value.canAutoComplete && !_gameState.value.isGameWon) {
                 val step = SolitaireEngine.stepAutoComplete(_gameState.value)
                 if (step != null) {
+                    val move = step.second as? GameMove.CardMove
+                    if (move != null) {
+                        move.cards.forEach { c -> emitFlight(c, move.from, move.to, durationMs = 170) }
+                    }
                     _gameState.value = step.first
                     soundManager.playFoundationSnap()
-                    delay(120)
+                    delay(170)
                 } else {
                     break
                 }

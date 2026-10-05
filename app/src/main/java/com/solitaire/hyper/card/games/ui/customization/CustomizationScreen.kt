@@ -99,7 +99,7 @@ fun CustomizationScreen(
     val settings by userPrefs.userSettingsFlow.collectAsState(initial = UserSettings())
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Table (56)", "Backs (25)", "Faces (25)", "Suits & Colors", "Combos")
+    val tabs = listOf("Card Backs (25)", "Table Themes (56)")
 
     var selectedCategory by remember { mutableStateOf<TableCategory?>(null) }
     var pickingFor by remember { mutableStateOf("BACKGROUND") }
@@ -128,17 +128,9 @@ fun CustomizationScreen(
     val currentSuit = CustomizationRegistry.getSuitStyle(settings.suitStyleId)
     val currentScheme = CustomizationRegistry.getSuitColorScheme(settings.suitColorSchemeId)
 
-    val sampleCard1 = remember { Card(id = 1, suit = Suit.HEARTS, rank = Rank.ACE, isFaceUp = true) }
-    val sampleCard2 = remember { Card(id = 2, suit = Suit.SPADES, rank = Rank.KING, isFaceUp = true) }
-    val sampleCardDown = remember { Card(id = 3, suit = Suit.DIAMONDS, rank = Rank.JACK, isFaceUp = false) }
-
-    // Contrast check
-    val contrastWarning = remember(currentFace, currentScheme, currentBg) {
-        val bgRed = currentBg.primaryColor.red > 0.5f && currentBg.primaryColor.green < 0.3f
-        if (bgRed && currentScheme.id == "SCHEME_STANDARD" && currentFace.isDarkSurface) {
-            "Low contrast notice: Red suits on red table. Consider Four-Colour or High Contrast scheme."
-        } else null
-    }
+    val sampleCard1 = remember { Card(id = 1, suit = Suit.SPADES, rank = Rank.ACE, isFaceUp = true) }
+    val sampleCard2 = remember { Card(id = 2, suit = Suit.HEARTS, rank = Rank.QUEEN, isFaceUp = true) }
+    val sampleCardDown = remember { Card(id = 3, suit = Suit.SPADES, rank = Rank.KING, isFaceUp = false) }
 
     Scaffold(
         topBar = {
@@ -163,13 +155,11 @@ fun CustomizationScreen(
                 actions = {
                     IconButton(onClick = {
                         scope.launch {
-                            val rFace = CustomizationRegistry.cardFaces.random(Random).id
-                            val rSuit = CustomizationRegistry.suitStyles.random(Random).id
-                            val rScheme = CustomizationRegistry.suitColorSchemes.random(Random).id
                             val rBack = CustomizationRegistry.cardBacks.filter { it.id != "BACK_CUSTOM_PHOTO" }.random(Random).id
                             val rBg = CustomizationRegistry.backgrounds.filter { it.id != "THEME_CUSTOM_PHOTO" }.random(Random).id
-                            userPrefs.applyPresetCombo(rFace, rSuit, rScheme, rBack, rBg)
-                            Toast.makeText(context, "Surprise style randomized!", Toast.LENGTH_SHORT).show()
+                            userPrefs.updateCardBack(rBack)
+                            userPrefs.updateBackground(rBg)
+                            Toast.makeText(context, "Surprise back & table randomized!", Toast.LENGTH_SHORT).show()
                         }
                     }) {
                         Icon(Icons.Default.Shuffle, contentDescription = "Randomize", tint = SleekEmerald400)
@@ -218,7 +208,7 @@ fun CustomizationScreen(
                             .blur(settings.backgroundBlur.dp)
                     )
 
-                    // Cards preview row
+                    // Cards preview row (Official Solitaire Hyper Card Deck faces + Selected Back)
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
@@ -267,7 +257,7 @@ fun CustomizationScreen(
                         color = Color.Black.copy(alpha = 0.65f)
                     ) {
                         Text(
-                            text = "${currentBg.name} • ${currentFace.name}",
+                            text = "${currentBack.name} • ${currentBg.name}",
                             color = SleekEmerald400,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -277,29 +267,8 @@ fun CustomizationScreen(
                 }
             }
 
-            // Contrast warning banner
-            if (contrastWarning != null) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 2.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF78350F).copy(alpha = 0.35f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(text = contrastWarning, color = Color(0xFFFDE68A), fontSize = 11.sp)
-                    }
-                }
-            }
-
             // ==========================================
-            // PRIMARY TABS
+            // PRIMARY TABS (Card Backs & Table Themes)
             // ==========================================
             PrimaryTabRow(
                 selectedTabIndex = selectedTab,
@@ -313,7 +282,7 @@ fun CustomizationScreen(
                         text = {
                             Text(
                                 text = title,
-                                fontSize = 12.sp,
+                                fontSize = 13.sp,
                                 fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
                                 color = if (selectedTab == index) SleekEmerald400 else SleekSlate400
                             )
@@ -331,7 +300,15 @@ fun CustomizationScreen(
                     .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 when (selectedTab) {
-                    0 -> TableThemesTab(
+                    0 -> CardBacksTab(
+                        settings = settings,
+                        onSelectBack = { scope.launch { userPrefs.updateCardBack(it.id) } },
+                        onPickPhoto = {
+                            pickingFor = "CARD_BACK"
+                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                    )
+                    1 -> TableThemesTab(
                         settings = settings,
                         selectedCategory = selectedCategory,
                         onCategorySelect = { selectedCategory = it },
@@ -342,42 +319,6 @@ fun CustomizationScreen(
                         },
                         onDimChange = { scope.launch { userPrefs.updateBackgroundDim(it) } },
                         onBlurChange = { scope.launch { userPrefs.updateBackgroundBlur(it) } }
-                    )
-                    1 -> CardBacksTab(
-                        settings = settings,
-                        onSelectBack = { scope.launch { userPrefs.updateCardBack(it.id) } },
-                        onPickPhoto = {
-                            pickingFor = "CARD_BACK"
-                            photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }
-                    )
-                    2 -> CardFacesTab(
-                        settings = settings,
-                        onSelectFace = { scope.launch { userPrefs.updateCardFace(it.id) } },
-                        onIndexSizeChange = { scope.launch { userPrefs.updateCardIndexSize(it) } },
-                        onCornerRadiusChange = { scope.launch { userPrefs.updateCardCornerRadius(it) } },
-                        onNumeralsChange = { scope.launch { userPrefs.updateNumeralsStyle(it) } }
-                    )
-                    3 -> SuitsAndColorsTab(
-                        settings = settings,
-                        onSelectSuit = { scope.launch { userPrefs.updateSuitStyle(it.id) } },
-                        onSelectScheme = { scope.launch { userPrefs.updateSuitColorScheme(it.id) } }
-                    )
-                    4 -> PresetsTab(
-                        settings = settings,
-                        onSelectCombo = {
-                            scope.launch {
-                                userPrefs.applyPresetCombo(
-                                    it.cardFaceId,
-                                    it.suitStyleId,
-                                    it.suitSchemeId,
-                                    it.cardBackId,
-                                    it.backgroundId
-                                )
-                                Toast.makeText(context, "Applied ${it.name} Combo!", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        onDailySurpriseToggle = { scope.launch { userPrefs.updateDailySurpriseTheme(it) } }
                     )
                 }
             }
@@ -561,259 +502,6 @@ fun CardBacksTab(
                             ) {
                                 Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
                             }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CardFacesTab(
-    settings: UserSettings,
-    onSelectFace: (CardFaceTheme) -> Unit,
-    onIndexSizeChange: (String) -> Unit,
-    onCornerRadiusChange: (String) -> Unit,
-    onNumeralsChange: (String) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Ergonomics controls: Index Size, Corner Radius, Numerals
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            // Index size
-            listOf("STANDARD" to "Std Index", "LARGE" to "Large Index", "EXTRA_LARGE" to "Senior XL").forEach { (id, label) ->
-                FilterChip(
-                    selected = settings.cardIndexSize == id,
-                    onClick = { onIndexSizeChange(id) },
-                    label = { Text(label, fontSize = 11.sp) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = SleekEmerald500)
-                )
-            }
-            // Numerals
-            listOf("WESTERN" to "1 2 3", "EASTERN_ARABIC" to "١ ٢ ٣").forEach { (id, label) ->
-                FilterChip(
-                    selected = settings.numeralsStyle == id,
-                    onClick = { onNumeralsChange(id) },
-                    label = { Text(label, fontSize = 11.sp) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF0284C7))
-                )
-            }
-            // Corner radius
-            listOf("SHARP" to "Sharp Edge", "MEDIUM" to "Med Radius", "ROUND" to "Round Edge").forEach { (id, label) ->
-                FilterChip(
-                    selected = settings.cardCornerRadius == id,
-                    onClick = { onCornerRadiusChange(id) },
-                    label = { Text(label, fontSize = 11.sp) },
-                    colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Color(0xFF7C3AED))
-                )
-            }
-        }
-
-        // 25 Card Faces Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(CustomizationRegistry.cardFaces) { face ->
-                val isSelected = settings.cardFaceId == face.id
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(95.dp)
-                        .clickable { onSelectFace(face) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = SleekHeaderDark,
-                    border = androidx.compose.foundation.BorderStroke(
-                        if (isSelected) 2.5.dp else 1.dp,
-                        if (isSelected) SleekEmerald400 else SleekBorderSubtle
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CardView(
-                            card = Card(id = 0, suit = Suit.HEARTS, rank = Rank.ACE, isFaceUp = true),
-                            modifier = Modifier.size(width = 46.dp, height = 66.dp),
-                            cardFace = face,
-                            cardCornerRadius = settings.cardCornerRadius,
-                            numeralsStyle = settings.numeralsStyle
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = face.name, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Text(text = face.description, color = SleekSlate400, fontSize = 9.sp, maxLines = 2)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SuitsAndColorsTab(
-    settings: UserSettings,
-    onSelectSuit: (SuitStyleTheme) -> Unit,
-    onSelectScheme: (SuitColorScheme) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Suit Color Schemes (4 options)
-        Text(text = "Suit Colour Schemes (4 Options)", color = SleekEmerald400, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            CustomizationRegistry.suitColorSchemes.forEach { scheme ->
-                val isSelected = settings.suitColorSchemeId == scheme.id
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onSelectScheme(scheme) },
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) SleekEmerald500.copy(alpha = 0.25f) else SleekHeaderDark,
-                    border = androidx.compose.foundation.BorderStroke(
-                        if (isSelected) 2.dp else 1.dp,
-                        if (isSelected) SleekEmerald400 else SleekBorderSubtle
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("♥", color = scheme.heartsColor, fontSize = 12.sp)
-                            Text("♦", color = scheme.diamondsColor, fontSize = 12.sp)
-                            Text("♣", color = scheme.clubsColor, fontSize = 12.sp)
-                            Text("♠", color = scheme.spadesColor, fontSize = 12.sp)
-                        }
-                        Spacer(Modifier.height(2.dp))
-                        Text(text = scheme.name.split(" ").first(), color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-        Text(text = "Suit Icon Styles (12 Styles)", color = SleekEmerald400, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-
-        // 12 Suit Icon Styles Grid
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(CustomizationRegistry.suitStyles) { suit ->
-                val isSelected = settings.suitStyleId == suit.id
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(70.dp)
-                        .clickable { onSelectSuit(suit) },
-                    shape = RoundedCornerShape(10.dp),
-                    color = SleekHeaderDark,
-                    border = androidx.compose.foundation.BorderStroke(
-                        if (isSelected) 2.dp else 1.dp,
-                        if (isSelected) SleekEmerald400 else SleekBorderSubtle
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = "♠ ♥", fontSize = 18.sp, color = SleekEmerald400)
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(text = suit.name, color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-                            Text(text = suit.description, color = SleekSlate400, fontSize = 8.5.sp, maxLines = 1)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PresetsTab(
-    settings: UserSettings,
-    onSelectCombo: (PresetCombo) -> Unit,
-    onDailySurpriseToggle: (Boolean) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            shape = RoundedCornerShape(12.dp),
-            color = SleekHeaderDark,
-            border = androidx.compose.foundation.BorderStroke(1.dp, SleekBorderSubtle)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Daily Surprise Theme", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    Text(text = "Wake up each morning to a brand new curated theme combo!", color = SleekSlate400, fontSize = 11.sp)
-                }
-                androidx.compose.material3.Switch(
-                    checked = settings.dailySurpriseTheme,
-                    onCheckedChange = onDailySurpriseToggle,
-                    colors = androidx.compose.material3.SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = SleekEmerald500
-                    )
-                )
-            }
-        }
-
-        Text(text = "One-Tap Preset Combos", color = SleekEmerald400, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(1),
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(CustomizationRegistry.presetCombos) { combo ->
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onSelectCombo(combo) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = SleekHeaderDark,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SleekBorderSubtle)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SleekEmerald400, modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = combo.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text(text = combo.description, color = SleekSlate300, fontSize = 11.sp)
-                        }
-                        Button(
-                            onClick = { onSelectCombo(combo) },
-                            colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("Apply", fontSize = 11.sp)
                         }
                     }
                 }

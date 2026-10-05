@@ -61,6 +61,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.solitaire.hyper.card.games.ads.BannerAdView
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import com.solitaire.hyper.card.games.game.model.Card
+import com.solitaire.hyper.card.games.game.model.Rank
+import com.solitaire.hyper.card.games.game.model.Suit
+import com.solitaire.hyper.card.games.ui.components.CardView
+import com.solitaire.hyper.card.games.ui.customization.CustomizationRegistry
 import com.solitaire.hyper.card.games.data.preferences.UserPreferencesRepository
 import com.solitaire.hyper.card.games.data.preferences.UserSettings
 import com.solitaire.hyper.card.games.ui.theme.SleekBgDark
@@ -77,7 +86,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     userPrefs: UserPreferencesRepository,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenCustomization: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()

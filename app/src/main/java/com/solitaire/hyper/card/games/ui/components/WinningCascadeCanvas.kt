@@ -222,6 +222,13 @@ fun WinningCascadeCanvas(
             }
         }
 
+        // Celebratory Confetti & Particle Shower Animation
+        ConfettiParticleAnimation(
+            modifier = Modifier.fillMaxSize(),
+            soundManager = soundManager,
+            enableTapBurst = true
+        )
+
         // Overlay victory summary banner
         if (bannerVisible) {
             Card(
@@ -563,57 +570,63 @@ private fun DrawScope.drawCascadeCard(
     height: Float,
     corner: CornerRadius
 ) {
-    // Card background
+    val r = width * 0.12f
+    val cardCorner = CornerRadius(r, r)
+
+    // Card white background
     drawRoundRect(
-        color = Color.White,
+        color = Color(0xFFFFFFFF),
         topLeft = Offset(x, y),
         size = Size(width, height),
-        cornerRadius = corner
+        cornerRadius = cardCorner
     )
-    // Card border
+    // Card outer border
+    val edgeW = (width * 0.022f).coerceAtLeast(1f)
     drawRoundRect(
-        color = Color(0x33000000),
-        topLeft = Offset(x, y),
-        size = Size(width, height),
-        cornerRadius = corner,
-        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f)
+        color = Color(0xFF3A4052),
+        topLeft = Offset(x + edgeW / 2f, y + edgeW / 2f),
+        size = Size(width - edgeW, height - edgeW),
+        cornerRadius = cardCorner,
+        style = androidx.compose.ui.graphics.drawscope.Stroke(width = edgeW)
     )
 
     val isRed = suit.color == CardColor.RED
-    val paintColor = if (isRed) android.graphics.Color.rgb(211, 47, 47) else android.graphics.Color.rgb(30, 33, 36)
+    val suitColor = if (isRed) Color(0xFFE21C34) else Color(0xFF0E1018)
+    val paintColor = if (isRed) android.graphics.Color.rgb(226, 28, 52) else android.graphics.Color.rgb(14, 16, 24)
 
+    // Center big suit icon (55% width, centered at 55% height)
+    val suitSize = width * 0.55f
+    val suitCenter = Offset(x + width * 0.50f, y + height * 0.55f)
+    val suitPath = when (suit) {
+        Suit.SPADES -> CardFaceRenderer.createSpadePath(suitCenter.x, suitCenter.y, suitSize)
+        Suit.HEARTS -> CardFaceRenderer.createHeartPath(suitCenter.x, suitCenter.y, suitSize)
+        Suit.DIAMONDS -> CardFaceRenderer.createDiamondPath(suitCenter.x, suitCenter.y, suitSize)
+        Suit.CLUBS -> CardFaceRenderer.createClubPath(suitCenter.x, suitCenter.y, suitSize)
+    }
+    drawPath(path = suitPath, color = suitColor)
+
+    // Top-left bold rank only (center at 20% width, 11.5% height)
+    val rankSizePx = if (rank == Rank.TEN) width * 0.27f else width * 0.33f
     val paint = android.graphics.Paint().apply {
         color = paintColor
-        textSize = 28f
+        textSize = rankSizePx
         isAntiAlias = true
         isFakeBoldText = true
-    }
-
-    drawContext.canvas.nativeCanvas.drawText(
-        rank.display,
-        x + 8f,
-        y + 30f,
-        paint
-    )
-
-    drawContext.canvas.nativeCanvas.drawText(
-        suit.symbol,
-        x + 8f,
-        y + 58f,
-        paint
-    )
-
-    // Center symbol
-    val centerPaint = android.graphics.Paint().apply {
-        color = paintColor
-        textSize = 42f
-        isAntiAlias = true
         textAlign = android.graphics.Paint.Align.CENTER
     }
-    drawContext.canvas.nativeCanvas.drawText(
-        suit.symbol,
-        x + width / 2f,
-        y + height / 2f + 14f,
-        centerPaint
-    )
+    val fontMetrics = paint.fontMetrics
+    val baselineOffset = (fontMetrics.descent + fontMetrics.ascent) / 2f
+
+    val nativeCanvas = drawContext.canvas.nativeCanvas
+    nativeCanvas.save()
+    nativeCanvas.translate(x + width * 0.20f, y + height * 0.115f)
+    nativeCanvas.drawText(rank.display, 0f, -baselineOffset, paint)
+    nativeCanvas.restore()
+
+    // Bottom-right bold rank only (rotated 180°, center at 80% width, 88.5% height)
+    nativeCanvas.save()
+    nativeCanvas.translate(x + width * 0.80f, y + height * 0.885f)
+    nativeCanvas.rotate(180f)
+    nativeCanvas.drawText(rank.display, 0f, -baselineOffset, paint)
+    nativeCanvas.restore()
 }

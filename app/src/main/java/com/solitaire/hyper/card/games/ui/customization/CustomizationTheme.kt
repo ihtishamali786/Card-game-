@@ -168,93 +168,38 @@ data class PresetCombo(
 object CustomizationRegistry {
 
     // =========================================================================
-    // 1. THE 25 CARD FACE STYLES
+    // 1. SOLITAIRE HYPER CARD DECK (Sole Master Face Theme)
     // =========================================================================
     val cardFaces = listOf(
-        CardFaceTheme("FACE_CLASSIC_STANDARD", "Classic Standard", CardFaceStyle.CLASSIC_STANDARD, Color(0xFFFFFFFF), false, "Traditional crisp white cards with iconic standard typography"),
-        CardFaceTheme("FACE_MODERN_MINIMAL", "Modern Minimal", CardFaceStyle.MODERN_MINIMAL, Color(0xFFF8FAFC), false, "Clean sans-serif indices with sleek modern geometry"),
-        CardFaceTheme("FACE_LARGE_INDEX", "Large Index (Senior-Friendly)", CardFaceStyle.LARGE_INDEX, Color(0xFFFFFFFF), false, "Extra large indices for effortless readability on all phones"),
-        CardFaceTheme("FACE_FOUR_COLOUR_CLEAR", "Four-Colour Clear", CardFaceStyle.FOUR_COLOUR_CLEAR, Color(0xFFFAFAFA), false, "High distinction card faces optimized for zero-mistake play"),
-        CardFaceTheme("FACE_VINTAGE_IVORY", "Vintage Ivory", CardFaceStyle.VINTAGE_IVORY, Color(0xFFFFFBEB), false, "Warm antique parchment with aged renaissance feel"),
-        CardFaceTheme("FACE_ROYAL_GOLD", "Royal Gold", CardFaceStyle.ROYAL_GOLD, Color(0xFFFFFDF5), false, "24K gilded borders and royal illuminated typography"),
-        CardFaceTheme("FACE_NEON_GLOW", "Neon Glow", CardFaceStyle.NEON_GLOW, Color(0xFF0F172A), true, "Electric luminous pips on an ultra-dark background"),
-        CardFaceTheme("FACE_DARK_OBSIDIAN", "Dark Obsidian", CardFaceStyle.DARK_OBSIDIAN, Color(0xFF0A0F1D), true, "Stealth matte black finish with gleaming high-contrast accents"),
-        CardFaceTheme("FACE_FROSTED_GLASS", "Frosted Glass", CardFaceStyle.FROSTED_GLASS, Color(0xFFF1F5F9), false, "Translucent glassy textures with crisp frosted edges"),
-        CardFaceTheme("FACE_PAPER_CRAFT", "Paper Craft", CardFaceStyle.PAPER_CRAFT, Color(0xFFFDFBF7), false, "Handmade textured paper with subtle debossed relief"),
-        CardFaceTheme("FACE_WATERCOLOUR", "Watercolour", CardFaceStyle.WATERCOLOUR, Color(0xFFFAF5FF), false, "Artistic washed pigments with painterly elegance"),
-        CardFaceTheme("FACE_PIXEL_RETRO", "Pixel Retro", CardFaceStyle.PIXEL_RETRO, Color(0xFFF0FDF4), false, "8-bit nostalgic arcade numerals and pixelated court art"),
-        CardFaceTheme("FACE_COMIC_POP", "Comic Pop", CardFaceStyle.COMIC_POP, Color(0xFFFFF1F2), false, "Dynamic halftone dots and bold graphic novel borders"),
-        CardFaceTheme("FACE_CARVED_WOOD", "Carved Wood", CardFaceStyle.CARVED_WOOD, Color(0xFFF5EBE1), false, "Fine grain beechwood tones with etched artisan numerals"),
-        CardFaceTheme("FACE_WHITE_MARBLE", "White Marble", CardFaceStyle.WHITE_MARBLE, Color(0xFFF8FAFC), false, "Polished Carrara marble with subtle grey veining"),
-        CardFaceTheme("FACE_CHROME_METALLIC", "Chrome Metallic", CardFaceStyle.CHROME_METALLIC, Color(0xFFE2E8F0), false, "Brushed titanium finish with specular metallic luster"),
-        CardFaceTheme("FACE_CYBERPUNK", "Cyberpunk", CardFaceStyle.CYBERPUNK, Color(0xFF030712), true, "Cyber grid matrix with magenta & cyan laser aesthetics"),
-        CardFaceTheme("FACE_OCEAN_BLUE", "Ocean Blue", CardFaceStyle.OCEAN_BLUE, Color(0xFFF0F9FF), false, "Crisp marine atmosphere with aquatic azure highlights"),
-        CardFaceTheme("FACE_FLORAL_GARDEN", "Floral Garden", CardFaceStyle.FLORAL_GARDEN, Color(0xFFFFF7ED), false, "Delicate botanical accents surrounding classical indices"),
-        CardFaceTheme("FACE_GALAXY", "Galaxy", CardFaceStyle.GALAXY, Color(0xFF090D16), true, "Deep cosmos nebula with stellar starlight highlights"),
-        CardFaceTheme("FACE_LINE_ART", "Line-Art Sketch", CardFaceStyle.LINE_ART, Color(0xFFFFFFFF), false, "Architectural fine-liner illustrations and minimalist purity"),
-        CardFaceTheme("FACE_CASINO_CLASSIC", "Casino Classic", CardFaceStyle.CASINO_CLASSIC, Color(0xFFFFFFFF), false, "Authentic Las Vegas high-roller tournament cards"),
-        CardFaceTheme("FACE_ARABESQUE", "Arabesque Geometric", CardFaceStyle.ARABESQUE, Color(0xFFFDFCF7), false, "Intricate geometric Islamic art lattice borders (decorative)"),
-        CardFaceTheme("FACE_MUGHAL_MINIATURE", "Mughal Miniature", CardFaceStyle.MUGHAL_MINIATURE, Color(0xFFFFFBEB), false, "Court cards styled after classical South Asian miniature paintings"),
-        CardFaceTheme("FACE_ART_DECO", "Art Deco", CardFaceStyle.ART_DECO, Color(0xFF0F172A), true, "1920s Great Gatsby golden geometry on black velvet")
+        CardFaceTheme(
+            id = "FACE_CLASSIC_STANDARD",
+            name = "Solitaire Hyper Deck",
+            style = CardFaceStyle.CLASSIC_STANDARD,
+            surfaceColor = Color(0xFFFFFFFF),
+            isDarkSurface = false,
+            description = "Official Solitaire Hyper Card Deck: Jumbo Easy-Read v2 with large centered suit and bold rank"
+        )
     )
 
     // =========================================================================
-    // 2. THE 12 SUIT ICON STYLES
+    // 2. SUIT ICON STYLE (Classic Standard Filled)
     // =========================================================================
     val suitStyles = listOf(
-        SuitStyleTheme("SUIT_CLASSIC_FILLED", "Classic Filled", SuitIconStyle.CLASSIC_FILLED, "Solid timeless silhouette standard pips"),
-        SuitStyleTheme("SUIT_OUTLINE", "Outline", SuitIconStyle.OUTLINE, "Modern wireframe outline with hollow center"),
-        SuitStyleTheme("SUIT_ROUNDED_SOFT", "Rounded / Soft", SuitIconStyle.ROUNDED_SOFT, "Friendly rounded corners and soft geometry"),
-        SuitStyleTheme("SUIT_FLAT_GEOMETRIC", "Flat Geometric", SuitIconStyle.FLAT_GEOMETRIC, "Sharp mathematical polygon angles"),
-        SuitStyleTheme("SUIT_3D_EMBOSSED", "3D Embossed", SuitIconStyle.THREE_D_EMBOSSED, "Tactile bevelled shadows and raised depth"),
-        SuitStyleTheme("SUIT_GOLD_FOIL", "Gold Foil", SuitIconStyle.GOLD_FOIL, "Lustrous gold gradient specular reflections"),
-        SuitStyleTheme("SUIT_NEON_LINE", "Neon Line", SuitIconStyle.NEON_LINE, "High-voltage glowing laser contour"),
-        SuitStyleTheme("SUIT_HAND_DRAWN", "Hand-Drawn", SuitIconStyle.HAND_DRAWN, "Artisan sketched strokes with organic charm"),
-        SuitStyleTheme("SUIT_PIXEL", "Pixel", SuitIconStyle.PIXEL, "Retro 8-bit stepped pixel corners"),
-        SuitStyleTheme("SUIT_GRADIENT", "Gradient", SuitIconStyle.GRADIENT, "Smooth multi-tone sunset & violet gradient fill"),
-        SuitStyleTheme("SUIT_GLASS", "Glass", SuitIconStyle.GLASS, "Glossy translucent highlights and refractive aura"),
-        SuitStyleTheme("SUIT_ORNATE", "Ornate", SuitIconStyle.ORNATE, "Baroque filigree flourishes and decorative curls")
+        SuitStyleTheme("SUIT_CLASSIC_FILLED", "Classic Filled", SuitIconStyle.CLASSIC_FILLED, "Solid timeless silhouette standard pips")
     )
 
     // =========================================================================
-    // 3. THE 4 SUIT COLOUR SCHEMES
+    // 3. SUIT COLOUR SCHEME (Standard Red & Black)
     // =========================================================================
     val suitColorSchemes = listOf(
         SuitColorScheme(
             "SCHEME_STANDARD",
             "Standard (Red & Black)",
-            heartsColor = Color(0xFFDC2626),
-            diamondsColor = Color(0xFFDC2626),
-            clubsColor = Color(0xFF1E293B),
-            spadesColor = Color(0xFF0F172A),
+            heartsColor = Color(0xFFE21C34),
+            diamondsColor = Color(0xFFE21C34),
+            clubsColor = Color(0xFF0E1018),
+            spadesColor = Color(0xFF0E1018),
             description = "Traditional 2-colour deck: Hearts and Diamonds Red, Spades and Clubs Black."
-        ),
-        SuitColorScheme(
-            "SCHEME_FOUR_COLOUR",
-            "Four-Colour Clear (Tournament)",
-            heartsColor = Color(0xFFDC2626), // Red
-            diamondsColor = Color(0xFF2563EB), // Blue
-            clubsColor = Color(0xFF059669),    // Green
-            spadesColor = Color(0xFF0F172A),   // Black
-            description = "Tournament favourite: Hearts Red, Diamonds Blue, Clubs Green, Spades Black."
-        ),
-        SuitColorScheme(
-            "SCHEME_HIGH_CONTRAST",
-            "High Contrast (Accessible)",
-            heartsColor = Color(0xFFB91C1C),
-            diamondsColor = Color(0xFF1D4ED8),
-            clubsColor = Color(0xFF047857),
-            spadesColor = Color(0xFF000000),
-            description = "Maximum saturation & thick contours for instant distinction on any screen."
-        ),
-        SuitColorScheme(
-            "SCHEME_CUSTOM_JEWEL",
-            "Custom Jewel Tones",
-            heartsColor = Color(0xFFE11D48), // Ruby
-            diamondsColor = Color(0xFF0284C7), // Sapphire
-            clubsColor = Color(0xFF10B981), // Emerald
-            spadesColor = Color(0xFF7C3AED), // Amethyst
-            description = "Rich gemstone palette for luxury aesthetic."
         )
     )
 
@@ -367,17 +312,8 @@ object CustomizationRegistry {
         BackgroundTheme("THEME_CUSTOM_PHOTO", "My Custom Background Photo", TableCategory.ABSTRACT_TEXTURES, Color(0xFF1E293B), Brush.verticalGradient(listOf(Color(0xFF334155), Color(0xFF0F172A))), "Personal gallery photo used as table wallpaper")
     )
 
-    // =========================================================================
-    // 6. PRESET COMBOS
-    // =========================================================================
-    val presetCombos = listOf(
-        PresetCombo("COMBO_ROYAL_NIGHT", "Royal Night", "Gold indices, royal crest back & Paris twilight skyline", "FACE_ROYAL_GOLD", "SUIT_GOLD_FOIL", "SCHEME_STANDARD", "BACK_ORNATE_CREST", "CITY_PARIS"),
-        PresetCombo("COMBO_TOKYO_NEON", "Tokyo Neon", "Cyberpunk face, neon glow suits & Tokyo night skyline", "FACE_CYBERPUNK", "SUIT_NEON_LINE", "SCHEME_FOUR_COLOUR", "BACK_CIRCUIT_BOARD", "CITY_TOKYO"),
-        PresetCombo("COMBO_EMERALD_CLASSIC", "Emerald Classic", "Classic cards, traditional felt & diamond back", "FACE_CLASSIC_STANDARD", "SUIT_CLASSIC_FILLED", "SCHEME_STANDARD", "BACK_GEOMETRIC_DIAMONDS", "THEME_CASINO_GREEN"),
-        PresetCombo("COMBO_DESERT_GOLD", "Desert Gold", "Vintage ivory face, 3D embossed suits & Rajasthan desert", "FACE_VINTAGE_IVORY", "SUIT_3D_EMBOSSED", "SCHEME_STANDARD", "BACK_ARABESQUE", "LAND_RAJASTHAN"),
-        PresetCombo("COMBO_NORDIC_AURORA", "Nordic Aurora", "Frosted glass face, starry night back & Iceland Aurora", "FACE_FROSTED_GLASS", "SUIT_GRADIENT", "SCHEME_FOUR_COLOUR", "BACK_STARRY_NIGHT", "LAND_ICELAND_AURORA"),
-        PresetCombo("COMBO_SENIOR_CLEAR", "High Visibility", "Extra large indices, accessible contrast & clean dark table", "FACE_LARGE_INDEX", "SUIT_ROUNDED_SOFT", "SCHEME_HIGH_CONTRAST", "BACK_CHECKERBOARD", "FELT_CHARCOAL_BLACK")
-    )
+    // Preset combos removed per user request
+    val presetCombos = emptyList<PresetCombo>()
 
     // Helper lookups
     fun getBackground(id: String): BackgroundTheme {
@@ -390,9 +326,8 @@ object CustomizationRegistry {
         return cardBacks.firstOrNull { it.id == id } ?: cardBacks.first()
     }
 
-    fun getCardFace(id: String): CardFaceTheme {
-        if (id == "FACE_SENIOR_CLASSIC") return cardFaces.first { it.id == "FACE_LARGE_INDEX" }
-        return cardFaces.firstOrNull { it.id == id } ?: cardFaces.first()
+    fun getCardFace(id: String = ""): CardFaceTheme {
+        return cardFaces.first()
     }
 
     fun getSuitStyle(id: String): SuitStyleTheme {

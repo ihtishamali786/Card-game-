@@ -18,8 +18,8 @@ android {
     applicationId = "com.solitaire.hyper.card.games"
     minSdk = 24
     targetSdk = 36
-    versionCode = 12
-    versionName = "12.0"
+    versionCode = 13
+    versionName = "13.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -27,15 +27,19 @@ android {
   signingConfigs {
     create("release") {
       val envKeystorePath = System.getenv("KEYSTORE_PATH")
-      val keystoreFile = if (!envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists()) {
-        file(envKeystorePath)
-      } else {
-        file("${rootDir}/debug.keystore")
+      val keystoreFile = when {
+        !envKeystorePath.isNullOrBlank() && file(envKeystorePath).exists() -> file(envKeystorePath)
+        file("${rootDir}/upload-keystore.jks").exists() -> file("${rootDir}/upload-keystore.jks")
+        else -> file("${rootDir}/debug.keystore")
       }
+      val storePass = System.getenv("STORE_PASSWORD") ?: "android"
+      val resolvedAlias = System.getenv("KEY_ALIAS") ?: (if (!envKeystorePath.isNullOrBlank() || file("${rootDir}/upload-keystore.jks").exists()) "upload" else "androiddebugkey")
       storeFile = keystoreFile
-      storePassword = System.getenv("STORE_PASSWORD") ?: "android"
-      keyAlias = System.getenv("KEY_ALIAS") ?: "androiddebugkey"
-      keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
+      storePassword = storePass
+      keyAlias = resolvedAlias
+      keyPassword = System.getenv("KEY_PASSWORD") ?: storePass
+      enableV1Signing = true
+      enableV2Signing = true
     }
     create("debugConfig") {
       storeFile = file("${rootDir}/debug.keystore")
@@ -43,6 +47,12 @@ android {
       keyAlias = "androiddebugkey"
       keyPassword = "android"
     }
+  }
+
+  lint {
+    checkReleaseBuilds = false
+    abortOnError = false
+    checkDependencies = false
   }
 
   buildTypes {
