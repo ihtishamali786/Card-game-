@@ -166,6 +166,12 @@ fun SettingsScreen(
             ) {
                 Column {
                     SettingsSwitchRow(
+                        title = "Easy Game Engine (آسان موڈ)",
+                        subtitle = "Deals friendly winnable layouts with key cards uncovered",
+                        checked = settings.easyGameMode,
+                        onCheckedChange = { scope.launch { userPrefs.updateEasyGameMode(it) } }
+                    )
+                    SettingsSwitchRow(
                         title = "Left-Handed Mode",
                         subtitle = "Flips stock and waste piles for left-hand reach",
                         checked = settings.leftHandedMode,
@@ -231,6 +237,7 @@ fun SettingsScreen(
                     )
                 }
             }
+
 
             // Legal & About
             SettingsSectionHeader("About & Legal")

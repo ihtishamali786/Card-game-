@@ -14,13 +14,15 @@ import kotlinx.coroutines.withContext
 data class GameStatistics(
     val gamesPlayed: Int = 0,
     val gamesWon: Int = 0,
+    val gamesLost: Int = 0,
     val winPercentage: Int = 0,
     val currentStreak: Int = 0,
     val bestStreak: Int = 0,
     val bestScore: Int = 0,
     val bestTimeSeconds: Long = 0L,
     val averageTimeSeconds: Long = 0L,
-    val averageMoves: Int = 0
+    val averageMoves: Int = 0,
+    val recentMatches: List<GameRecordEntity> = emptyList()
 )
 
 class GameRepository(context: Context) {
@@ -38,16 +40,20 @@ class GameRepository(context: Context) {
     fun getAchievements(): Flow<List<AchievementEntity>> = achievementDao.getAllAchievements()
 
     suspend fun getStatistics(mode: String): GameStatistics = withContext(Dispatchers.IO) {
-        val records = gameRecordDao.getRecordsListByMode(mode)
+        val records = if (mode == "ALL") {
+            gameRecordDao.getAllRecordsList()
+        } else {
+            gameRecordDao.getRecordsListByMode(mode)
+        }
         if (records.isEmpty()) return@withContext GameStatistics()
 
         val played = records.size
         val wonList = records.filter { it.isWin }
         val won = wonList.size
+        val lost = played - won
         val winPercentage = if (played > 0) ((won.toDouble() / played) * 100).toInt() else 0
 
-        // Calculate current and best streak
-        var currentStreak = 0
+        // Calculate current and best win streak
         var bestStreak = 0
         var tempStreak = 0
         for (rec in records) {
@@ -58,7 +64,9 @@ class GameRepository(context: Context) {
                 tempStreak = 0
             }
         }
-        // Current streak is from the most recent records
+
+        // Current streak from the most recent records
+        var currentStreak = 0
         for (rec in records.reversed()) {
             if (rec.isWin) {
                 currentStreak++
@@ -71,17 +79,20 @@ class GameRepository(context: Context) {
         val bestTime = wonList.minOfOrNull { it.timeSeconds } ?: 0L
         val avgTime = if (wonList.isNotEmpty()) (wonList.sumOf { it.timeSeconds } / wonList.size) else 0L
         val avgMoves = if (wonList.isNotEmpty()) (wonList.sumOf { it.moves } / wonList.size) else 0
+        val recent = records.takeLast(10).reversed()
 
         GameStatistics(
             gamesPlayed = played,
             gamesWon = won,
+            gamesLost = lost,
             winPercentage = winPercentage,
             currentStreak = currentStreak,
             bestStreak = bestStreak,
             bestScore = bestScore,
             bestTimeSeconds = bestTime,
             averageTimeSeconds = avgTime,
-            averageMoves = avgMoves
+            averageMoves = avgMoves,
+            recentMatches = recent
         )
     }
 
@@ -113,6 +124,24 @@ class GameRepository(context: Context) {
         if (isWin) {
             evaluateAchievements(state, usedHints)
         }
+    }
+
+    suspend fun recordCustomGame(
+        mode: String,
+        isWin: Boolean,
+        moves: Int,
+        timeSeconds: Long,
+        score: Int
+    ) = withContext(Dispatchers.IO) {
+        val record = GameRecordEntity(
+            mode = mode,
+            isWin = isWin,
+            moves = moves,
+            timeSeconds = timeSeconds,
+            score = score,
+            dateMillis = System.currentTimeMillis()
+        )
+        gameRecordDao.insertRecord(record)
     }
 
     private suspend fun evaluateAchievements(state: GameState, usedHints: Boolean) {
@@ -151,11 +180,12 @@ class GameRepository(context: Context) {
         val achievement = achievementDao.getAchievement(id) ?: return
         val newProgress = maxOf(achievement.currentProgress, progress)
         val isNowUnlocked = newProgress >= achievement.targetProgress
+        val wasUnlocked = achievement.isUnlocked
         achievementDao.updateProgress(
             id = id,
             progress = newProgress,
-            unlocked = isNowUnlocked || achievement.isUnlocked,
-            dateMillis = if (isNowUnlocked && !achievement.isUnlocked) System.currentTimeMillis() else achievement.unlockedDateMillis
+            unlocked = isNowUnlocked || wasUnlocked,
+            dateMillis = if (isNowUnlocked && !wasUnlocked) System.currentTimeMillis() else achievement.unlockedDateMillis
         )
     }
 

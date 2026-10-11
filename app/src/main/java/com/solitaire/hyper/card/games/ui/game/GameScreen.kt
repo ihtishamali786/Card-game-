@@ -57,6 +57,7 @@ import com.solitaire.hyper.card.games.update.UpdateStatus
 import com.solitaire.hyper.card.games.ui.components.AiCoachDialog
 import com.solitaire.hyper.card.games.ui.shop.ShopDialog
 import com.solitaire.hyper.card.games.ui.components.TutorialDemoOverlay
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -154,12 +155,6 @@ fun GameScreen(
     var showRulesDialog by remember { mutableStateOf(false) }
     var hasDoubledCoins by remember { mutableStateOf(false) }
 
-    // Periodic (15-20 min) ad check whenever GameScreen loads or is entered
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        if (activity != null) {
-            AdManager.checkAndShowPeriodicTimeAd(activity, userSettings.isAdFreeActive())
-        }
-    }
 
     val currentBackground = CustomizationRegistry.getBackground(userSettings.backgroundId)
     val currentCardBack = CustomizationRegistry.getCardBack(userSettings.cardBackId)
@@ -192,7 +187,8 @@ fun GameScreen(
                         card = event.card,
                         startOffset = start,
                         targetOffset = target,
-                        durationMs = event.durationMs
+                        durationMs = event.durationMs,
+                        isFlipToFaceUp = event.isFlipToFaceUp || (event.from is CardLocation.Stock && event.to is CardLocation.Waste)
                     )
                 )
             }
@@ -265,6 +261,7 @@ fun GameScreen(
                     activeHint = activeHint,
                     largePrint = userSettings.largePrintMode,
                     leftHanded = userSettings.leftHandedMode,
+                    isWasteFlying = activeFlights.any { it.isFlipToFaceUp },
                     onStockClick = { viewModel.onStockClicked() },
                     onWasteClick = { viewModel.onCardClicked(CardLocation.Waste) },
                     onWasteDoubleClick = { viewModel.onCardDoubleClicked(CardLocation.Waste) },
@@ -331,6 +328,7 @@ fun GameScreen(
                     validTargets = validTargets,
                     activeHint = activeHint,
                     largePrint = userSettings.largePrintMode,
+                    flyingCardIds = activeFlights.map { it.card.id }.toSet(),
                     onCardClick = { colIdx, cardIdx ->
                         viewModel.onCardClicked(CardLocation.Tableau(colIdx, cardIdx))
                     },
@@ -1085,6 +1083,7 @@ fun PortraitTopCardRow(
     activeHint: com.solitaire.hyper.card.games.game.model.Hint?,
     largePrint: Boolean = false,
     leftHanded: Boolean = false,
+    isWasteFlying: Boolean = false,
     onStockClick: () -> Unit,
     onWasteClick: () -> Unit,
     onWasteDoubleClick: () -> Unit,
@@ -1146,7 +1145,7 @@ fun PortraitTopCardRow(
                 .onGloballyPositioned { onPositionRecorded?.invoke("waste", it) }
         ) {
             val wasteTop = gameState.waste.lastOrNull()
-            if (wasteTop != null) {
+            if (wasteTop != null && !isWasteFlying) {
                 val isSelected = selectedLocation is CardLocation.Waste
                 val isHinted = activeHint?.from is CardLocation.Waste
 
@@ -1298,6 +1297,7 @@ fun TableauArea(
     validTargets: Set<CardLocation>,
     activeHint: com.solitaire.hyper.card.games.game.model.Hint?,
     largePrint: Boolean = false,
+    flyingCardIds: Set<Int> = emptySet(),
     onCardClick: (colIdx: Int, cardIdx: Int) -> Unit,
     onCardDoubleClick: (colIdx: Int, cardIdx: Int) -> Unit,
     onEmptyColumnClick: (colIdx: Int) -> Unit,
@@ -1324,6 +1324,7 @@ fun TableauArea(
                 validTargets = validTargets,
                 activeHint = activeHint,
                 largePrint = largePrint,
+                flyingCardIds = flyingCardIds,
                 onCardClick = { cardIdx -> onCardClick(colIdx, cardIdx) },
                 onCardDoubleClick = { cardIdx -> onCardDoubleClick(colIdx, cardIdx) },
                 onEmptyClick = { onEmptyColumnClick(colIdx) },
@@ -1347,6 +1348,7 @@ fun TableauColumnView(
     validTargets: Set<CardLocation>,
     activeHint: com.solitaire.hyper.card.games.game.model.Hint?,
     largePrint: Boolean = false,
+    flyingCardIds: Set<Int> = emptySet(),
     onCardClick: (cardIdx: Int) -> Unit,
     onCardDoubleClick: (cardIdx: Int) -> Unit,
     onEmptyClick: () -> Unit,
@@ -1483,6 +1485,7 @@ fun TableauColumnView(
                     baseModifier
                 }
 
+                val isFlying = flyingCardIds.contains(card.id)
                 CardView(
                     card = card,
                     cardBack = cardBack,
@@ -1493,7 +1496,7 @@ fun TableauColumnView(
                     largePrint = largePrint,
                     onClick = if (!card.isFaceUp) { { onCardClick(cardIdx) } } else null,
                     onDoubleClick = if (card.isFaceUp) { { onCardDoubleClick(cardIdx) } } else null,
-                    modifier = gestureModifier
+                    modifier = if (isFlying) gestureModifier.graphicsLayer { alpha = 0f } else gestureModifier
                 )
 
                 yOffset += if (card.isFaceUp) upStep else downStep

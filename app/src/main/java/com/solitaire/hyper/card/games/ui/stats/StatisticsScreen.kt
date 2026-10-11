@@ -11,12 +11,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,8 +34,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,12 +56,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.solitaire.hyper.card.games.ads.BannerAdView
 import com.solitaire.hyper.card.games.data.GameRepository
 import com.solitaire.hyper.card.games.data.GameStatistics
+import com.solitaire.hyper.card.games.data.database.GameRecordEntity
 import com.solitaire.hyper.card.games.ui.game.formatTime
 import com.solitaire.hyper.card.games.ui.theme.SleekBgDark
-import com.solitaire.hyper.card.games.ui.theme.SleekBorderSubtle
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald400
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
 import com.solitaire.hyper.card.games.ui.theme.SleekHeaderDark
@@ -61,6 +68,9 @@ import com.solitaire.hyper.card.games.ui.theme.SleekSlate100
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate400
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,18 +80,15 @@ fun StatisticsScreen(
 ) {
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Draw 1", "Draw 3", "Daily")
+    val tabModes = listOf("ALL", "DRAW_1", "DRAW_3", "DAILY", "CALL_BREAK")
+    val tabLabels = listOf("All Games", "Draw 1", "Draw 3", "Daily", "Call Break")
 
     var stats by remember { mutableStateOf(GameStatistics()) }
     var showClearDialog by remember { mutableStateOf(false) }
 
     fun refreshStats() {
         scope.launch {
-            val mode = when (selectedTab) {
-                0 -> "DRAW_1"
-                1 -> "DRAW_3"
-                else -> "DAILY"
-            }
+            val mode = tabModes.getOrElse(selectedTab) { "ALL" }
             stats = repository.getStatistics(mode)
         }
     }
@@ -114,9 +121,6 @@ fun StatisticsScreen(
                     actionIconContentColor = SleekSlate300
                 )
             )
-        },
-        bottomBar = {
-            BannerAdView()
         }
     ) { paddingValues ->
         Column(
@@ -125,12 +129,13 @@ fun StatisticsScreen(
                 .padding(paddingValues)
                 .background(SleekBgDark)
         ) {
-            PrimaryTabRow(
+            ScrollableTabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = SleekHeaderDark,
-                contentColor = SleekEmerald400
+                contentColor = SleekEmerald400,
+                edgePadding = 12.dp
             ) {
-                tabs.forEachIndexed { index, title ->
+                tabLabels.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
@@ -138,7 +143,8 @@ fun StatisticsScreen(
                             Text(
                                 text = title,
                                 color = if (selectedTab == index) SleekEmerald400 else SleekSlate400,
-                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 13.sp
                             )
                         }
                     )
@@ -148,10 +154,11 @@ fun StatisticsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Main High-Level Summary Card
+                // High-Level Summary Card: Played, Won, Lost, Win Rate
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
@@ -161,35 +168,53 @@ fun StatisticsScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp),
+                            .padding(vertical = 18.dp, horizontal = 12.dp),
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
-                        StatBigBlock(label = "PLAYED", value = "${stats.gamesPlayed}")
-                        StatBigBlock(label = "WON", value = "${stats.gamesWon}")
-                        StatBigBlock(label = "WIN RATE", value = "${stats.winPercentage}%")
+                        StatBigBlock(label = "PLAYED", value = "${stats.gamesPlayed}", color = SleekSlate100)
+                        StatBigBlock(label = "WON", value = "${stats.gamesWon}", color = SleekEmerald400)
+                        StatBigBlock(label = "LOST", value = "${stats.gamesLost}", color = Color(0xFFF43F5E))
+                        StatBigBlock(label = "WIN RATE", value = "${stats.winPercentage}%", color = Color(0xFF38BDF8))
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
-
-                // Detailed Metrics Grid
+                // Streaks Section
                 Text(
-                    text = "Performance Records",
+                    text = "Win Streaks & Consistency",
                     color = SleekSlate100,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 10.dp)
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
                 )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    StatMetricCard(modifier = Modifier.weight(1f), label = "Current Streak", value = "${stats.currentStreak}")
-                    StatMetricCard(modifier = Modifier.weight(1f), label = "Best Streak", value = "${stats.bestStreak}")
+                    StreakMetricCard(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.Whatshot,
+                        iconTint = Color(0xFFFF9800),
+                        label = "Current Streak",
+                        value = "${stats.currentStreak} Wins",
+                        subtitle = if (stats.currentStreak > 0) "Active run!" else "Streak reset"
+                    )
+                    StreakMetricCard(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.EmojiEvents,
+                        iconTint = Color(0xFFFFD700),
+                        label = "Best Streak",
+                        value = "${stats.bestStreak} Wins",
+                        subtitle = "All-time personal record"
+                    )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                // Detailed Records
+                Text(
+                    text = "Performance Records",
+                    color = SleekSlate100,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -199,15 +224,92 @@ fun StatisticsScreen(
                     StatMetricCard(modifier = Modifier.weight(1f), label = "Best Time", value = formatTime(stats.bestTimeSeconds))
                 }
 
-                Spacer(Modifier.height(12.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    StatMetricCard(modifier = Modifier.weight(1f), label = "Avg Moves", value = "${stats.averageMoves}")
+                    StatMetricCard(modifier = Modifier.weight(1f), label = "Avg Moves / Tricks", value = "${stats.averageMoves}")
                     StatMetricCard(modifier = Modifier.weight(1f), label = "Avg Time", value = formatTime(stats.averageTimeSeconds))
                 }
+
+                // Recent Matches History
+                Text(
+                    text = "Recent Match History (Offline SQLite / Room)",
+                    color = SleekSlate100,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (stats.recentMatches.isEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No matches recorded yet. Play a game to start logging stats!",
+                                color = SleekSlate400,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                } else {
+                    stats.recentMatches.forEach { match ->
+                        RecentMatchItem(match = match)
+                    }
+                }
+
+                // Zero Data Collection Privacy Notice
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = SleekHeaderDark.copy(alpha = 0.6f)),
+                    border = BorderStroke(1.dp, SleekEmerald500.copy(alpha = 0.25f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(SleekEmerald500.copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = SleekEmerald400,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "100% Offline Local Storage (Room DB)",
+                                color = SleekSlate100,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "All wins, losses, and streaks stay exclusively on your device. Zero cloud sync, zero telemetry.",
+                                color = SleekSlate400,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
             }
         }
 
@@ -215,7 +317,7 @@ fun StatisticsScreen(
             AlertDialog(
                 onDismissRequest = { showClearDialog = false },
                 title = { Text("Reset Statistics?") },
-                text = { Text("Are you sure you want to clear all game history and records? This cannot be undone.") },
+                text = { Text("Are you sure you want to clear all game history, win/loss records, and streak stats? This cannot be undone.") },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -241,10 +343,130 @@ fun StatisticsScreen(
 }
 
 @Composable
-fun StatBigBlock(label: String, value: String) {
+private fun RecentMatchItem(match: GameRecordEntity) {
+    val isWin = match.isWin
+    val outcomeColor = if (isWin) SleekEmerald400 else Color(0xFFF43F5E)
+    val outcomeBg = if (isWin) SleekEmerald500.copy(alpha = 0.15f) else Color(0xFFF43F5E).copy(alpha = 0.15f)
+    val formattedDate = remember(match.dateMillis) {
+        val sdf = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+        sdf.format(Date(match.dateMillis))
+    }
+    val friendlyMode = when (match.mode) {
+        "DRAW_1" -> "Draw 1"
+        "DRAW_3" -> "Draw 3"
+        "DAILY" -> "Daily Puzzle"
+        "CALL_BREAK" -> "Call Break"
+        else -> match.mode
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(outcomeBg, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isWin) Icons.Default.CheckCircle else Icons.Default.Close,
+                        contentDescription = null,
+                        tint = outcomeColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (isWin) "WON" else "LOST",
+                            color = outcomeColor,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "• $friendlyMode",
+                            color = SleekSlate300,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Text(
+                        text = formattedDate,
+                        color = SleekSlate400,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "${match.score} pts",
+                    color = SleekSlate100,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${match.moves} moves • ${formatTime(match.timeSeconds)}",
+                    color = SleekSlate400,
+                    fontSize = 11.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StatBigBlock(label: String, value: String, color: Color = SleekEmerald400) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, color = SleekEmerald400, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
-        Text(text = label, color = SleekSlate400, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+        Text(text = value, color = color, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(2.dp))
+        Text(text = label, color = SleekSlate400, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun StreakMetricCard(
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    label: String,
+    value: String,
+    subtitle: String
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(text = label, color = SleekSlate400, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(text = value, color = SleekSlate100, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(2.dp))
+            Text(text = subtitle, color = SleekSlate400, fontSize = 10.sp)
+        }
     }
 }
 

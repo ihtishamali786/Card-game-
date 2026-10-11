@@ -7,12 +7,10 @@ import android.os.Build
 import android.util.Log
 
 /**
- * Handles notification channels, daily challenge alerts, and OneSignal integration.
+ * Handles notification channels and offline game reminder notifications.
  */
 object NotificationHelper {
     private const val TAG = "NotificationHelper"
-    const val ONESIGNAL_APP_ID = "7e82df7b-2f28-47c2-a528-c95f6fe625eb"
-
     const val CHANNEL_DAILY_CHALLENGES = "channel_daily_challenges"
     const val CHANNEL_UPDATES = "channel_updates"
     const val CHANNEL_HOURLY_REMINDERS = "channel_hourly_reminders"
@@ -22,7 +20,6 @@ object NotificationHelper {
 
     fun initialize(context: Context) {
         createNotificationChannels(context)
-        initOneSignal(context)
     }
 
     private fun createNotificationChannels(context: Context) {
@@ -134,20 +131,6 @@ object NotificationHelper {
             Log.d(TAG, "App update notification posted successfully")
         } catch (e: Exception) {
             Log.w(TAG, "Failed posting app update notification: ${e.message}")
-        }
-    }
-
-    private fun initOneSignal(context: Context) {
-        try {
-            // Reflection-based safe invocation to ensure zero crash if SDK binary is dynamically updated
-            val oneSignalClass = Class.forName("com.onesignal.OneSignal")
-            val initWithContextMethod = oneSignalClass.getMethod("initWithContext", Context::class.java, String::class.java)
-            initWithContextMethod.invoke(null, context, ONESIGNAL_APP_ID)
-            Log.d(TAG, "OneSignal successfully initialized with App ID: $ONESIGNAL_APP_ID")
-        } catch (e: ClassNotFoundException) {
-            Log.i(TAG, "OneSignal SDK optional module not embedded; local notification channels active.")
-        } catch (e: Exception) {
-            Log.w(TAG, "OneSignal init safely caught: ${e.message}")
         }
     }
 }

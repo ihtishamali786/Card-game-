@@ -48,24 +48,7 @@
     @retrofit2.http.* <methods>;
 }
 
-# ------------------------------------------------------------------------------
-# Google Play Services & AdMob
-# ------------------------------------------------------------------------------
--keep public class com.google.android.gms.ads.** {
-    public *;
-}
--keep public class com.google.ads.** {
-    public *;
-}
--keep class com.google.android.gms.ads.mediation.** { *; }
--keep class com.google.ads.mediation.** { *; }
--dontwarn com.google.android.gms.ads.**
 
-# ------------------------------------------------------------------------------
-# Firebase AI, Analytics & App Check
-# ------------------------------------------------------------------------------
--dontwarn com.google.firebase.**
--keep class com.google.firebase.** { *; }
 
 # ------------------------------------------------------------------------------
 # App Models & Game Domain

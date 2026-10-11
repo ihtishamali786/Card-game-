@@ -26,4 +26,7 @@
     <string name="privacy_policy">Privacy Policy</string>
     <string name="terms_and_conditions">Terms and Conditions</string>
     <string name="about">About</string>
+    <string name="easy_deals">Easy / Winnable Deals</string>
+    <string name="local_achievements_title">Local Achievements</string>
+    <string name="local_achievements_desc">100% Offline &amp; Private — Earn badges as you master Solitaire</string>
 </resources>

@@ -594,8 +594,8 @@ private fun DrawScope.drawCascadeCard(
     val suitColor = if (isRed) Color(0xFFE21C34) else Color(0xFF0E1018)
     val paintColor = if (isRed) android.graphics.Color.rgb(226, 28, 52) else android.graphics.Color.rgb(14, 16, 24)
 
-    // Center big suit icon (55% width, centered at 55% height)
-    val suitSize = width * 0.55f
+    // Center big suit icon (58% width, centered at 55% height)
+    val suitSize = width * 0.58f
     val suitCenter = Offset(x + width * 0.50f, y + height * 0.55f)
     val suitPath = when (suit) {
         Suit.SPADES -> CardFaceRenderer.createSpadePath(suitCenter.x, suitCenter.y, suitSize)
@@ -605,13 +605,16 @@ private fun DrawScope.drawCascadeCard(
     }
     drawPath(path = suitPath, color = suitColor)
 
-    // Top-left bold rank only (center at 20% width, 11.5% height)
-    val rankSizePx = if (rank == Rank.TEN) width * 0.27f else width * 0.33f
+    // Top-left bold rank only (center at 21% width, 12% height)
+    val rankSizePx = if (rank == Rank.TEN) width * 0.31f else width * 0.38f
     val paint = android.graphics.Paint().apply {
         color = paintColor
         textSize = rankSizePx
         isAntiAlias = true
         isFakeBoldText = true
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+        style = android.graphics.Paint.Style.FILL_AND_STROKE
+        strokeWidth = (rankSizePx * 0.05f).coerceAtLeast(1.2f)
         textAlign = android.graphics.Paint.Align.CENTER
     }
     val fontMetrics = paint.fontMetrics
@@ -619,13 +622,13 @@ private fun DrawScope.drawCascadeCard(
 
     val nativeCanvas = drawContext.canvas.nativeCanvas
     nativeCanvas.save()
-    nativeCanvas.translate(x + width * 0.20f, y + height * 0.115f)
+    nativeCanvas.translate(x + width * 0.21f, y + height * 0.12f)
     nativeCanvas.drawText(rank.display, 0f, -baselineOffset, paint)
     nativeCanvas.restore()
 
-    // Bottom-right bold rank only (rotated 180°, center at 80% width, 88.5% height)
+    // Bottom-right bold rank only (rotated 180°, center at 79% width, 88% height)
     nativeCanvas.save()
-    nativeCanvas.translate(x + width * 0.80f, y + height * 0.885f)
+    nativeCanvas.translate(x + width * 0.79f, y + height * 0.88f)
     nativeCanvas.rotate(180f)
     nativeCanvas.drawText(rank.display, 0f, -baselineOffset, paint)
     nativeCanvas.restore()

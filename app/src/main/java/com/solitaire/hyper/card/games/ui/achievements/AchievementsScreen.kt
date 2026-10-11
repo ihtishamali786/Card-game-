@@ -53,6 +53,12 @@ import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate400
 import kotlinx.coroutines.flow.Flow
 
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.res.stringResource
+import com.solitaire.hyper.card.games.R
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AchievementsScreen(
@@ -77,9 +83,6 @@ fun AchievementsScreen(
                     navigationIconContentColor = SleekSlate300
                 )
             )
-        },
-        bottomBar = {
-            BannerAdView()
         }
     ) { paddingValues ->
         LazyColumn(
@@ -90,6 +93,55 @@ fun AchievementsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("local_achievements_banner"),
+                    colors = CardDefaults.cardColors(
+                        containerColor = SleekHeaderDark
+                    ),
+                    border = BorderStroke(1.dp, SleekEmerald500.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(SleekEmerald500.copy(alpha = 0.2f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.EmojiEvents,
+                                contentDescription = null,
+                                tint = SleekEmerald400,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.local_achievements_title),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = SleekSlate100
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = stringResource(R.string.local_achievements_desc),
+                                fontSize = 12.sp,
+                                color = SleekSlate400
+                            )
+                        }
+                    }
+                }
+            }
+
             items(achievements) { item ->
                 AchievementItemRow(item = item)
             }

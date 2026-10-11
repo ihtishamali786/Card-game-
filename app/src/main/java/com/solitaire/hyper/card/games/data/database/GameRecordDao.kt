@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 data class ModeStats(
     val totalPlayed: Int,
     val totalWon: Int,
+    val totalLost: Int,
     val bestScore: Int,
     val bestTimeSeconds: Long,
     val avgMoves: Double,
@@ -24,17 +25,38 @@ interface GameRecordDao {
     @Query("SELECT * FROM game_records ORDER BY dateMillis DESC")
     fun getAllRecords(): Flow<List<GameRecordEntity>>
 
+    @Query("SELECT * FROM game_records ORDER BY dateMillis ASC")
+    suspend fun getAllRecordsList(): List<GameRecordEntity>
+
     @Query("SELECT * FROM game_records WHERE mode = :mode ORDER BY dateMillis DESC")
     fun getRecordsByMode(mode: String): Flow<List<GameRecordEntity>>
 
     @Query("SELECT * FROM game_records WHERE mode = :mode ORDER BY dateMillis ASC")
     suspend fun getRecordsListByMode(mode: String): List<GameRecordEntity>
 
+    @Query("SELECT * FROM game_records WHERE mode = :mode ORDER BY dateMillis DESC LIMIT :limit")
+    suspend fun getRecentRecordsByMode(mode: String, limit: Int = 10): List<GameRecordEntity>
+
+    @Query("SELECT * FROM game_records ORDER BY dateMillis DESC LIMIT :limit")
+    suspend fun getRecentRecords(limit: Int = 10): List<GameRecordEntity>
+
     @Query("SELECT COUNT(*) FROM game_records WHERE mode = :mode")
     suspend fun countPlayed(mode: String): Int
 
     @Query("SELECT COUNT(*) FROM game_records WHERE mode = :mode AND isWin = 1")
     suspend fun countWon(mode: String): Int
+
+    @Query("SELECT COUNT(*) FROM game_records WHERE mode = :mode AND isWin = 0")
+    suspend fun countLost(mode: String): Int
+
+    @Query("SELECT COUNT(*) FROM game_records")
+    suspend fun countTotalPlayed(): Int
+
+    @Query("SELECT COUNT(*) FROM game_records WHERE isWin = 1")
+    suspend fun countTotalWon(): Int
+
+    @Query("SELECT COUNT(*) FROM game_records WHERE isWin = 0")
+    suspend fun countTotalLost(): Int
 
     @Query("SELECT MAX(score) FROM game_records WHERE mode = :mode AND isWin = 1")
     suspend fun getBestScore(mode: String): Int?

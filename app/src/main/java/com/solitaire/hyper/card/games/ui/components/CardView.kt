@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -90,10 +91,10 @@ fun CardView(
     }
 
     val elevation: Dp = when {
-        isSelected -> 10.dp
-        isValidTarget -> 8.dp
-        card?.isFaceUp == true -> 3.dp
-        else -> 2.dp
+        isSelected -> 12.dp
+        isValidTarget -> 9.dp
+        card?.isFaceUp == true -> 4.5.dp
+        else -> 3.dp
     }
 
     val accessibilityDesc = when {
@@ -158,6 +159,24 @@ fun CardView(
                         numeralsStyle = numeralsStyle
                     )
                 }
+            }
+
+            // 3D Card Edge Specular Highlight & Bevel Lighting (Simulates physical 3D card model)
+            if (card != null) {
+                // Top-left subtle rim lighting
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = if (card.isFaceUp) 0.35f else 0.20f),
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = if (card.isFaceUp) 0.12f else 0.22f)
+                                )
+                            )
+                        )
+                )
             }
 
             // Selection indicator badge

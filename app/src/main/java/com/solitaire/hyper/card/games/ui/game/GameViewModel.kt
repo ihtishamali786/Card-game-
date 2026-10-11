@@ -43,14 +43,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _cardFlightEvents = MutableSharedFlow<CardFlightEvent>(extraBufferCapacity = 16)
     val cardFlightEvents: SharedFlow<CardFlightEvent> = _cardFlightEvents.asSharedFlow()
 
-    private fun emitFlight(card: Card?, from: CardLocation, to: CardLocation, durationMs: Int = 220) {
+    private fun emitFlight(
+        card: Card?,
+        from: CardLocation,
+        to: CardLocation,
+        durationMs: Int = 220,
+        isFlipToFaceUp: Boolean = false
+    ) {
         if (card != null) {
             _cardFlightEvents.tryEmit(
                 CardFlightEvent(
                     card = card,
                     from = from,
                     to = to,
-                    durationMs = durationMs
+                    durationMs = durationMs,
+                    isFlipToFaceUp = isFlipToFaceUp
                 )
             )
         }
@@ -94,6 +101,24 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private var lastUserActionTime: Long = System.currentTimeMillis()
     private val undoStack = mutableListOf<GameMove>()
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
+
+    private val _undoCount = MutableStateFlow(0)
+    val undoCount: StateFlow<Int> = _undoCount.asStateFlow()
+
+    private fun pushUndo(move: GameMove) {
+        undoStack.add(move)
+        _undoCount.value = undoStack.size
+        _canUndo.value = true
+    }
+
+    private fun clearUndo() {
+        undoStack.clear()
+        _undoCount.value = 0
+        _canUndo.value = false
+    }
+
     private var timerJob: Job? = null
     private var usedHints = false
 
@@ -114,6 +139,12 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         isWinnableDeal: Boolean = false,
         isVegasScoring: Boolean = _userSettings.value.vegasScoring
     ) {
+        val previousGame = _gameState.value
+        if (previousGame.moveCount >= 2 && !previousGame.isGameWon && !previousGame.isDailyChallenge) {
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                repository.recordGameFinished(previousGame, isWin = false)
+            }
+        }
         timerJob?.cancel()
         _isGamePaused.value = false
         undoStack.clear()
@@ -139,14 +170,27 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             seed = seed,
             isDailyChallenge = isDailyChallenge,
             challengeDate = challengeDate,
-            isWinnableDeal = isWinnableDeal,
-            isVegasScoring = isVegasScoring
+            isWinnableDeal = isWinnableDeal || _userSettings.value.winnableDealsOnly,
+            isVegasScoring = isVegasScoring,
+            isEasyMode = _userSettings.value.easyGameMode
         )
 
         _gameState.value = freshState
         saveActiveGame()
         startTimer()
         soundManager.playShuffle()
+
+        // Spring deal animation: emit flights for top cards dealt to tableau columns
+        viewModelScope.launch {
+            for (col in 0 until 7) {
+                val colCards = freshState.tableau.getOrNull(col)
+                val topCard = colCards?.lastOrNull()
+                if (topCard != null) {
+                    emitFlight(topCard, CardLocation.Stock, CardLocation.Tableau(col, colCards.lastIndex), durationMs = 260)
+                    kotlinx.coroutines.delay(35L)
+                }
+            }
+        }
     }
 
     fun restoreSavedGameOrNew(
@@ -183,19 +227,43 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (result != null) {
             val move = result.second
             if (move is GameMove.StockDraw) {
+                val flightDuration = 240
                 move.drawnCards.forEach { card ->
-                    emitFlight(card, CardLocation.Stock, CardLocation.Waste, durationMs = 180)
+                    emitFlight(
+                        card = card,
+                        from = CardLocation.Stock,
+                        to = CardLocation.Waste,
+                        durationMs = flightDuration,
+                        isFlipToFaceUp = true
+                    )
+                }
+                // Immediately update stock count on deck so the card lifts off
+                _gameState.value = _gameState.value.copy(
+                    stock = result.first.stock,
+                    moveCount = result.first.moveCount
+                )
+                soundManager.playCardFlip()
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(flightDuration.toLong())
+                    _gameState.value = result.first
+                    pushUndo(result.second)
+                    _statusMessage.value = "Drew card from stock"
+                    saveActiveGame()
                 }
             } else if (move is GameMove.StockRecycle) {
+                val flightDuration = 220
                 move.recycledCards.firstOrNull()?.let { card ->
-                    emitFlight(card, CardLocation.Waste, CardLocation.Stock, durationMs = 200)
+                    emitFlight(card, CardLocation.Waste, CardLocation.Stock, durationMs = flightDuration)
+                }
+                soundManager.playShuffle()
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(flightDuration.toLong())
+                    _gameState.value = result.first
+                    pushUndo(result.second)
+                    _statusMessage.value = "Recycled waste into stock"
+                    saveActiveGame()
                 }
             }
-            _gameState.value = result.first
-            undoStack.add(result.second)
-            _statusMessage.value = "Drew card from stock"
-            soundManager.playCardFlip()
-            saveActiveGame()
         } else {
             soundManager.playInvalidMove()
         }
@@ -271,7 +339,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         emitFlight(card, location, CardLocation.Foundation(0))
                     }
                     _gameState.value = quickMove.first
-                    undoStack.add(quickMove.second)
+                    pushUndo(quickMove.second)
                     _selectedLocation.value = null
                     _validTargets.value = emptySet()
                     _statusMessage.value = "✓ Placed $cardName"
@@ -318,7 +386,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                         emitFlight(movedCard, currentSelected, location)
                     }
                     _gameState.value = moveResult.first
-                    undoStack.add(moveResult.second)
+                    pushUndo(moveResult.second)
                     _selectedLocation.value = null
                     _validTargets.value = emptySet()
                     _statusMessage.value = "✓ Moved $cardName"
@@ -787,6 +855,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun restartCurrentGame() {
         val current = _gameState.value
+        if (current.moveCount >= 2 && !current.isGameWon && !current.isDailyChallenge) {
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                repository.recordGameFinished(current, isWin = false)
+            }
+        }
         timerJob?.cancel()
         _isGamePaused.value = false
         undoStack.clear()

@@ -25,7 +25,14 @@ object NotificationScheduler {
     fun recordUserActivity(context: Context) {
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit().putLong(KEY_LAST_PLAY_TIMESTAMP, System.currentTimeMillis()).apply()
+            val now = System.currentTimeMillis()
+            val lastRecorded = prefs.getLong(KEY_LAST_PLAY_TIMESTAMP, 0L)
+            prefs.edit().putLong(KEY_LAST_PLAY_TIMESTAMP, now).apply()
+
+            // Throttle alarm scheduling to at most once every 5 minutes to avoid Binder IPC churn
+            if (now - lastRecorded < 5 * 60 * 1000L) {
+                return
+            }
             scheduleNextHourlyAlarm(context, delayMs = ONE_HOUR_MS)
             Log.d(TAG, "User activity recorded. Next hourly alarm set for 1 hour from now.")
         } catch (e: Exception) {

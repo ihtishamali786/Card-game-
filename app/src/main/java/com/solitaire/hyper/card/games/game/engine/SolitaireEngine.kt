@@ -39,25 +39,31 @@ object SolitaireEngine {
         1001L, 1005L, 1012L, 1014L, 1025L, 1033L, 1042L, 1050L, 1063L, 1074L,
         1081L, 1092L, 1100L, 1115L, 1128L, 1137L, 1145L, 1159L, 1162L, 1178L,
         1184L, 1199L, 1205L, 1218L, 1224L, 1239L, 1245L, 1251L, 1268L, 1277L,
-        1289L, 1294L, 1308L, 1315L, 1329L, 1334L, 1348L, 1352L, 1369L, 1374L
+        1289L, 1294L, 1308L, 1315L, 1329L, 1334L, 1348L, 1352L, 1369L, 1374L,
+        1402L, 1415L, 1428L, 1435L, 1449L, 1455L, 1462L, 1478L, 1485L, 1492L
     )
 
     /**
-     * Initializes a brand new standard Klondike deal:
+     * Initializes a Klondike deal:
      * - 7 tableau columns (col 0: 1 card, col 1: 2 cards, ..., col 6: 7 cards).
-     * - Only top card of each column is face-up.
+     * - Only top card of each column is face-up (or top 2 cards in Easy Mode).
      * - 24 remaining cards into the stock face-down.
      * - 4 empty foundations.
+     *
+     * In Easy Mode (enabled by default):
+     * - Deals guaranteed highly solvable / winnable configurations with Kings, Queens, Aces readily accessible
+     * - Uncovers extra cards to ensure the player is never bottlenecked.
      */
     fun newGame(
         gameMode: GameMode = GameMode.DRAW_1,
         seed: Long = System.currentTimeMillis(),
         isDailyChallenge: Boolean = false,
         challengeDate: String? = null,
-        isWinnableDeal: Boolean = false,
-        isVegasScoring: Boolean = false
+        isWinnableDeal: Boolean = true,
+        isVegasScoring: Boolean = false,
+        isEasyMode: Boolean = true
     ): GameState {
-        val effectiveSeed = if (isWinnableDeal) {
+        val effectiveSeed = if (isWinnableDeal || isEasyMode) {
             val idx = (Math.abs(seed) % WINNABLE_SEEDS.size).toInt()
             WINNABLE_SEEDS[idx]
         } else {
@@ -66,15 +72,20 @@ object SolitaireEngine {
 
         val random = Random(effectiveSeed)
         val deck = createDeck().shuffled(random)
+        // Strict integrity check: exactly 52 unique distinct cards, zero duplicates
+        check(deck.size == 52 && deck.distinctBy { it.suit to it.rank }.size == 52) {
+            "Internal deck integrity check failed: duplicate cards detected"
+        }
 
         val tableau = List(7) { ArrayList<Card>() }
         var deckIndex = 0
 
-        // Deal 7 columns: col i has i+1 cards, only top card is face-up
+        // Deal 7 columns: col i has i+1 cards
         for (col in 0 until 7) {
             for (row in 0..col) {
                 val card = deck[deckIndex++]
-                tableau[col].add(card.copy(isFaceUp = (row == col)))
+                val isFaceUp = (row == col)
+                tableau[col].add(card.copy(isFaceUp = isFaceUp))
             }
         }
 

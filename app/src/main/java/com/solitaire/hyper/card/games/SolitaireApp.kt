@@ -2,7 +2,6 @@ package com.solitaire.hyper.card.games
 
 import android.app.Application
 import android.util.Log
-import com.solitaire.hyper.card.games.ads.AdManager
 import com.solitaire.hyper.card.games.data.database.AppDatabase
 import com.solitaire.hyper.card.games.notifications.NotificationHelper
 import kotlinx.coroutines.CoroutineScope
@@ -15,10 +14,7 @@ class SolitaireApp : Application() {
         super.onCreate()
         Log.i("SolitaireApp", "Initializing Solitaire-Hyper Card Games...")
 
-        // 1. Initialize AdMob Ads safely
-        AdManager.initialize(this)
-
-        // 2. Initialize Notification Channels, OneSignal & Schedule Hourly Reminders
+        // 1. Initialize Local Notification Channels & Schedule Reminders
         NotificationHelper.initialize(this)
         com.solitaire.hyper.card.games.notifications.NotificationScheduler.recordUserActivity(this)
 

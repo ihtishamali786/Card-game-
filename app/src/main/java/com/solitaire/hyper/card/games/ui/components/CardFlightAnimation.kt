@@ -2,6 +2,8 @@ package com.solitaire.hyper.card.games.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,7 +38,8 @@ data class CardFlightEvent(
     val card: Card,
     val from: CardLocation,
     val to: CardLocation,
-    val durationMs: Int = 220
+    val durationMs: Int = 220,
+    val isFlipToFaceUp: Boolean = false
 )
 
 /**
@@ -47,7 +50,8 @@ data class ActiveCardFlight(
     val card: Card,
     val startOffset: Offset,
     val targetOffset: Offset,
-    val durationMs: Int = 220
+    val durationMs: Int = 220,
+    val isFlipToFaceUp: Boolean = false
 )
 
 /**
@@ -131,9 +135,9 @@ private fun SingleCardFlight(
     LaunchedEffect(flight.id) {
         progress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(
-                durationMillis = flight.durationMs,
-                easing = FastOutSlowInEasing
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
             )
         )
         onFinished()
@@ -147,28 +151,51 @@ private fun SingleCardFlight(
     val currentX = flight.startOffset.x + (flight.targetOffset.x - flight.startOffset.x) * t
     val currentY = flight.startOffset.y + (flight.targetOffset.y - flight.startOffset.y) * t - arcLift
 
-    // Subtle tilt angle in the direction of flight
+    // 3D rotation and perspective simulation while traveling
     val horizontalDelta = flight.targetOffset.x - flight.startOffset.x
-    val maxTilt = (horizontalDelta / 35f).coerceIn(-12f, 12f)
-    val tilt = maxTilt * sin(t * PI.toFloat())
+    val verticalDelta = flight.targetOffset.y - flight.startOffset.y
+    val maxTiltZ = (horizontalDelta / 35f).coerceIn(-14f, 14f)
+    val tiltZ = maxTiltZ * sin(t * PI.toFloat())
+    val tiltY = (horizontalDelta / 45f).coerceIn(-16f, 16f) * sin(t * PI.toFloat())
+    val tiltX = -(verticalDelta / 60f).coerceIn(-12f, 12f) * sin(t * PI.toFloat())
 
-    // 3D scale enlargement while airborne with elevation shadow
-    val scale = 1f + sin(t * PI.toFloat()) * 0.08f
-    val shadowElevationDp = (14f * sin(t * PI.toFloat())).coerceAtLeast(0f)
+    // 3D scale enlargement and prominent airborne 3D shadow
+    val scale = 1f + sin(t * PI.toFloat()) * 0.12f
+    val shadowElevationDp = (18f * sin(t * PI.toFloat())).coerceAtLeast(0f)
+
+    // 3D flip over Y axis when flipping from deck to waste
+    val cardToRender: Card
+    val effectiveRotationY: Float
+    if (flight.isFlipToFaceUp) {
+        val flipAngle = t * 180f
+        if (flipAngle <= 90f) {
+            cardToRender = flight.card.copy(isFaceUp = false)
+            effectiveRotationY = tiltY + flipAngle
+        } else {
+            cardToRender = flight.card.copy(isFaceUp = true)
+            effectiveRotationY = tiltY + (flipAngle - 180f)
+        }
+    } else {
+        cardToRender = flight.card
+        effectiveRotationY = tiltY
+    }
 
     Box(
         modifier = Modifier
             .offset { IntOffset(currentX.roundToInt(), currentY.roundToInt()) }
             .size(cardWidth, cardHeight)
             .graphicsLayer {
-                rotationZ = tilt
+                rotationZ = tiltZ
+                rotationY = effectiveRotationY
+                rotationX = tiltX
+                cameraDistance = 14f * density
                 scaleX = scale
                 scaleY = scale
                 shadowElevation = shadowElevationDp
             }
     ) {
         CardView(
-            card = flight.card,
+            card = cardToRender,
             cardBack = cardBack,
             cardFace = cardFace,
             largePrint = largePrint,

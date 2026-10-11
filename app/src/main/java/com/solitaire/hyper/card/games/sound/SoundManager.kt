@@ -47,6 +47,10 @@ class SoundManager(private val context: Context) {
     @Volatile private var trackSpinTick: AudioTrack? = null
     @Volatile private var trackSpinReward: AudioTrack? = null
     @Volatile private var trackInvalidMove: AudioTrack? = null
+    @Volatile private var trackCardShuffle: AudioTrack? = null
+    @Volatile private var trackCardDeal: AudioTrack? = null
+    @Volatile private var trackTrickWin: AudioTrack? = null
+    @Volatile private var trackTrumpFanfare: AudioTrack? = null
 
     var soundEnabled: Boolean = true
     var vibrationEnabled: Boolean = true
@@ -67,6 +71,10 @@ class SoundManager(private val context: Context) {
             trackSpinTick = createStaticTrack(generateSpinTickSamples(sampleRate), sampleRate)
             trackSpinReward = createStaticTrack(generateSpinRewardSamples(sampleRate), sampleRate)
             trackInvalidMove = createStaticTrack(generateInvalidMoveSamples(sampleRate), sampleRate)
+            trackCardShuffle = createStaticTrack(generateShuffleRiffleSamples(sampleRate), sampleRate)
+            trackCardDeal = createStaticTrack(generateCardDealSamples(sampleRate), sampleRate)
+            trackTrickWin = createStaticTrack(generateTrickWinSamples(sampleRate), sampleRate)
+            trackTrumpFanfare = createStaticTrack(generateTrumpFanfareSamples(sampleRate), sampleRate)
         } catch (e: Exception) {
             Log.w("SoundManager", "Direct AudioTrack init fallback: ${e.message}")
         }
@@ -238,6 +246,78 @@ class SoundManager(private val context: Context) {
         return samples
     }
 
+    private fun generateShuffleRiffleSamples(sampleRate: Int = 22050): ShortArray {
+        val durationMs = 420
+        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
+        val samples = ShortArray(numSamples)
+        // 16 quick riffle snaps interleaved
+        val numClicks = 16
+        val clickInterval = numSamples / numClicks
+        for (i in 0 until numSamples) {
+            val t = i.toDouble() / sampleRate
+            val overallEnv = sin(PI * (i.toDouble() / numSamples)) // swell and fade
+            val clickIndex = i / clickInterval
+            val clickPhase = (i % clickInterval).toDouble() / sampleRate
+            val clickDecay = exp(-clickPhase / 0.006)
+            val clickFreq = 1200.0 + (clickIndex * 75.0)
+            val flick = (sin(2.0 * PI * clickFreq * clickPhase) * 0.7 + sin(2.0 * PI * 2400.0 * clickPhase) * 0.3)
+            val flutter = sin(2.0 * PI * 420.0 * t) * 0.25
+            val sample = ((flick * clickDecay * 0.8 + flutter) * overallEnv * 28000.0).toInt()
+            samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        }
+        return samples
+    }
+
+    private fun generateCardDealSamples(sampleRate: Int = 22050): ShortArray {
+        val durationMs = 45
+        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
+        val samples = ShortArray(numSamples)
+        for (i in 0 until numSamples) {
+            val t = i.toDouble() / sampleRate
+            val decay = exp(-t / 0.010)
+            val slideNoise = sin(2.0 * PI * 950.0 * t) * 0.6 + sin(2.0 * PI * 1800.0 * t) * 0.4
+            val sample = (slideNoise * decay * 27000.0).toInt()
+            samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        }
+        return samples
+    }
+
+    private fun generateTrickWinSamples(sampleRate: Int = 22050): ShortArray {
+        val durationMs = 380
+        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
+        val samples = ShortArray(numSamples)
+        val notes = doubleArrayOf(523.25, 659.25, 783.99, 1046.50) // C5 - E5 - G5 - C6
+        val noteDur = 0.08
+        for (i in 0 until numSamples) {
+            val t = i.toDouble() / sampleRate
+            val noteIdx = (t / noteDur).toInt().coerceIn(0, notes.size - 1)
+            val noteT = t - (noteIdx * noteDur)
+            val decay = exp(-noteT / 0.06)
+            val tone = sin(2.0 * PI * notes[noteIdx] * noteT)
+            val shimmer = sin(2.0 * PI * (notes[noteIdx] * 2) * noteT) * 0.25
+            val sample = ((tone + shimmer) * decay * 25000.0).toInt()
+            samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        }
+        return samples
+    }
+
+    private fun generateTrumpFanfareSamples(sampleRate: Int = 22050): ShortArray {
+        val durationMs = 350
+        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
+        val samples = ShortArray(numSamples)
+        val freqs = doubleArrayOf(440.0, 554.37, 659.25) // A4, C#5, E5
+        for (i in 0 until numSamples) {
+            val t = i.toDouble() / sampleRate
+            val decay = exp(-t / 0.18)
+            val chord = sin(2.0 * PI * freqs[0] * t) * 0.35 +
+                        sin(2.0 * PI * freqs[1] * t) * 0.35 +
+                        sin(2.0 * PI * freqs[2] * t) * 0.30
+            val sample = (chord * decay * 28000.0).toInt()
+            samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+        }
+        return samples
+    }
+
     private fun generateInvalidMoveSamples(sampleRate: Int = 22050): ShortArray {
         val durationMs = 70
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
@@ -300,7 +380,26 @@ class SoundManager(private val context: Context) {
 
     fun playShuffle() {
         if (!soundEnabled) return
-        playCardFlip()
+        playTrackOrTone(trackCardShuffle, ToneGenerator.TONE_PROP_BEEP, 60)
+        triggerHaptic(durationMs = 35, amplitude = 65)
+    }
+
+    fun playCardDeal() {
+        if (!soundEnabled) return
+        playTrackOrTone(trackCardDeal, ToneGenerator.TONE_PROP_BEEP, 20)
+        triggerHaptic(durationMs = 8, amplitude = 20)
+    }
+
+    fun playTrickWin() {
+        if (!soundEnabled) return
+        playTrackOrTone(trackTrickWin, ToneGenerator.TONE_PROP_ACK, 120)
+        triggerHaptic(durationMs = 40, amplitude = 80)
+    }
+
+    fun playTrumpSelected() {
+        if (!soundEnabled) return
+        playTrackOrTone(trackTrumpFanfare, ToneGenerator.TONE_PROP_ACK, 100)
+        triggerHaptic(durationMs = 30, amplitude = 75)
     }
 
     private fun triggerHaptic(durationMs: Long, amplitude: Int = 50) {

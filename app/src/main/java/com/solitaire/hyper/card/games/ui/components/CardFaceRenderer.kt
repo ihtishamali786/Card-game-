@@ -185,9 +185,9 @@ object CardFaceRenderer {
             val isCustomScheme = scheme.id != "SCHEME_STANDARD"
             val suitColor = resolveSuitColor(card.suit, tokens, scheme, isCustomScheme)
 
-            // 5. ONE BIG CENTER SUIT ICON (Section 2: about 55% width, centered at 55% height)
+            // 5. ONE BIG CENTER SUIT ICON (prominent, bold, high-contrast)
             val suitCenter = Offset(w * 0.50f, h * 0.55f)
-            val suitSize = w * 0.55f
+            val suitSize = w * 0.58f
             val isOutline = tokens.isOutlineSuit || suitStyle.style == SuitIconStyle.OUTLINE
             drawSuitIcon(
                 drawScope = this,
@@ -200,17 +200,17 @@ object CardFaceRenderer {
                 isOutline = isOutline
             )
 
-            // 6. TOP-LEFT BOLD RANK ONLY (Center at 20% width, 11.5% height)
+            // 6. TOP-LEFT EXTRA-BOLD RANK ONLY (Center at 21% width, 12% height)
             val rankText = formatRank(card.rank, numeralsStyle)
             val isTen = card.rank == Rank.TEN
             val rankSizePx = when {
-                isLargePrint && isTen -> w * 0.32f
-                isLargePrint -> w * 0.40f
-                isTen -> w * 0.27f
-                else -> w * 0.33f
+                isLargePrint && isTen -> w * 0.36f
+                isLargePrint -> w * 0.44f
+                isTen -> w * 0.31f
+                else -> w * 0.38f
             }
 
-            val rankCenterTopLeft = Offset(w * 0.20f, h * 0.115f)
+            val rankCenterTopLeft = Offset(w * 0.21f, h * 0.12f)
             drawRankText(
                 drawScope = this,
                 text = rankText,
@@ -221,8 +221,8 @@ object CardFaceRenderer {
                 rotationDegrees = 0f
             )
 
-            // 7. BOTTOM-RIGHT BOLD RANK ONLY (Rotated 180°, center at 80% width, 88.5% height)
-            val rankCenterBottomRight = Offset(w * 0.80f, h * 0.885f)
+            // 7. BOTTOM-RIGHT EXTRA-BOLD RANK ONLY (Rotated 180°, center at 79% width, 88% height)
+            val rankCenterBottomRight = Offset(w * 0.79f, h * 0.88f)
             drawRankText(
                 drawScope = this,
                 text = rankText,
@@ -254,9 +254,11 @@ object CardFaceRenderer {
                     (color.blue * 255).toInt()
                 )
                 this.textSize = sizePx
-                this.typeface = typeface
+                this.typeface = Typeface.create(typeface, Typeface.BOLD)
                 this.isAntiAlias = true
                 this.isFakeBoldText = true
+                this.style = Paint.Style.FILL_AND_STROKE
+                this.strokeWidth = (sizePx * 0.05f).coerceAtLeast(1.2f)
                 this.textAlign = Paint.Align.CENTER
             }
 

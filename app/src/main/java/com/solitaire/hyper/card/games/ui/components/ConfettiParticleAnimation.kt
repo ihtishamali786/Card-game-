@@ -5,8 +5,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -73,6 +76,9 @@ fun ConfettiParticleAnimation(
     enableTapBurst: Boolean = true
 ) {
     val particles = remember { mutableStateListOf<ConfettiParticle>() }
+
+    var canvasWidth by remember { mutableStateOf(1080f) }
+    var canvasHeight by remember { mutableStateOf(1920f) }
 
     fun spawnBurst(originX: Float, originY: Float, count: Int, upwardForce: Float = 22f, angleSpread: Float = 60f, baseAngle: Float = 270f) {
         val angleRad = baseAngle * (PI / 180.0)
@@ -155,18 +161,23 @@ fun ConfettiParticleAnimation(
                 // Trigger dual-cannons on first frame
                 if (!initialized) {
                     initialized = true
-                    // Left Cannon: upward and toward center-right (approx 305 deg)
-                    spawnBurst(originX = 80f, originY = 1700f, count = 70, upwardForce = 26f, angleSpread = 35f, baseAngle = 295f)
-                    // Right Cannon: upward and toward center-left (approx 235 deg)
-                    spawnBurst(originX = 1000f, originY = 1700f, count = 70, upwardForce = 26f, angleSpread = 35f, baseAngle = 245f)
+                    val w = canvasWidth.coerceAtLeast(360f)
+                    val h = canvasHeight.coerceAtLeast(640f)
+                    // Left Cannon: upward and toward center-right
+                    spawnBurst(originX = w * 0.08f, originY = h * 0.88f, count = 75, upwardForce = 28f, angleSpread = 35f, baseAngle = 295f)
+                    // Right Cannon: upward and toward center-left
+                    spawnBurst(originX = w * 0.92f, originY = h * 0.88f, count = 75, upwardForce = 28f, angleSpread = 35f, baseAngle = 245f)
+                    // Center celebratory fountain
+                    spawnBurst(originX = w * 0.50f, originY = h * 0.85f, count = 50, upwardForce = 32f, angleSpread = 50f, baseAngle = 270f)
                     // Top shower
-                    spawnTopShower(1080f, 40)
+                    spawnTopShower(w, 45)
                     lastShowerTime = nowMs
                 }
 
                 // Periodic gentle rain of shimmer for festive ambiance
-                if (nowMs - lastShowerTime > 800 && particles.size < 220) {
-                    spawnTopShower(1080f, 15)
+                if (nowMs - lastShowerTime > 800 && particles.size < 250) {
+                    val w = canvasWidth.coerceAtLeast(360f)
+                    spawnTopShower(w, 18)
                     lastShowerTime = nowMs
                 }
 
@@ -174,6 +185,8 @@ fun ConfettiParticleAnimation(
                 val gravity = 0.38f
                 val drag = 0.985f
                 val iterator = particles.iterator()
+                val maxY = canvasHeight + 150f
+                val maxX = canvasWidth + 150f
 
                 while (iterator.hasNext()) {
                     val p = iterator.next()
@@ -192,7 +205,7 @@ fun ConfettiParticleAnimation(
                         p.alpha = (p.life / 0.3f).coerceIn(0f, 1f)
                     }
 
-                    if (p.life <= 0f || p.y > 2200f || p.x < -100f || p.x > 1200f) {
+                    if (p.life <= 0f || p.y > maxY || p.x < -150f || p.x > maxX) {
                         iterator.remove()
                     }
                 }
@@ -221,6 +234,10 @@ fun ConfettiParticleAnimation(
                 }
             }
     ) {
+        if (size.width > 0f && size.height > 0f) {
+            canvasWidth = size.width
+            canvasHeight = size.height
+        }
         val starPath = Path()
 
         for (p in particles) {

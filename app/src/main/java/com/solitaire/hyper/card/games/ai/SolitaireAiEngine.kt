@@ -1,6 +1,5 @@
 package com.solitaire.hyper.card.games.ai
 
-import com.solitaire.hyper.card.games.BuildConfig
 import com.solitaire.hyper.card.games.game.engine.SolitaireEngine
 import com.solitaire.hyper.card.games.game.model.CardLocation
 import com.solitaire.hyper.card.games.game.model.GameState
@@ -8,13 +7,6 @@ import com.solitaire.hyper.card.games.game.model.Hint
 import com.solitaire.hyper.card.games.game.model.Rank
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONArray
-import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 
 data class AiAnalysisResult(
     val solvabilityRating: Int, // 0 - 100%
@@ -27,17 +19,15 @@ data class AiAnalysisResult(
     val isGeminiPowered: Boolean
 )
 
+/**
+ * 100% On-Device Grandmaster Heuristic AI Coach.
+ * Zero network traffic, zero external SDKs, zero data collection.
+ */
 object SolitaireAiEngine {
 
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .build()
-
     /**
-     * Performs a comprehensive AI analysis of the given Solitaire game state.
-     * Uses Gemini AI if GEMINI_API_KEY is configured in BuildConfig, otherwise uses
-     * the built-in heuristic grandmaster solver engine.
+     * Performs a comprehensive AI analysis of the given Solitaire game state
+     * entirely on-device using heuristic grandmaster evaluation algorithms.
      */
     suspend fun analyzeGame(gameState: GameState): AiAnalysisResult = withContext(Dispatchers.Default) {
         val totalFoundationCards = gameState.foundations.sumOf { it.size }
@@ -76,35 +66,6 @@ object SolitaireAiEngine {
             else -> "Alternate card colors evenly and avoid premature moves to foundation if you need that card to hold another."
         }
 
-        // Check if Gemini API key exists
-        val apiKey = try {
-            val field = BuildConfig::class.java.getField("GEMINI_API_KEY")
-            field.get(null) as? String ?: ""
-        } catch (_: Exception) {
-            ""
-        }
-
-        if (apiKey.isNotBlank() && apiKey != "DEFAULT_KEY" && apiKey != "YOUR_GEMINI_API_KEY") {
-            try {
-                val geminiAnalysis = fetchGeminiAdvice(apiKey, gameState, rawRating, bestMoveDesc)
-                if (geminiAnalysis != null) {
-                    return@withContext AiAnalysisResult(
-                        solvabilityRating = rawRating,
-                        recommendationTitle = geminiAnalysis.first,
-                        recommendationDetail = geminiAnalysis.second,
-                        bestMoveDescription = bestMoveDesc,
-                        hiddenCardsCount = totalHiddenCards,
-                        cardsInFoundationCount = totalFoundationCards,
-                        strategyTip = strategyTip,
-                        isGeminiPowered = true
-                    )
-                }
-            } catch (_: Exception) {
-                // Graceful fallback to heuristic analysis
-            }
-        }
-
-        // High-quality on-device heuristic AI coach
         val title = when {
             totalHiddenCards == 0 -> "Winning State Imminent"
             rawRating >= 80 -> "High Solvability Position"
@@ -128,66 +89,5 @@ object SolitaireAiEngine {
             strategyTip = strategyTip,
             isGeminiPowered = false
         )
-    }
-
-    private fun fetchGeminiAdvice(
-        apiKey: String,
-        gameState: GameState,
-        rating: Int,
-        bestMove: String?
-    ): Pair<String, String>? {
-        val prompt = buildString {
-            append("You are an expert Solitaire Grandmaster. ")
-            append("Analyze this Klondike Solitaire state: ")
-            append("Score: ${gameState.score}, Moves: ${gameState.moveCount}, ")
-            append("Cards in Foundation: ${gameState.foundations.sumOf { it.size }}/52, ")
-            append("Face-down hidden cards: ${gameState.tableau.sumOf { col -> col.count { !it.isFaceUp } }}. ")
-            if (bestMove != null) append("Suggested move: $bestMove. ")
-            append("Provide exactly 2 short sentences: first a concise tactical evaluation title, second the key strategic advice.")
-        }
-
-        val jsonBody = JSONObject().apply {
-            val contents = JSONArray().apply {
-                put(JSONObject().apply {
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().apply {
-                            put("text", prompt)
-                        })
-                    })
-                })
-            }
-            put("contents", contents)
-            put("generationConfig", JSONObject().apply {
-                put("maxOutputTokens", 80)
-                put("temperature", 0.4)
-            })
-        }
-
-        val request = Request.Builder()
-            .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
-            .post(jsonBody.toString().toRequestBody("application/json".toMediaType()))
-            .build()
-
-        val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) return null
-
-        val responseBody = response.body?.string() ?: return null
-        val resJson = JSONObject(responseBody)
-        val candidateText = resJson
-            .getJSONArray("candidates")
-            .getJSONObject(0)
-            .getJSONObject("content")
-            .getJSONArray("parts")
-            .getJSONObject(0)
-            .getString("text")
-            .trim()
-
-        val lines = candidateText.split("\n", ".").filter { it.isNotBlank() }
-        val title = lines.getOrNull(0)?.trim()?.take(40) ?: "Grandmaster AI Analysis"
-        val detail = lines.drop(1).joinToString(". ") { it.trim() }.take(180).ifBlank {
-            bestMove ?: "Maintain balance between foundation transfers and tableau mobility."
-        }
-
-        return Pair(title, detail)
     }
 }

@@ -38,8 +38,9 @@ data class UserSettings(
     val cardCornerRadius: String = "MEDIUM",
     val cardIndexSize: String = "STANDARD",
     val numeralsStyle: String = "WESTERN",
+    val easyGameMode: Boolean = true,
     val dailySurpriseTheme: Boolean = false,
-    val winnableDealsOnly: Boolean = false,
+    val winnableDealsOnly: Boolean = true,
     val unlimitedUndo: Boolean = true,
     val reduceMotion: Boolean = false,
     val autoCompleteEnabled: Boolean = true,
@@ -55,7 +56,9 @@ data class UserSettings(
     val magicWands: Int = 5,
     val aiTokens: Int = 10,
     val isVipPermanent: Boolean = false,
-    val rewardedAdsWatchedTotal: Int = 0
+    val rewardedAdsWatchedTotal: Int = 0,
+    val lastLoginDate: String = "",
+    val loginStreakDays: Int = 0
 ) {
     fun isVipActive(): Boolean = isVipPermanent || System.currentTimeMillis() < vipUntilTimestamp
     fun isAdFreeActive(): Boolean = isVipActive() || System.currentTimeMillis() < adFreeUntilTimestamp
@@ -115,10 +118,13 @@ class UserPreferencesRepository(private val context: Context) {
         val KEY_CARD_CORNER_RADIUS = stringPreferencesKey("card_corner_radius")
         val KEY_CARD_INDEX_SIZE = stringPreferencesKey("card_index_size")
         val KEY_NUMERALS_STYLE = stringPreferencesKey("numerals_style")
+        val KEY_EASY_GAME_MODE = booleanPreferencesKey("easy_game_mode")
         val KEY_DAILY_SURPRISE_THEME = booleanPreferencesKey("daily_surprise_theme")
         val KEY_WINNABLE_DEALS = booleanPreferencesKey("winnable_deals_only")
         val KEY_UNLIMITED_UNDO = booleanPreferencesKey("unlimited_undo")
         val KEY_REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
+        val KEY_LAST_LOGIN_DATE = stringPreferencesKey("last_login_date")
+        val KEY_LOGIN_STREAK_DAYS = intPreferencesKey("login_streak_days")
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -150,6 +156,7 @@ class UserPreferencesRepository(private val context: Context) {
                 cardCornerRadius = prefs[PreferencesKeys.KEY_CARD_CORNER_RADIUS] ?: "MEDIUM",
                 cardIndexSize = prefs[PreferencesKeys.KEY_CARD_INDEX_SIZE] ?: "STANDARD",
                 numeralsStyle = prefs[PreferencesKeys.KEY_NUMERALS_STYLE] ?: "WESTERN",
+                easyGameMode = prefs[PreferencesKeys.KEY_EASY_GAME_MODE] ?: true,
                 dailySurpriseTheme = prefs[PreferencesKeys.KEY_DAILY_SURPRISE_THEME] ?: false,
                 winnableDealsOnly = prefs[PreferencesKeys.KEY_WINNABLE_DEALS] ?: false,
                 unlimitedUndo = prefs[PreferencesKeys.KEY_UNLIMITED_UNDO] ?: true,
@@ -167,7 +174,9 @@ class UserPreferencesRepository(private val context: Context) {
                 magicWands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5,
                 aiTokens = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10,
                 isVipPermanent = prefs[PreferencesKeys.KEY_VIP_PERMANENT] ?: false,
-                rewardedAdsWatchedTotal = prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] ?: 0
+                rewardedAdsWatchedTotal = prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] ?: 0,
+                lastLoginDate = prefs[PreferencesKeys.KEY_LAST_LOGIN_DATE] ?: "",
+                loginStreakDays = prefs[PreferencesKeys.KEY_LOGIN_STREAK_DAYS] ?: 0
             )
         }
 
@@ -251,6 +260,10 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun updateNumeralsStyle(style: String) {
         context.dataStore.edit { it[PreferencesKeys.KEY_NUMERALS_STYLE] = style }
+    }
+
+    suspend fun updateEasyGameMode(enabled: Boolean) {
+        context.dataStore.edit { it[PreferencesKeys.KEY_EASY_GAME_MODE] = enabled }
     }
 
     suspend fun updateDailySurpriseTheme(enabled: Boolean) {
@@ -592,6 +605,142 @@ class UserPreferencesRepository(private val context: Context) {
         context.dataStore.edit { prefs ->
             val current = prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] ?: 0
             prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] = current + 1
+        }
+    }
+
+    /**
+     * Daily Login Bonus calculation:
+     * Streak progresses Day 1 to Day 7 cycling continuously.
+     * Rewards:
+     * Day 1: 150 coins
+     * Day 2: 250 coins
+     * Day 3: 350 coins + 1 Magic Wand
+     * Day 4: 450 coins
+     * Day 5: 600 coins + 1 Ad-Free Token
+     * Day 6: 750 coins + 2 AI Tokens
+     * Day 7: 1,000 coins + 2 Magic Wands + 1 Ad-Free Token (Mega Vault)
+     */
+    data class DailyBonusInfo(
+        val isAvailableToday: Boolean,
+        val currentStreakDay: Int, // 1 to 7
+        val coinsReward: Int,
+        val extraBonusDescription: String? = null
+    )
+
+    fun calculateDailyBonusReward(day: Int): Pair<Int, String?> {
+        val cycleDay = ((day - 1) % 7) + 1
+        return when (cycleDay) {
+            1 -> Pair(150, null)
+            2 -> Pair(250, null)
+            3 -> Pair(350, "+1 Magic Wand")
+            4 -> Pair(450, null)
+            5 -> Pair(600, "+1 Ad-Free Token")
+            6 -> Pair(750, "+2 AI Hint Tokens")
+            7 -> Pair(1000, "+2 Magic Wands & 1 Ad-Free Token")
+            else -> Pair(150, null)
+        }
+    }
+
+    suspend fun getDailyBonusStatus(todayDateStr: String): DailyBonusInfo {
+        val prefs = context.dataStore.data.first()
+        val lastDate = prefs[PreferencesKeys.KEY_LAST_LOGIN_DATE] ?: ""
+        val currentStreak = prefs[PreferencesKeys.KEY_LOGIN_STREAK_DAYS] ?: 0
+
+        if (lastDate == todayDateStr) {
+            // Already claimed today
+            val (coins, extra) = calculateDailyBonusReward(if (currentStreak > 0) currentStreak else 1)
+            return DailyBonusInfo(
+                isAvailableToday = false,
+                currentStreakDay = if (currentStreak > 0) ((currentStreak - 1) % 7) + 1 else 1,
+                coinsReward = coins,
+                extraBonusDescription = extra
+            )
+        }
+
+        // Determine next streak day
+        val nextStreak = if (lastDate.isEmpty()) {
+            1
+        } else {
+            val isYesterday = isPreviousCalendarDay(lastDate, todayDateStr)
+            if (isYesterday) currentStreak + 1 else 1
+        }
+
+        val cycleDay = ((nextStreak - 1) % 7) + 1
+        val (coins, extra) = calculateDailyBonusReward(cycleDay)
+        return DailyBonusInfo(
+            isAvailableToday = true,
+            currentStreakDay = cycleDay,
+            coinsReward = coins,
+            extraBonusDescription = extra
+        )
+    }
+
+    suspend fun claimDailyLoginBonus(todayDateStr: String): Pair<Int, String?> {
+        var rewardedCoins = 0
+        var extraRewardDesc: String? = null
+
+        context.dataStore.edit { prefs ->
+            val lastDate = prefs[PreferencesKeys.KEY_LAST_LOGIN_DATE] ?: ""
+            if (lastDate == todayDateStr) {
+                return@edit // Already claimed today
+            }
+
+            val currentStreak = prefs[PreferencesKeys.KEY_LOGIN_STREAK_DAYS] ?: 0
+            val nextStreak = if (lastDate.isEmpty()) {
+                1
+            } else {
+                val isYesterday = isPreviousCalendarDay(lastDate, todayDateStr)
+                if (isYesterday) currentStreak + 1 else 1
+            }
+
+            val cycleDay = ((nextStreak - 1) % 7) + 1
+            val (coins, extra) = calculateDailyBonusReward(cycleDay)
+            rewardedCoins = coins
+            extraRewardDesc = extra
+
+            // Apply coins
+            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
+            prefs[PreferencesKeys.KEY_COINS] = currentCoins + coins
+
+            // Apply extra rewards based on day
+            when (cycleDay) {
+                3 -> {
+                    val wands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
+                    prefs[PreferencesKeys.KEY_MAGIC_WANDS] = wands + 1
+                }
+                5 -> {
+                    val tokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
+                    prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = tokens + 1
+                }
+                6 -> {
+                    val ai = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10
+                    prefs[PreferencesKeys.KEY_AI_TOKENS] = ai + 2
+                }
+                7 -> {
+                    val wands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
+                    prefs[PreferencesKeys.KEY_MAGIC_WANDS] = wands + 2
+                    val tokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
+                    prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = tokens + 1
+                }
+            }
+
+            prefs[PreferencesKeys.KEY_LAST_LOGIN_DATE] = todayDateStr
+            prefs[PreferencesKeys.KEY_LOGIN_STREAK_DAYS] = nextStreak
+        }
+
+        return Pair(rewardedCoins, extraRewardDesc)
+    }
+
+    private fun isPreviousCalendarDay(prevDateStr: String, todayDateStr: String): Boolean {
+        return try {
+            val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            val prev = format.parse(prevDateStr) ?: return false
+            val today = format.parse(todayDateStr) ?: return false
+            val diffMs = today.time - prev.time
+            val diffDays = diffMs / (1000 * 60 * 60 * 24)
+            diffDays == 1L
+        } catch (_: Exception) {
+            false
         }
     }
 }

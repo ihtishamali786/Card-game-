@@ -55,9 +55,15 @@ import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate100
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
 
+import com.solitaire.hyper.card.games.ui.table4p.FourPlayerGameScreen
+import com.solitaire.hyper.card.games.ui.table4p.FourPlayerGameViewModel
+import com.solitaire.hyper.card.games.ui.callbreak.CallBreakScreen
+
 enum class Screen {
     HOME,
     GAME,
+    CALL_BREAK,
+    FOUR_PLAYER_TABLE,
     DAILY_CHALLENGES,
     STATISTICS,
     CUSTOMIZATION,
@@ -68,6 +74,7 @@ enum class Screen {
 class MainActivity : ComponentActivity() {
 
     private val gameViewModel: GameViewModel by viewModels()
+    private val fourPlayerViewModel: FourPlayerGameViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,6 +88,7 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SolitaireAppNavigation(
                         viewModel = gameViewModel,
+                        fourPlayerViewModel = fourPlayerViewModel,
                         userPrefs = userPrefs,
                         repository = gameRepository
                     )
@@ -103,6 +111,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SolitaireAppNavigation(
     viewModel: GameViewModel,
+    fourPlayerViewModel: FourPlayerGameViewModel,
     userPrefs: UserPreferencesRepository,
     repository: GameRepository
 ) {
@@ -134,14 +143,7 @@ fun SolitaireAppNavigation(
     }
 
     LaunchedEffect(Unit) {
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        activity?.let {
-            AdManager.preloadAppOpen(it)
-            AdManager.showAppOpenAdIfReady(it, userSettings.isAdFreeActive())
-            AdManager.markFirstLaunchComplete()
-        }
-        // Check for Google Play Store updates on app startup
-        AppUpdateHelper.checkForAppUpdate(context)
+        // Purely local and offline-first
     }
 
     // In-App Update Notice Dialog if new version is available
@@ -245,6 +247,15 @@ fun SolitaireAppNavigation(
                 },
                 onSettings = {
                     navigateTo(Screen.SETTINGS)
+                },
+                onPlayFourPlayerTable = {
+                    navigateTo(Screen.CALL_BREAK)
+                }
+            )
+            Screen.CALL_BREAK, Screen.FOUR_PLAYER_TABLE -> CallBreakScreen(
+                viewModel = fourPlayerViewModel,
+                onNavigateBack = {
+                    currentScreen = Screen.HOME
                 }
             )
             Screen.GAME -> GameScreen(
