@@ -6,8 +6,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,14 +17,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Vibration
+import com.solitaire.hyper.card.games.sound.SoundManager
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
@@ -134,8 +142,8 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Audio & Haptics
-            SettingsSectionHeader("Audio & Vibration")
+            // Audio & Haptics (Global Sound Settings)
+            SettingsSectionHeader("Global Audio & Vibration")
             Card(
                 colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
                 border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)),
@@ -143,15 +151,26 @@ fun SettingsScreen(
             ) {
                 Column {
                     SettingsSwitchRow(
-                        title = "Sound Effects",
-                        subtitle = "Audio feedback for card movement and snaps",
+                        title = "Global Sound Effects",
+                        subtitle = "Enable or disable audio feedback across all game modes (Solitaire Klondike) • Zero personal data required",
                         checked = settings.soundEnabled,
-                        onCheckedChange = { scope.launch { userPrefs.updateSound(it) } }
+                        icon = if (settings.soundEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                        testTag = "global_sound_toggle",
+                        onCheckedChange = { isEnabled ->
+                            scope.launch {
+                                userPrefs.updateSound(isEnabled)
+                                if (isEnabled) {
+                                    SoundManager(context).playFoundationSnap()
+                                }
+                            }
+                        }
                     )
                     SettingsSwitchRow(
                         title = "Haptic Vibration",
                         subtitle = "Subtle tactile feedback when playing cards",
                         checked = settings.vibrationEnabled,
+                        icon = Icons.Default.Vibration,
+                        testTag = "haptic_vibration_toggle",
                         onCheckedChange = { scope.launch { userPrefs.updateVibration(it) } }
                     )
                 }
@@ -306,7 +325,7 @@ fun SettingsScreen(
         if (showAboutDialog) {
             AlertDialog(
                 onDismissRequest = { showAboutDialog = false },
-                title = { Text("Solitaire-Hyper Card Games", fontWeight = FontWeight.Bold) },
+                title = { Text("Solitaire King", fontWeight = FontWeight.Bold) },
                 text = {
                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         Text("Version ${BuildConfig.VERSION_NAME} (Play Console Release)", fontWeight = FontWeight.SemiBold, color = SleekEmerald400)
@@ -322,7 +341,7 @@ fun SettingsScreen(
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "• Table Wallpapers & Theme Palettes: Royalty-free vector artwork and scenic landscape photography (Unsplash/Pexels public license, non-commercial & commercial permitted without attribution requirements).\n" +
-                                    "• Card Back Designs: Original procedural vector compositions created for Solitaire Hyper.\n" +
+                                    "• Card Back Designs: Original procedural vector compositions created for Solitaire King.\n" +
                                     "• Card Faces & Suit Pips: Custom SVG mathematical paths and Material Design Symbols.\n" +
                                     "• No copyrighted trademarks, logos, or religious monuments are used.",
                             fontSize = 11.5.sp,
@@ -359,16 +378,43 @@ fun SettingsSwitchRow(
     title: String,
     subtitle: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    testTag: String = ""
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (testTag.isNotEmpty()) Modifier.testTag(testTag) else Modifier)
             .clickable { onCheckedChange(!checked) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        if (icon != null) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        if (checked) SleekEmerald500.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f),
+                        RoundedCornerShape(10.dp)
+                    )
+                    .border(
+                        1.dp,
+                        if (checked) SleekEmerald400.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.1f),
+                        RoundedCornerShape(10.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (checked) SleekEmerald400 else SleekSlate400,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(title, color = SleekSlate100, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
             Text(subtitle, color = SleekSlate400, fontSize = 12.sp)
@@ -376,6 +422,7 @@ fun SettingsSwitchRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            modifier = if (testTag.isNotEmpty()) Modifier.testTag("${testTag}_switch") else Modifier,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = SleekEmerald500
@@ -422,10 +469,10 @@ private fun shareApp(context: Context) {
     try {
         val sendIntent = Intent().apply {
             action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, "Play Solitaire-Hyper Card Games! Download on Google Play: https://play.google.com/store/apps/details?id=${context.packageName}")
+            putExtra(Intent.EXTRA_TEXT, "Play Solitaire King! Download on Google Play: https://play.google.com/store/apps/details?id=${context.packageName}")
             type = "text/plain"
         }
-        val shareIntent = Intent.createChooser(sendIntent, "Share Solitaire Hyper")
+        val shareIntent = Intent.createChooser(sendIntent, "Share Solitaire King")
         context.startActivity(shareIntent)
     } catch (e: Exception) {
         // Safe fallback

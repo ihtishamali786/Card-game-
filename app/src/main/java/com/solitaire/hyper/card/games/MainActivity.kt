@@ -39,6 +39,7 @@ import com.solitaire.hyper.card.games.ui.settings.SettingsScreen
 import com.solitaire.hyper.card.games.ui.stats.StatisticsScreen
 import com.solitaire.hyper.card.games.ui.theme.SolitaireHyperTheme
 import com.solitaire.hyper.card.games.ads.AdManager
+import com.solitaire.hyper.card.games.ui.science.BioscienceSkillsScreen
 import com.solitaire.hyper.card.games.update.AppUpdateHelper
 import com.solitaire.hyper.card.games.update.UpdateStatus
 
@@ -55,30 +56,28 @@ import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate100
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
 
-import com.solitaire.hyper.card.games.ui.table4p.FourPlayerGameScreen
-import com.solitaire.hyper.card.games.ui.table4p.FourPlayerGameViewModel
-import com.solitaire.hyper.card.games.ui.callbreak.CallBreakScreen
-
 enum class Screen {
     HOME,
     GAME,
-    CALL_BREAK,
-    FOUR_PLAYER_TABLE,
     DAILY_CHALLENGES,
     STATISTICS,
     CUSTOMIZATION,
     ACHIEVEMENTS,
-    SETTINGS
+    SETTINGS,
+    BIOSCIENCE_SKILLS
 }
 
 class MainActivity : ComponentActivity() {
 
     private val gameViewModel: GameViewModel by viewModels()
-    private val fourPlayerViewModel: FourPlayerGameViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
 
         val userPrefs = UserPreferencesRepository(applicationContext)
         val gameRepository = GameRepository(applicationContext)
@@ -88,7 +87,6 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SolitaireAppNavigation(
                         viewModel = gameViewModel,
-                        fourPlayerViewModel = fourPlayerViewModel,
                         userPrefs = userPrefs,
                         repository = gameRepository
                     )
@@ -111,7 +109,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SolitaireAppNavigation(
     viewModel: GameViewModel,
-    fourPlayerViewModel: FourPlayerGameViewModel,
     userPrefs: UserPreferencesRepository,
     repository: GameRepository
 ) {
@@ -245,17 +242,11 @@ fun SolitaireAppNavigation(
                 onAchievements = {
                     navigateTo(Screen.ACHIEVEMENTS)
                 },
+                onBioscienceSkills = {
+                    navigateTo(Screen.BIOSCIENCE_SKILLS)
+                },
                 onSettings = {
                     navigateTo(Screen.SETTINGS)
-                },
-                onPlayFourPlayerTable = {
-                    navigateTo(Screen.CALL_BREAK)
-                }
-            )
-            Screen.CALL_BREAK, Screen.FOUR_PLAYER_TABLE -> CallBreakScreen(
-                viewModel = fourPlayerViewModel,
-                onNavigateBack = {
-                    currentScreen = Screen.HOME
                 }
             )
             Screen.GAME -> GameScreen(
@@ -307,6 +298,11 @@ fun SolitaireAppNavigation(
                 userPrefs = userPrefs,
                 onBack = { navigateBackFromSubScreen() },
                 onOpenCustomization = { navigateTo(Screen.CUSTOMIZATION) }
+            )
+            Screen.BIOSCIENCE_SKILLS -> BioscienceSkillsScreen(
+                repository = repository,
+                userPrefs = userPrefs,
+                onBack = { navigateBackFromSubScreen() }
             )
         }
     }

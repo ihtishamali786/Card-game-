@@ -173,11 +173,11 @@ object CustomizationRegistry {
     val cardFaces = listOf(
         CardFaceTheme(
             id = "FACE_CLASSIC_STANDARD",
-            name = "Solitaire Hyper Deck",
+            name = "Solitaire King Deck",
             style = CardFaceStyle.CLASSIC_STANDARD,
             surfaceColor = Color(0xFFFFFFFF),
             isDarkSurface = false,
-            description = "Official Solitaire Hyper Card Deck: Jumbo Easy-Read v2 with large centered suit and bold rank"
+            description = "Official Solitaire King Card Deck: Jumbo Easy-Read v2 with large centered suit and bold rank"
         )
     )
 

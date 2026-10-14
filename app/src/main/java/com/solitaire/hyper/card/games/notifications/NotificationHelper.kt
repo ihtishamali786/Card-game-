@@ -109,7 +109,7 @@ object NotificationHelper {
             "Update Available: Please update your app"
         }
 
-        val content = updateNotes ?: "A new update for Solitaire Hyper Card Games is available on Google Play. Please update your app to the latest version for new card themes and enhancements!"
+        val content = updateNotes ?: "A new update for Solitaire King is available on Google Play. Please update your app to the latest version for new card themes and enhancements!"
 
         val notification = androidx.core.app.NotificationCompat.Builder(context, CHANNEL_UPDATES)
             .setSmallIcon(com.solitaire.hyper.card.games.R.mipmap.ic_launcher)

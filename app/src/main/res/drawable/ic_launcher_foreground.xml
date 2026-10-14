@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/viral_card_icon_1791653480846"
+        android:drawable="@drawable/solitaire_game_icon_1791958844060"
         android:gravity="center" />
 </layer-list>

@@ -80,8 +80,8 @@ fun StatisticsScreen(
 ) {
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabModes = listOf("ALL", "DRAW_1", "DRAW_3", "DAILY", "CALL_BREAK")
-    val tabLabels = listOf("All Games", "Draw 1", "Draw 3", "Daily", "Call Break")
+    val tabModes = listOf("ALL", "DRAW_1", "DRAW_3", "DAILY")
+    val tabLabels = listOf("All Games", "Draw 1", "Draw 3", "Daily")
 
     var stats by remember { mutableStateOf(GameStatistics()) }
     var showClearDialog by remember { mutableStateOf(false) }
@@ -355,7 +355,7 @@ private fun RecentMatchItem(match: GameRecordEntity) {
         "DRAW_1" -> "Draw 1"
         "DRAW_3" -> "Draw 3"
         "DAILY" -> "Daily Puzzle"
-        "CALL_BREAK" -> "Call Break"
+        "CALL_BREAK" -> "Call Breaking"
         else -> match.mode
     }
 

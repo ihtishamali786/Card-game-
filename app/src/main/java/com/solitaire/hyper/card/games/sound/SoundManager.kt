@@ -5,7 +5,6 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -19,9 +18,9 @@ import kotlin.math.exp
 import kotlin.math.sin
 
 /**
- * High-performance, zero-codec audio and haptics engine for Solitaire.
- * Uses direct in-memory PCM AudioTrack (MODE_STATIC) with ToneGenerator fallback.
- * Bypasses MediaCodec and Codec2 bufferpools to eliminate system resource errors on emulators.
+ * High-performance, zero-codec, zero-tone audio & haptics engine for Solitaire King.
+ * Uses gentle in-memory PCM synthesis directly to AudioTrack (MODE_STATIC).
+ * NEVER plays unrequested background tones, phone beeps, or auto-start sounds on launch.
  */
 class SoundManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Default)
@@ -34,12 +33,6 @@ class SoundManager(private val context: Context) {
         context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
     }
 
-    private val toneGenerator: ToneGenerator? = try {
-        ToneGenerator(AudioManager.STREAM_MUSIC, 75)
-    } catch (_: Exception) {
-        null
-    }
-
     @Volatile private var trackCardMove: AudioTrack? = null
     @Volatile private var trackFoundationSnap: AudioTrack? = null
     @Volatile private var trackCardFlip: AudioTrack? = null
@@ -49,13 +42,12 @@ class SoundManager(private val context: Context) {
     @Volatile private var trackInvalidMove: AudioTrack? = null
     @Volatile private var trackCardShuffle: AudioTrack? = null
     @Volatile private var trackCardDeal: AudioTrack? = null
-    @Volatile private var trackTrickWin: AudioTrack? = null
-    @Volatile private var trackTrumpFanfare: AudioTrack? = null
 
     var soundEnabled: Boolean = true
     var vibrationEnabled: Boolean = true
 
     init {
+        // Pre-warm static audio buffers in background thread without emitting any audible sound
         scope.launch {
             initAudioTracks()
         }
@@ -73,10 +65,8 @@ class SoundManager(private val context: Context) {
             trackInvalidMove = createStaticTrack(generateInvalidMoveSamples(sampleRate), sampleRate)
             trackCardShuffle = createStaticTrack(generateShuffleRiffleSamples(sampleRate), sampleRate)
             trackCardDeal = createStaticTrack(generateCardDealSamples(sampleRate), sampleRate)
-            trackTrickWin = createStaticTrack(generateTrickWinSamples(sampleRate), sampleRate)
-            trackTrumpFanfare = createStaticTrack(generateTrumpFanfareSamples(sampleRate), sampleRate)
         } catch (e: Exception) {
-            Log.w("SoundManager", "Direct AudioTrack init fallback: ${e.message}")
+            Log.w("SoundManager", "AudioTrack init note: ${e.message}")
         }
     }
 
@@ -102,65 +92,58 @@ class SoundManager(private val context: Context) {
             )
             track.write(samples, 0, samples.size)
             track
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
     }
 
-    private fun playTrackOrTone(track: AudioTrack?, fallbackTone: Int, toneDurationMs: Int) {
-        if (!soundEnabled) return
-        var played = false
-        if (track != null) {
-            try {
-                if (track.state == AudioTrack.STATE_INITIALIZED) {
-                    track.stop()
-                    track.reloadStaticData()
-                    track.play()
-                    played = true
-                }
-            } catch (_: Exception) {
-                played = false
+    /**
+     * Safely plays a pre-synthesized PCM track.
+     * Silent fallback: if track is not ready or sound is muted, no harsh tones or beeps are ever produced.
+     */
+    private fun playTrack(track: AudioTrack?) {
+        if (!soundEnabled || track == null) return
+        try {
+            if (track.state == AudioTrack.STATE_INITIALIZED) {
+                track.stop()
+                track.reloadStaticData()
+                track.play()
             }
-        }
-        if (!played) {
-            try {
-                toneGenerator?.startTone(fallbackTone, toneDurationMs)
-            } catch (_: Exception) {
-                // Gracefully handled
-            }
+        } catch (_: Exception) {
+            // Silently ignore to prevent disruption
         }
     }
 
     private fun generateCardMoveSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 60
+        val durationMs = 45
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val samples = ShortArray(numSamples)
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
-            val decay = exp(-t / 0.016)
+            val decay = exp(-t / 0.014)
             val freq = 420.0 - 220.0 * (i.toDouble() / numSamples)
-            val click = exp(-t / 0.003) * sin(2.0 * PI * 1300.0 * t) * 0.4
-            val body = sin(2.0 * PI * freq * t) * 0.65
-            val sample = ((body + click) * decay * 30000.0).toInt()
+            val click = exp(-t / 0.003) * sin(2.0 * PI * 1300.0 * t) * 0.35
+            val body = sin(2.0 * PI * freq * t) * 0.55
+            val sample = ((body + click) * decay * 22000.0).toInt()
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return samples
     }
 
     private fun generateFoundationSnapSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 240
+        val durationMs = 180
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val samples = ShortArray(numSamples)
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
-            val sample = if (t < 0.06) {
-                val decay = exp(-t / 0.05)
-                (sin(2.0 * PI * 880.0 * t) * decay * 28000.0).toInt()
+            val sample = if (t < 0.04) {
+                val decay = exp(-t / 0.035)
+                (sin(2.0 * PI * 880.0 * t) * decay * 22000.0).toInt()
             } else {
-                val t2 = t - 0.06
-                val decay = exp(-t2 / 0.09)
-                val bell = sin(2.0 * PI * 1318.51 * t2) * 0.7 + sin(2.0 * PI * 2637.02 * t2) * 0.3
-                (bell * decay * 29000.0).toInt()
+                val t2 = t - 0.04
+                val decay = exp(-t2 / 0.07)
+                val bell = sin(2.0 * PI * 1318.51 * t2) * 0.6 + sin(2.0 * PI * 2637.02 * t2) * 0.25
+                (bell * decay * 23000.0).toInt()
             }
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
@@ -168,33 +151,33 @@ class SoundManager(private val context: Context) {
     }
 
     private fun generateVictorySamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 1200
+        val durationMs = 900
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val samples = ShortArray(numSamples)
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
             val sample = when {
-                t < 0.20 -> {
-                    val decay = exp(-t / 0.16)
-                    (sin(2.0 * PI * 523.25 * t) * decay * 22000.0).toInt()
+                t < 0.18 -> {
+                    val decay = exp(-t / 0.14)
+                    (sin(2.0 * PI * 523.25 * t) * decay * 18000.0).toInt()
                 }
-                t < 0.40 -> {
-                    val t2 = t - 0.20
-                    val decay = exp(-t2 / 0.16)
-                    (sin(2.0 * PI * 659.25 * t2) * decay * 22000.0).toInt()
+                t < 0.36 -> {
+                    val t2 = t - 0.18
+                    val decay = exp(-t2 / 0.14)
+                    (sin(2.0 * PI * 659.25 * t2) * decay * 18000.0).toInt()
                 }
-                t < 0.60 -> {
-                    val t3 = t - 0.40
-                    val decay = exp(-t3 / 0.16)
-                    (sin(2.0 * PI * 783.99 * t3) * decay * 24000.0).toInt()
+                t < 0.54 -> {
+                    val t3 = t - 0.36
+                    val decay = exp(-t3 / 0.14)
+                    (sin(2.0 * PI * 783.99 * t3) * decay * 20000.0).toInt()
                 }
                 else -> {
-                    val t4 = t - 0.60
-                    val decay = exp(-t4 / 0.38)
-                    val chord = (sin(2.0 * PI * 523.25 * t4) * 0.3 +
-                                 sin(2.0 * PI * 783.99 * t4) * 0.3 +
-                                 sin(2.0 * PI * 1046.50 * t4) * 0.4)
-                    (chord * decay * 29000.0).toInt()
+                    val t4 = t - 0.54
+                    val decay = exp(-t4 / 0.30)
+                    val chord = (sin(2.0 * PI * 523.25 * t4) * 0.28 +
+                                 sin(2.0 * PI * 783.99 * t4) * 0.28 +
+                                 sin(2.0 * PI * 1046.50 * t4) * 0.35)
+                    (chord * decay * 22000.0).toInt()
                 }
             }
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
@@ -203,116 +186,73 @@ class SoundManager(private val context: Context) {
     }
 
     private fun generateSpinTickSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 28
+        val durationMs = 24
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val samples = ShortArray(numSamples)
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
-            val decay = exp(-t / 0.007)
-            val click = (sin(2.0 * PI * 1750.0 * t) * 0.7 + sin(2.0 * PI * 3200.0 * t) * 0.3)
-            val sample = (click * decay * 28000.0).toInt()
+            val decay = exp(-t / 0.006)
+            val click = (sin(2.0 * PI * 1750.0 * t) * 0.65 + sin(2.0 * PI * 3200.0 * t) * 0.25)
+            val sample = (click * decay * 22000.0).toInt()
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return samples
     }
 
     private fun generateSpinRewardSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 700
+        val durationMs = 500
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val samples = ShortArray(numSamples)
         val freqs = doubleArrayOf(587.33, 739.99, 880.0, 1174.66)
-        val noteDuration = 0.14
+        val noteDuration = 0.12
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
             val noteIdx = (t / noteDuration).toInt().coerceIn(0, freqs.size - 1)
             val noteT = t - (noteIdx * noteDuration)
-            val decay = exp(-noteT / 0.12)
-            val sample = (sin(2.0 * PI * freqs[noteIdx] * noteT) * decay * 26000.0).toInt()
+            val decay = exp(-noteT / 0.10)
+            val sample = (sin(2.0 * PI * freqs[noteIdx] * noteT) * decay * 20000.0).toInt()
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return samples
     }
 
     private fun generateCardFlipSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 40
+        val durationMs = 35
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val samples = ShortArray(numSamples)
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
-            val decay = exp(-t / 0.012)
-            val sample = (sin(2.0 * PI * 720.0 * t) * decay * 26000.0).toInt()
+            val decay = exp(-t / 0.010)
+            val sample = (sin(2.0 * PI * 720.0 * t) * decay * 20000.0).toInt()
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return samples
     }
 
     private fun generateShuffleRiffleSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 420
+        val durationMs = 320
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val samples = ShortArray(numSamples)
-        // 16 quick riffle snaps interleaved
-        val numClicks = 16
-        val clickInterval = numSamples / numClicks
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
-            val overallEnv = sin(PI * (i.toDouble() / numSamples)) // swell and fade
-            val clickIndex = i / clickInterval
-            val clickPhase = (i % clickInterval).toDouble() / sampleRate
-            val clickDecay = exp(-clickPhase / 0.006)
-            val clickFreq = 1200.0 + (clickIndex * 75.0)
-            val flick = (sin(2.0 * PI * clickFreq * clickPhase) * 0.7 + sin(2.0 * PI * 2400.0 * clickPhase) * 0.3)
-            val flutter = sin(2.0 * PI * 420.0 * t) * 0.25
-            val sample = ((flick * clickDecay * 0.8 + flutter) * overallEnv * 28000.0).toInt()
+            val decay = exp(-t / 0.14)
+            val flutter = sin(2.0 * PI * 85.0 * t)
+            val cardSnap = sin(2.0 * PI * (440.0 + flutter * 120.0) * t) * 0.5
+            val rustle = ((i * 1103515245 + 12345) and 0x7FFF) / 32768.0 - 0.5
+            val sample = ((cardSnap + rustle * 0.35) * decay * 18000.0).toInt()
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return samples
     }
 
     private fun generateCardDealSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 45
+        val durationMs = 28
         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
         val samples = ShortArray(numSamples)
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
-            val decay = exp(-t / 0.010)
-            val slideNoise = sin(2.0 * PI * 950.0 * t) * 0.6 + sin(2.0 * PI * 1800.0 * t) * 0.4
-            val sample = (slideNoise * decay * 27000.0).toInt()
-            samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-        }
-        return samples
-    }
-
-    private fun generateTrickWinSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 380
-        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
-        val samples = ShortArray(numSamples)
-        val notes = doubleArrayOf(523.25, 659.25, 783.99, 1046.50) // C5 - E5 - G5 - C6
-        val noteDur = 0.08
-        for (i in 0 until numSamples) {
-            val t = i.toDouble() / sampleRate
-            val noteIdx = (t / noteDur).toInt().coerceIn(0, notes.size - 1)
-            val noteT = t - (noteIdx * noteDur)
-            val decay = exp(-noteT / 0.06)
-            val tone = sin(2.0 * PI * notes[noteIdx] * noteT)
-            val shimmer = sin(2.0 * PI * (notes[noteIdx] * 2) * noteT) * 0.25
-            val sample = ((tone + shimmer) * decay * 25000.0).toInt()
-            samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
-        }
-        return samples
-    }
-
-    private fun generateTrumpFanfareSamples(sampleRate: Int = 22050): ShortArray {
-        val durationMs = 350
-        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
-        val samples = ShortArray(numSamples)
-        val freqs = doubleArrayOf(440.0, 554.37, 659.25) // A4, C#5, E5
-        for (i in 0 until numSamples) {
-            val t = i.toDouble() / sampleRate
-            val decay = exp(-t / 0.18)
-            val chord = sin(2.0 * PI * freqs[0] * t) * 0.35 +
-                        sin(2.0 * PI * freqs[1] * t) * 0.35 +
-                        sin(2.0 * PI * freqs[2] * t) * 0.30
-            val sample = (chord * decay * 28000.0).toInt()
+            val decay = exp(-t / 0.007)
+            val sample = (sin(2.0 * PI * 920.0 * t) * decay * 19000.0).toInt()
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return samples
@@ -325,52 +265,54 @@ class SoundManager(private val context: Context) {
         for (i in 0 until numSamples) {
             val t = i.toDouble() / sampleRate
             val decay = exp(-t / 0.025)
-            val sample = (sin(2.0 * PI * 160.0 * t) * decay * 22000.0).toInt()
+            val sample = (sin(2.0 * PI * 180.0 * t) * decay * 18000.0).toInt()
             samples[i] = sample.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
         }
         return samples
     }
 
+    // --- Interactive Game Audio Actions ---
+
     fun playCardMove() {
         if (!soundEnabled) return
-        playTrackOrTone(trackCardMove, ToneGenerator.TONE_PROP_BEEP, 30)
-        triggerHaptic(durationMs = 12, amplitude = 35)
+        playTrack(trackCardMove)
+        triggerHaptic(durationMs = 12, amplitude = 30)
     }
 
     fun playFoundationSnap() {
         if (!soundEnabled) return
-        playTrackOrTone(trackFoundationSnap, ToneGenerator.TONE_PROP_ACK, 70)
-        triggerHaptic(durationMs = 25, amplitude = 70)
+        playTrack(trackFoundationSnap)
+        triggerHaptic(durationMs = 22, amplitude = 70)
     }
 
     fun playCardFlip() {
         if (!soundEnabled) return
-        playTrackOrTone(trackCardFlip, ToneGenerator.TONE_PROP_BEEP, 25)
-        triggerHaptic(durationMs = 15, amplitude = 40)
+        playTrack(trackCardFlip)
+        triggerHaptic(durationMs = 10, amplitude = 25)
     }
 
     fun playVictory() {
         if (!soundEnabled) return
-        playTrackOrTone(trackVictory, ToneGenerator.TONE_PROP_PROMPT, 500)
-        triggerHaptic(durationMs = 80, amplitude = 120)
+        playTrack(trackVictory)
+        triggerHaptic(durationMs = 70, amplitude = 120)
     }
 
     fun playSpinTick() {
         if (!soundEnabled) return
-        playTrackOrTone(trackSpinTick, ToneGenerator.TONE_PROP_BEEP, 20)
-        triggerHaptic(durationMs = 8, amplitude = 25)
+        playTrack(trackSpinTick)
+        triggerHaptic(durationMs = 6, amplitude = 18)
     }
 
     fun playSpinReward() {
         if (!soundEnabled) return
-        playTrackOrTone(trackSpinReward, ToneGenerator.TONE_PROP_ACK, 250)
-        triggerHaptic(durationMs = 60, amplitude = 100)
+        playTrack(trackSpinReward)
+        triggerHaptic(durationMs = 45, amplitude = 90)
     }
 
     fun playInvalidMove() {
         if (!soundEnabled) return
-        playTrackOrTone(trackInvalidMove, ToneGenerator.TONE_PROP_NACK, 50)
-        triggerHaptic(durationMs = 30, amplitude = 50)
+        playTrack(trackInvalidMove)
+        triggerHaptic(durationMs = 20, amplitude = 40)
     }
 
     fun playMagicWand() {
@@ -380,26 +322,14 @@ class SoundManager(private val context: Context) {
 
     fun playShuffle() {
         if (!soundEnabled) return
-        playTrackOrTone(trackCardShuffle, ToneGenerator.TONE_PROP_BEEP, 60)
-        triggerHaptic(durationMs = 35, amplitude = 65)
+        playTrack(trackCardShuffle)
+        triggerHaptic(durationMs = 25, amplitude = 45)
     }
 
     fun playCardDeal() {
         if (!soundEnabled) return
-        playTrackOrTone(trackCardDeal, ToneGenerator.TONE_PROP_BEEP, 20)
+        playTrack(trackCardDeal)
         triggerHaptic(durationMs = 8, amplitude = 20)
-    }
-
-    fun playTrickWin() {
-        if (!soundEnabled) return
-        playTrackOrTone(trackTrickWin, ToneGenerator.TONE_PROP_ACK, 120)
-        triggerHaptic(durationMs = 40, amplitude = 80)
-    }
-
-    fun playTrumpSelected() {
-        if (!soundEnabled) return
-        playTrackOrTone(trackTrumpFanfare, ToneGenerator.TONE_PROP_ACK, 100)
-        triggerHaptic(durationMs = 30, amplitude = 75)
     }
 
     private fun triggerHaptic(durationMs: Long, amplitude: Int = 50) {
@@ -414,6 +344,19 @@ class SoundManager(private val context: Context) {
             }
         } catch (_: Exception) {
             // Ignored
+        }
+    }
+
+    fun release() {
+        val tracks = listOf(
+            trackCardMove, trackFoundationSnap, trackCardFlip, trackVictory,
+            trackSpinTick, trackSpinReward, trackInvalidMove, trackCardShuffle, trackCardDeal
+        )
+        tracks.forEach {
+            try {
+                it?.stop()
+                it?.release()
+            } catch (_: Exception) {}
         }
     }
 }

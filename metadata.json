@@ -1,6 +1,6 @@
 {
-  "name": "Solitaire-Hyper Card Games",
-  "description": "Classic Klondike Solitaire card game featuring Draw 1 & Draw 3 modes, daily challenges, rich themes, customizable cards, statistics, and smooth controls.",
+  "name": "Solitaire King",
+  "description": "Classic Solitaire card game featuring Draw 1 & Draw 3 modes, daily challenges, bioscience & cognitive skills neuro-tracking, rich themes, statistics, win/loss streak tracking, and smooth controls.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

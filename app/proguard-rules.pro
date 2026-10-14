@@ -1,6 +1,4 @@
-# ==============================================================================
-# Solitaire Hyper Card Games - Production R8 / ProGuard Optimization Rules
-# ==============================================================================
+# Solitaire King - Production R8 / ProGuard Optimization Rules
 
 # Preserve line numbers and source file names for Google Play crash reporting
 -keepattributes SourceFile,LineNumberTable

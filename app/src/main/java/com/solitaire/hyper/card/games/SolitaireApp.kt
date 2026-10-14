@@ -12,7 +12,7 @@ class SolitaireApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.i("SolitaireApp", "Initializing Solitaire-Hyper Card Games...")
+        Log.i("SolitaireApp", "Initializing Solitaire King...")
 
         // 1. Initialize Local Notification Channels & Schedule Reminders
         NotificationHelper.initialize(this)

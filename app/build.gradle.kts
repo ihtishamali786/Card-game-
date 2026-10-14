@@ -16,8 +16,8 @@ android {
     applicationId = "com.solitaire.hyper.card.games"
     minSdk = 24
     targetSdk = 36
-    versionCode = 15
-    versionName = "15.0"
+    versionCode = 16
+    versionName = "16.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -75,6 +75,9 @@ android {
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
+  }
+  androidResources {
+    noCompress += listOf("bin", "dat", "pak")
   }
 }
 

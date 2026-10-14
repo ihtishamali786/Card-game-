@@ -137,7 +137,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         isDailyChallenge: Boolean = false,
         challengeDate: String? = null,
         isWinnableDeal: Boolean = false,
-        isVegasScoring: Boolean = _userSettings.value.vegasScoring
+        isVegasScoring: Boolean = _userSettings.value.vegasScoring,
+        playSound: Boolean = true
     ) {
         val previousGame = _gameState.value
         if (previousGame.moveCount >= 2 && !previousGame.isGameWon && !previousGame.isDailyChallenge) {
@@ -178,7 +179,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _gameState.value = freshState
         saveActiveGame()
         startTimer()
-        soundManager.playShuffle()
+        if (playSound) {
+            soundManager.playShuffle()
+        }
 
         // Spring deal animation: emit flights for top cards dealt to tableau columns
         viewModelScope.launch {
@@ -211,7 +214,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 _gameState.value = restored
                 startTimer()
             } else {
-                startNewGame(mode = defaultMode)
+                startNewGame(mode = defaultMode, playSound = false)
             }
         }
     }

@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Solitaire-Hyper Card Games"
+rootProject.name = "Solitaire King"
 
 include(":app")
