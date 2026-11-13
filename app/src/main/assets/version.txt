@@ -1,4 +1,4 @@
 # Solitaire King Assets
-Version: 15.0
+Version: 17.0.0
 Package: com.solitaire.hyper.card.games
-Type: Solitaire King Klondike & Call Breaking 3D Themes
+Type: Solitaire King Klondike HD Themes

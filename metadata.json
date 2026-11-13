@@ -1,6 +1,6 @@
 {
-  "name": "Solitaire King",
-  "description": "Classic Solitaire card game featuring Draw 1 & Draw 3 modes, daily challenges, bioscience & cognitive skills neuro-tracking, rich themes, statistics, win/loss streak tracking, and smooth controls.",
+  "name": "Solitaire Joker: Klondike Zen",
+  "description": "Relax. Play. Win with the Joker. Classic Klondike Solitaire with Joker helper, Draw 1 & Draw 3, beautiful zen themes, and daily challenges.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

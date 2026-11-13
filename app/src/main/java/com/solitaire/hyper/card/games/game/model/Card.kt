@@ -7,7 +7,9 @@ enum class Suit(val symbol: String, val color: CardColor, val displayName: Strin
     HEARTS("♥", CardColor.RED, "Hearts"),
     DIAMONDS("♦", CardColor.RED, "Diamonds"),
     CLUBS("♣", CardColor.BLACK, "Clubs"),
-    SPADES("♠", CardColor.BLACK, "Spades")
+    SPADES("♠", CardColor.BLACK, "Spades");
+
+    val isRed: Boolean get() = color == CardColor.RED
 }
 
 /**
@@ -35,6 +37,8 @@ enum class Rank(val value: Int, val display: String) {
     JACK(11, "J"),
     QUEEN(12, "Q"),
     KING(13, "K");
+
+    val symbol: String get() = display
 
     companion object {
         fun fromValue(value: Int): Rank = entries.firstOrNull { it.value == value } ?: ACE

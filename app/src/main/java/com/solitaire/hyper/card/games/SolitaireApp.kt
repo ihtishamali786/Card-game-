@@ -12,13 +12,12 @@ class SolitaireApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.i("SolitaireApp", "Initializing Solitaire King...")
+        Log.i("SolitaireApp", "Initializing Solitaire Joker: Klondike Zen...")
 
-        // 1. Initialize Local Notification Channels & Schedule Reminders
+        // 1. Initialize Notification Channels
         NotificationHelper.initialize(this)
-        com.solitaire.hyper.card.games.notifications.NotificationScheduler.recordUserActivity(this)
 
-        // 3. Pre-warm database
+        // 2. Pre-warm database
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 AppDatabase.getDatabase(this@SolitaireApp)

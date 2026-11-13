@@ -13,9 +13,10 @@ import kotlinx.coroutines.launch
     entities = [
         GameRecordEntity::class,
         DailyChallengeEntity::class,
-        AchievementEntity::class
+        AchievementEntity::class,
+        StreakRecordEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -23,6 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun gameRecordDao(): GameRecordDao
     abstract fun dailyChallengeDao(): DailyChallengeDao
     abstract fun achievementDao(): AchievementDao
+    abstract fun streakDao(): StreakDao
 
     companion object {
         @Volatile

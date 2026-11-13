@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -18,113 +17,77 @@ import java.io.IOException
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_settings")
 
+/**
+ * Clean, lightweight user settings for Solitaire Joker: Klondike Zen.
+ */
 data class UserSettings(
     val soundEnabled: Boolean = true,
     val musicEnabled: Boolean = true,
-    val vibrationEnabled: Boolean = true,
+    val hapticsEnabled: Boolean = true,
+    val animationsEnabled: Boolean = true,
+    val reduceMotion: Boolean = false,
+    val floatingLights: Boolean = true,
     val leftHandedMode: Boolean = false,
     val largePrintMode: Boolean = false,
-    val vegasScoring: Boolean = false,
     val defaultDrawMode: String = "DRAW_1",
-    val backgroundId: String = "CLASSIC_FELT",
-    val cardBackId: String = "BACK_CRIMSON_ANVIL",
-    val cardFaceId: String = "FACE_CLASSIC_STANDARD",
-    val suitStyleId: String = "SUIT_CLASSIC_FILLED",
-    val suitColorSchemeId: String = "SCHEME_STANDARD",
-    val customCardBackUri: String? = null,
-    val customBackgroundUri: String? = null,
-    val backgroundDim: Float = 0.30f,
-    val backgroundBlur: Float = 0.0f,
-    val cardCornerRadius: String = "MEDIUM",
-    val cardIndexSize: String = "STANDARD",
-    val numeralsStyle: String = "WESTERN",
-    val easyGameMode: Boolean = true,
-    val dailySurpriseTheme: Boolean = false,
     val winnableDealsOnly: Boolean = true,
-    val unlimitedUndo: Boolean = true,
-    val reduceMotion: Boolean = false,
     val autoCompleteEnabled: Boolean = true,
-    val notificationsEnabled: Boolean = true,
     val showTimer: Boolean = true,
+    val showMoves: Boolean = true,
+    val backgroundId: String = "BG_CLASSIC_GREEN",
+    val cardBackId: String = "BACK_ROYAL_BLUE",
+    val cardFaceId: String = "FACE_STANDARD",
     val savedGameJson: String? = null,
-    val coins: Int = 500,
-    val unlockedItems: String = "",
-    val adFreeUntilTimestamp: Long = 0L,
-    val vipUntilTimestamp: Long = 0L,
-    val rewardedAdsWatchedForVip: Int = 0,
-    val adFreeTokens: Int = 3,
-    val magicWands: Int = 5,
-    val aiTokens: Int = 10,
-    val isVipPermanent: Boolean = false,
-    val rewardedAdsWatchedTotal: Int = 0,
-    val lastLoginDate: String = "",
-    val loginStreakDays: Int = 0
+    val isAdsRemoved: Boolean = false,
+    val dailyReminderEnabled: Boolean = false,
+    val dailyReminderHour: Int = 20,
+    val dailyReminderMinute: Int = 0,
+    val jokersToday: Int = 3,
+    val lastJokerDate: String = "",
+    val extraJokers: Int = 0,
+    val hasSeenTutorial: Boolean = false,
+    val hasRatedApp: Boolean = false,
+    val winsCountForRating: Int = 0
 ) {
-    fun isVipActive(): Boolean = isVipPermanent || System.currentTimeMillis() < vipUntilTimestamp
-    fun isAdFreeActive(): Boolean = isVipActive() || System.currentTimeMillis() < adFreeUntilTimestamp
-
-    fun isItemUnlocked(itemId: String): Boolean {
-        if (isVipActive()) return true
-        val set = unlockedItems.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        return set.contains(itemId)
-    }
-
-    fun getAdFreeRemainingMinutes(): Int {
-        if (isVipActive()) return 9999
-        val diff = adFreeUntilTimestamp - System.currentTimeMillis()
-        return if (diff > 0) ((diff + 59999) / 60000).toInt() else 0
-    }
-
-    fun getVipRemainingMinutes(): Int {
-        if (isVipPermanent) return 9999
-        val diff = vipUntilTimestamp - System.currentTimeMillis()
-        return if (diff > 0) ((diff + 59999) / 60000).toInt() else 0
+    /**
+     * Effective available jokers right now (3 free daily + any rewarded extras).
+     */
+    fun totalAvailableJokers(todayDate: String): Int {
+        val dailyFree = if (lastJokerDate == todayDate) jokersToday else 3
+        return (dailyFree + extraJokers).coerceAtLeast(0)
     }
 }
 
 class UserPreferencesRepository(private val context: Context) {
 
-    private object PreferencesKeys {
+    private object Keys {
         val KEY_SOUND = booleanPreferencesKey("sound_enabled")
         val KEY_MUSIC = booleanPreferencesKey("music_enabled")
-        val KEY_VIBRATION = booleanPreferencesKey("vibration_enabled")
+        val KEY_HAPTICS = booleanPreferencesKey("vibration_enabled")
+        val KEY_ANIMATIONS = booleanPreferencesKey("animations_enabled")
+        val KEY_REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
+        val KEY_FLOATING_LIGHTS = booleanPreferencesKey("floating_lights_enabled")
         val KEY_LEFT_HANDED = booleanPreferencesKey("left_handed_mode")
         val KEY_LARGE_PRINT = booleanPreferencesKey("large_print_mode")
-        val KEY_VEGAS_SCORING = booleanPreferencesKey("vegas_scoring")
         val KEY_DRAW_MODE = stringPreferencesKey("default_draw_mode")
+        val KEY_WINNABLE_DEALS = booleanPreferencesKey("winnable_deals_only")
+        val KEY_AUTO_COMPLETE = booleanPreferencesKey("auto_complete_enabled")
+        val KEY_SHOW_TIMER = booleanPreferencesKey("show_timer")
+        val KEY_SHOW_MOVES = booleanPreferencesKey("show_moves")
         val KEY_BACKGROUND = stringPreferencesKey("background_id")
         val KEY_CARD_BACK = stringPreferencesKey("card_back_id")
         val KEY_CARD_FACE = stringPreferencesKey("card_face_id")
-        val KEY_AUTO_COMPLETE = booleanPreferencesKey("auto_complete_enabled")
-        val KEY_NOTIFICATIONS = booleanPreferencesKey("notifications_enabled")
-        val KEY_SHOW_TIMER = booleanPreferencesKey("show_timer")
         val KEY_SAVED_GAME = stringPreferencesKey("saved_game_json")
-        val KEY_COINS = intPreferencesKey("coins_balance")
-        val KEY_UNLOCKED_ITEMS = stringPreferencesKey("unlocked_items_csv")
-        val KEY_AD_FREE_UNTIL = longPreferencesKey("ad_free_until_timestamp")
-        val KEY_VIP_UNTIL = longPreferencesKey("vip_until_timestamp")
-        val KEY_REWARDED_ADS_WATCHED_VIP = intPreferencesKey("rewarded_ads_watched_vip")
-        val KEY_AD_FREE_TOKENS = intPreferencesKey("ad_free_tokens_balance")
-        val KEY_MAGIC_WANDS = intPreferencesKey("magic_wands_inventory")
-        val KEY_AI_TOKENS = intPreferencesKey("ai_tokens_inventory")
-        val KEY_VIP_PERMANENT = booleanPreferencesKey("vip_permanent_unlocked")
-        val KEY_REWARDED_ADS_TOTAL = intPreferencesKey("rewarded_ads_total_watched")
-        val KEY_SUIT_STYLE = stringPreferencesKey("suit_style_id")
-        val KEY_SUIT_COLOR_SCHEME = stringPreferencesKey("suit_color_scheme_id")
-        val KEY_CUSTOM_CARD_BACK = stringPreferencesKey("custom_card_back_uri")
-        val KEY_CUSTOM_BACKGROUND = stringPreferencesKey("custom_background_uri")
-        val KEY_BACKGROUND_DIM = androidx.datastore.preferences.core.floatPreferencesKey("background_dim")
-        val KEY_BACKGROUND_BLUR = androidx.datastore.preferences.core.floatPreferencesKey("background_blur")
-        val KEY_CARD_CORNER_RADIUS = stringPreferencesKey("card_corner_radius")
-        val KEY_CARD_INDEX_SIZE = stringPreferencesKey("card_index_size")
-        val KEY_NUMERALS_STYLE = stringPreferencesKey("numerals_style")
-        val KEY_EASY_GAME_MODE = booleanPreferencesKey("easy_game_mode")
-        val KEY_DAILY_SURPRISE_THEME = booleanPreferencesKey("daily_surprise_theme")
-        val KEY_WINNABLE_DEALS = booleanPreferencesKey("winnable_deals_only")
-        val KEY_UNLIMITED_UNDO = booleanPreferencesKey("unlimited_undo")
-        val KEY_REDUCE_MOTION = booleanPreferencesKey("reduce_motion")
-        val KEY_LAST_LOGIN_DATE = stringPreferencesKey("last_login_date")
-        val KEY_LOGIN_STREAK_DAYS = intPreferencesKey("login_streak_days")
+        val KEY_IS_ADS_REMOVED = booleanPreferencesKey("is_ads_removed")
+        val KEY_DAILY_REMINDER = booleanPreferencesKey("daily_reminder_enabled")
+        val KEY_REMINDER_HOUR = intPreferencesKey("daily_reminder_hour")
+        val KEY_REMINDER_MINUTE = intPreferencesKey("daily_reminder_minute")
+        val KEY_JOKERS_TODAY = intPreferencesKey("jokers_today_count")
+        val KEY_LAST_JOKER_DATE = stringPreferencesKey("last_joker_date")
+        val KEY_EXTRA_JOKERS = intPreferencesKey("extra_jokers_balance")
+        val KEY_SEEN_TUTORIAL = booleanPreferencesKey("has_seen_tutorial")
+        val KEY_RATED_APP = booleanPreferencesKey("has_rated_app")
+        val KEY_WINS_FOR_RATING = intPreferencesKey("wins_count_for_rating")
     }
 
     val userSettingsFlow: Flow<UserSettings> = context.dataStore.data
@@ -137,610 +100,172 @@ class UserPreferencesRepository(private val context: Context) {
         }
         .map { prefs ->
             UserSettings(
-                soundEnabled = prefs[PreferencesKeys.KEY_SOUND] ?: true,
-                musicEnabled = prefs[PreferencesKeys.KEY_MUSIC] ?: true,
-                vibrationEnabled = prefs[PreferencesKeys.KEY_VIBRATION] ?: true,
-                leftHandedMode = prefs[PreferencesKeys.KEY_LEFT_HANDED] ?: false,
-                largePrintMode = prefs[PreferencesKeys.KEY_LARGE_PRINT] ?: false,
-                vegasScoring = prefs[PreferencesKeys.KEY_VEGAS_SCORING] ?: false,
-                defaultDrawMode = prefs[PreferencesKeys.KEY_DRAW_MODE] ?: "DRAW_1",
-                backgroundId = prefs[PreferencesKeys.KEY_BACKGROUND] ?: "CLASSIC_FELT",
-                cardBackId = prefs[PreferencesKeys.KEY_CARD_BACK] ?: "BACK_CRIMSON_ANVIL",
-                cardFaceId = prefs[PreferencesKeys.KEY_CARD_FACE] ?: "FACE_CLASSIC_STANDARD",
-                suitStyleId = prefs[PreferencesKeys.KEY_SUIT_STYLE] ?: "SUIT_CLASSIC_FILLED",
-                suitColorSchemeId = prefs[PreferencesKeys.KEY_SUIT_COLOR_SCHEME] ?: "SCHEME_STANDARD",
-                customCardBackUri = prefs[PreferencesKeys.KEY_CUSTOM_CARD_BACK],
-                customBackgroundUri = prefs[PreferencesKeys.KEY_CUSTOM_BACKGROUND],
-                backgroundDim = prefs[PreferencesKeys.KEY_BACKGROUND_DIM] ?: 0.30f,
-                backgroundBlur = prefs[PreferencesKeys.KEY_BACKGROUND_BLUR] ?: 0.0f,
-                cardCornerRadius = prefs[PreferencesKeys.KEY_CARD_CORNER_RADIUS] ?: "MEDIUM",
-                cardIndexSize = prefs[PreferencesKeys.KEY_CARD_INDEX_SIZE] ?: "STANDARD",
-                numeralsStyle = prefs[PreferencesKeys.KEY_NUMERALS_STYLE] ?: "WESTERN",
-                easyGameMode = prefs[PreferencesKeys.KEY_EASY_GAME_MODE] ?: true,
-                dailySurpriseTheme = prefs[PreferencesKeys.KEY_DAILY_SURPRISE_THEME] ?: false,
-                winnableDealsOnly = prefs[PreferencesKeys.KEY_WINNABLE_DEALS] ?: false,
-                unlimitedUndo = prefs[PreferencesKeys.KEY_UNLIMITED_UNDO] ?: true,
-                reduceMotion = prefs[PreferencesKeys.KEY_REDUCE_MOTION] ?: false,
-                autoCompleteEnabled = prefs[PreferencesKeys.KEY_AUTO_COMPLETE] ?: true,
-                notificationsEnabled = prefs[PreferencesKeys.KEY_NOTIFICATIONS] ?: true,
-                showTimer = prefs[PreferencesKeys.KEY_SHOW_TIMER] ?: true,
-                savedGameJson = prefs[PreferencesKeys.KEY_SAVED_GAME],
-                coins = prefs[PreferencesKeys.KEY_COINS] ?: 500,
-                unlockedItems = prefs[PreferencesKeys.KEY_UNLOCKED_ITEMS] ?: "",
-                adFreeUntilTimestamp = prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] ?: 0L,
-                vipUntilTimestamp = prefs[PreferencesKeys.KEY_VIP_UNTIL] ?: 0L,
-                rewardedAdsWatchedForVip = prefs[PreferencesKeys.KEY_REWARDED_ADS_WATCHED_VIP] ?: 0,
-                adFreeTokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3,
-                magicWands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5,
-                aiTokens = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10,
-                isVipPermanent = prefs[PreferencesKeys.KEY_VIP_PERMANENT] ?: false,
-                rewardedAdsWatchedTotal = prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] ?: 0,
-                lastLoginDate = prefs[PreferencesKeys.KEY_LAST_LOGIN_DATE] ?: "",
-                loginStreakDays = prefs[PreferencesKeys.KEY_LOGIN_STREAK_DAYS] ?: 0
+                soundEnabled = prefs[Keys.KEY_SOUND] ?: true,
+                musicEnabled = prefs[Keys.KEY_MUSIC] ?: true,
+                hapticsEnabled = prefs[Keys.KEY_HAPTICS] ?: true,
+                animationsEnabled = prefs[Keys.KEY_ANIMATIONS] ?: true,
+                reduceMotion = prefs[Keys.KEY_REDUCE_MOTION] ?: false,
+                floatingLights = prefs[Keys.KEY_FLOATING_LIGHTS] ?: true,
+                leftHandedMode = prefs[Keys.KEY_LEFT_HANDED] ?: false,
+                largePrintMode = prefs[Keys.KEY_LARGE_PRINT] ?: false,
+                defaultDrawMode = prefs[Keys.KEY_DRAW_MODE] ?: "DRAW_1",
+                winnableDealsOnly = prefs[Keys.KEY_WINNABLE_DEALS] ?: true,
+                autoCompleteEnabled = prefs[Keys.KEY_AUTO_COMPLETE] ?: true,
+                showTimer = prefs[Keys.KEY_SHOW_TIMER] ?: true,
+                showMoves = prefs[Keys.KEY_SHOW_MOVES] ?: true,
+                backgroundId = prefs[Keys.KEY_BACKGROUND] ?: "BG_CLASSIC_GREEN",
+                cardBackId = prefs[Keys.KEY_CARD_BACK] ?: "BACK_ROYAL_BLUE",
+                cardFaceId = prefs[Keys.KEY_CARD_FACE] ?: "FACE_STANDARD",
+                savedGameJson = prefs[Keys.KEY_SAVED_GAME],
+                isAdsRemoved = prefs[Keys.KEY_IS_ADS_REMOVED] ?: false,
+                dailyReminderEnabled = prefs[Keys.KEY_DAILY_REMINDER] ?: false,
+                dailyReminderHour = prefs[Keys.KEY_REMINDER_HOUR] ?: 20,
+                dailyReminderMinute = prefs[Keys.KEY_REMINDER_MINUTE] ?: 0,
+                jokersToday = prefs[Keys.KEY_JOKERS_TODAY] ?: 3,
+                lastJokerDate = prefs[Keys.KEY_LAST_JOKER_DATE] ?: "",
+                extraJokers = prefs[Keys.KEY_EXTRA_JOKERS] ?: 0,
+                hasSeenTutorial = prefs[Keys.KEY_SEEN_TUTORIAL] ?: false,
+                hasRatedApp = prefs[Keys.KEY_RATED_APP] ?: false,
+                winsCountForRating = prefs[Keys.KEY_WINS_FOR_RATING] ?: 0
             )
         }
 
     suspend fun updateSound(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_SOUND] = enabled }
+        context.dataStore.edit { it[Keys.KEY_SOUND] = enabled }
     }
 
     suspend fun updateMusic(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_MUSIC] = enabled }
+        context.dataStore.edit { it[Keys.KEY_MUSIC] = enabled }
     }
 
-    suspend fun updateVibration(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_VIBRATION] = enabled }
+    suspend fun updateHaptics(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_HAPTICS] = enabled }
     }
 
-    suspend fun updateLeftHanded(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_LEFT_HANDED] = enabled }
-    }
-
-    suspend fun updateLargePrint(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_LARGE_PRINT] = enabled }
-    }
-
-    suspend fun updateVegasScoring(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_VEGAS_SCORING] = enabled }
-    }
-
-    suspend fun updateDrawMode(mode: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_DRAW_MODE] = mode }
-    }
-
-    suspend fun updateBackground(id: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_BACKGROUND] = id }
-    }
-
-    suspend fun updateCardBack(id: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_CARD_BACK] = id }
-    }
-
-    suspend fun updateCardFace(id: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_CARD_FACE] = id }
-    }
-
-    suspend fun updateSuitStyle(id: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_SUIT_STYLE] = id }
-    }
-
-    suspend fun updateSuitColorScheme(id: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_SUIT_COLOR_SCHEME] = id }
-    }
-
-    suspend fun updateCustomCardBackUri(uri: String?) {
-        context.dataStore.edit { prefs ->
-            if (uri != null) prefs[PreferencesKeys.KEY_CUSTOM_CARD_BACK] = uri
-            else prefs.remove(PreferencesKeys.KEY_CUSTOM_CARD_BACK)
-        }
-    }
-
-    suspend fun updateCustomBackgroundUri(uri: String?) {
-        context.dataStore.edit { prefs ->
-            if (uri != null) prefs[PreferencesKeys.KEY_CUSTOM_BACKGROUND] = uri
-            else prefs.remove(PreferencesKeys.KEY_CUSTOM_BACKGROUND)
-        }
-    }
-
-    suspend fun updateBackgroundDim(dim: Float) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_BACKGROUND_DIM] = dim }
-    }
-
-    suspend fun updateBackgroundBlur(blur: Float) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_BACKGROUND_BLUR] = blur }
-    }
-
-    suspend fun updateCardCornerRadius(radius: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_CARD_CORNER_RADIUS] = radius }
-    }
-
-    suspend fun updateCardIndexSize(size: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_CARD_INDEX_SIZE] = size }
-    }
-
-    suspend fun updateNumeralsStyle(style: String) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_NUMERALS_STYLE] = style }
-    }
-
-    suspend fun updateEasyGameMode(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_EASY_GAME_MODE] = enabled }
-    }
-
-    suspend fun updateDailySurpriseTheme(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_DAILY_SURPRISE_THEME] = enabled }
-    }
-
-    suspend fun updateWinnableDealsOnly(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_WINNABLE_DEALS] = enabled }
-    }
-
-    suspend fun updateUnlimitedUndo(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_UNLIMITED_UNDO] = enabled }
+    suspend fun updateAnimations(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_ANIMATIONS] = enabled }
     }
 
     suspend fun updateReduceMotion(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_REDUCE_MOTION] = enabled }
+        context.dataStore.edit { it[Keys.KEY_REDUCE_MOTION] = enabled }
     }
 
-    suspend fun applyPresetCombo(faceId: String, suitId: String, schemeId: String, backId: String, bgId: String) {
-        context.dataStore.edit { prefs ->
-            prefs[PreferencesKeys.KEY_CARD_FACE] = faceId
-            prefs[PreferencesKeys.KEY_SUIT_STYLE] = suitId
-            prefs[PreferencesKeys.KEY_SUIT_COLOR_SCHEME] = schemeId
-            prefs[PreferencesKeys.KEY_CARD_BACK] = backId
-            prefs[PreferencesKeys.KEY_BACKGROUND] = bgId
+    suspend fun updateFloatingLights(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_FLOATING_LIGHTS] = enabled }
+    }
+
+    suspend fun updateLeftHanded(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_LEFT_HANDED] = enabled }
+    }
+
+    suspend fun updateLargePrint(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_LARGE_PRINT] = enabled }
+    }
+
+    suspend fun updateDefaultDrawMode(drawMode: String) {
+        context.dataStore.edit { it[Keys.KEY_DRAW_MODE] = drawMode }
+    }
+
+    suspend fun updateWinnableDealsOnly(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_WINNABLE_DEALS] = enabled }
+    }
+
+    suspend fun updateAutoCompleteEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_AUTO_COMPLETE] = enabled }
+    }
+
+    suspend fun updateShowTimer(show: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_SHOW_TIMER] = show }
+    }
+
+    suspend fun updateShowMoves(show: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_SHOW_MOVES] = show }
+    }
+
+    suspend fun updateBackground(backgroundId: String) {
+        context.dataStore.edit { it[Keys.KEY_BACKGROUND] = backgroundId }
+    }
+
+    suspend fun updateCardBack(cardBackId: String) {
+        context.dataStore.edit { it[Keys.KEY_CARD_BACK] = cardBackId }
+    }
+
+    suspend fun updateCardFace(cardFaceId: String) {
+        context.dataStore.edit { it[Keys.KEY_CARD_FACE] = cardFaceId }
+    }
+
+    suspend fun saveGame(json: String?) {
+        context.dataStore.edit {
+            if (json == null) it.remove(Keys.KEY_SAVED_GAME)
+            else it[Keys.KEY_SAVED_GAME] = json
         }
     }
 
-    suspend fun resetCustomizationToDefault() {
-        context.dataStore.edit { prefs ->
-            prefs[PreferencesKeys.KEY_CARD_FACE] = "FACE_CLASSIC_STANDARD"
-            prefs[PreferencesKeys.KEY_SUIT_STYLE] = "SUIT_CLASSIC_FILLED"
-            prefs[PreferencesKeys.KEY_SUIT_COLOR_SCHEME] = "SCHEME_STANDARD"
-            prefs[PreferencesKeys.KEY_CARD_BACK] = "BACK_GEOMETRIC_DIAMONDS"
-            prefs[PreferencesKeys.KEY_BACKGROUND] = "THEME_CASINO_GREEN"
-            prefs[PreferencesKeys.KEY_BACKGROUND_DIM] = 0.30f
-            prefs[PreferencesKeys.KEY_BACKGROUND_BLUR] = 0.0f
-            prefs.remove(PreferencesKeys.KEY_CUSTOM_CARD_BACK)
-            prefs.remove(PreferencesKeys.KEY_CUSTOM_BACKGROUND)
+    suspend fun clearSavedGame() {
+        context.dataStore.edit { it.remove(Keys.KEY_SAVED_GAME) }
+    }
+
+    suspend fun setAdsRemoved(removed: Boolean) {
+        context.dataStore.edit { it[Keys.KEY_IS_ADS_REMOVED] = removed }
+    }
+
+    suspend fun updateDailyReminder(enabled: Boolean, hour: Int, minute: Int) {
+        context.dataStore.edit {
+            it[Keys.KEY_DAILY_REMINDER] = enabled
+            it[Keys.KEY_REMINDER_HOUR] = hour
+            it[Keys.KEY_REMINDER_MINUTE] = minute
         }
     }
 
-    suspend fun updateAutoComplete(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_AUTO_COMPLETE] = enabled }
+    suspend fun setTutorialSeen() {
+        context.dataStore.edit { it[Keys.KEY_SEEN_TUTORIAL] = true }
     }
 
-    suspend fun updateNotifications(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_NOTIFICATIONS] = enabled }
+    suspend fun setRatedApp() {
+        context.dataStore.edit { it[Keys.KEY_RATED_APP] = true }
     }
 
-    suspend fun updateShowTimer(enabled: Boolean) {
-        context.dataStore.edit { it[PreferencesKeys.KEY_SHOW_TIMER] = enabled }
-    }
-
-    suspend fun saveGameJson(json: String?) {
-        context.dataStore.edit { prefs ->
-            if (json != null) {
-                prefs[PreferencesKeys.KEY_SAVED_GAME] = json
-            } else {
-                prefs.remove(PreferencesKeys.KEY_SAVED_GAME)
-            }
+    suspend fun incrementWinCountForRating(): Int {
+        var newCount = 0
+        context.dataStore.edit {
+            val cur = it[Keys.KEY_WINS_FOR_RATING] ?: 0
+            newCount = cur + 1
+            it[Keys.KEY_WINS_FOR_RATING] = newCount
         }
+        return newCount
     }
 
-    suspend fun addCoins(amount: Int) {
-        if (amount <= 0) return
-        context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            prefs[PreferencesKeys.KEY_COINS] = current + amount
-        }
-    }
-
-    suspend fun spendCoins(amount: Int): Boolean {
-        if (amount <= 0) return true
+    /**
+     * Decrements a Joker if available today, or returns false if none remaining.
+     */
+    suspend fun consumeJoker(todayDate: String): Boolean {
         var success = false
         context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (current >= amount) {
-                prefs[PreferencesKeys.KEY_COINS] = current - amount
+            val lastDate = prefs[Keys.KEY_LAST_JOKER_DATE] ?: ""
+            var dailyCount = if (lastDate == todayDate) (prefs[Keys.KEY_JOKERS_TODAY] ?: 3) else 3
+            var extra = prefs[Keys.KEY_EXTRA_JOKERS] ?: 0
+
+            if (dailyCount > 0) {
+                dailyCount -= 1
+                prefs[Keys.KEY_JOKERS_TODAY] = dailyCount
+                prefs[Keys.KEY_LAST_JOKER_DATE] = todayDate
+                success = true
+            } else if (extra > 0) {
+                extra -= 1
+                prefs[Keys.KEY_EXTRA_JOKERS] = extra
+                prefs[Keys.KEY_LAST_JOKER_DATE] = todayDate
                 success = true
             }
         }
         return success
     }
 
-    suspend fun unlockItem(itemId: String, cost: Int): Boolean {
-        var success = false
+    suspend fun addExtraJoker(amount: Int = 1) {
         context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (current >= cost) {
-                prefs[PreferencesKeys.KEY_COINS] = current - cost
-                val unlocked = prefs[PreferencesKeys.KEY_UNLOCKED_ITEMS] ?: ""
-                val list = unlocked.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()
-                list.add(itemId)
-                prefs[PreferencesKeys.KEY_UNLOCKED_ITEMS] = list.joinToString(",")
-                success = true
-            }
-        }
-        return success
-    }
-
-    /**
-     * Deducts 1,000 coins and disables ads for 1 hour (3600 seconds)
-     */
-    suspend fun activateAdFreeOneHour(): Boolean {
-        var success = false
-        context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (current >= 1000) {
-                prefs[PreferencesKeys.KEY_COINS] = current - 1000
-                val now = System.currentTimeMillis()
-                val currentUntil = prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] ?: 0L
-                val base = if (currentUntil > now) currentUntil else now
-                prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] = base + 3600 * 1000L
-                success = true
-            }
-        }
-        return success
-    }
-
-    /**
-     * Activates 1 hour VIP access (unlocks all 3D & premium themes for 1 hour)
-     */
-    suspend fun activateVipOneHour() {
-        context.dataStore.edit { prefs ->
-            val now = System.currentTimeMillis()
-            val currentUntil = prefs[PreferencesKeys.KEY_VIP_UNTIL] ?: 0L
-            val base = if (currentUntil > now) currentUntil else now
-            prefs[PreferencesKeys.KEY_VIP_UNTIL] = base + 3600 * 1000L
-            prefs[PreferencesKeys.KEY_REWARDED_ADS_WATCHED_VIP] = 0
+            val cur = prefs[Keys.KEY_EXTRA_JOKERS] ?: 0
+            prefs[Keys.KEY_EXTRA_JOKERS] = cur + amount
         }
     }
 
-    /**
-     * Records a rewarded ad watched towards the 5-ads VIP pass.
-     * Returns true if 5 ads threshold reached and VIP pass was activated!
-     */
-    suspend fun recordRewardedAdForVip(): Boolean {
-        var vipUnlocked = false
-        context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_REWARDED_ADS_WATCHED_VIP] ?: 0
-            val next = current + 1
-            if (next >= 5) {
-                val now = System.currentTimeMillis()
-                val currentUntil = prefs[PreferencesKeys.KEY_VIP_UNTIL] ?: 0L
-                val base = if (currentUntil > now) currentUntil else now
-                prefs[PreferencesKeys.KEY_VIP_UNTIL] = base + 3600 * 1000L
-                prefs[PreferencesKeys.KEY_REWARDED_ADS_WATCHED_VIP] = 0
-                vipUnlocked = true
-            } else {
-                prefs[PreferencesKeys.KEY_REWARDED_ADS_WATCHED_VIP] = next
-            }
-        }
-        return vipUnlocked
-    }
-
-    /**
-     * Consumes 1 Ad-Free Token from inventory and extends ad-free status by 30 minutes.
-     * Returns true if a token was successfully used.
-     */
-    suspend fun useAdFreeToken(): Boolean {
-        var used = false
-        context.dataStore.edit { prefs ->
-            val tokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
-            if (tokens > 0) {
-                prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = tokens - 1
-                val now = System.currentTimeMillis()
-                val currentUntil = prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] ?: 0L
-                val base = if (currentUntil > now) currentUntil else now
-                prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] = base + 30 * 60 * 1000L // 30 mins
-                used = true
-            }
-        }
-        return used
-    }
-
-    /**
-     * Adds ad-free tokens to the user's inventory.
-     */
-    suspend fun addAdFreeTokens(count: Int) {
-        if (count <= 0) return
-        context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
-            prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = current + count
-        }
-    }
-
-    /**
-     * Buys ad-free tokens using in-game coins.
-     */
-    suspend fun buyAdFreeTokens(tokenCount: Int, coinCost: Int): Boolean {
-        var success = false
-        context.dataStore.edit { prefs ->
-            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (currentCoins >= coinCost) {
-                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
-                val currentTokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
-                prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = currentTokens + tokenCount
-                success = true
-            }
-        }
-        return success
-    }
-
-    /**
-     * Directly activates Ad-Free for given hours using coins.
-     */
-    suspend fun activateAdFreePass(hours: Int, coinCost: Int): Boolean {
-        var success = false
-        context.dataStore.edit { prefs ->
-            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (currentCoins >= coinCost) {
-                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
-                val now = System.currentTimeMillis()
-                val currentUntil = prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] ?: 0L
-                val base = if (currentUntil > now) currentUntil else now
-                prefs[PreferencesKeys.KEY_AD_FREE_UNTIL] = base + hours * 3600 * 1000L
-                success = true
-            }
-        }
-        return success
-    }
-
-    /**
-     * Activates 24-Hour VIP Access using coins.
-     */
-    suspend fun activateVipDayPass(coinCost: Int): Boolean {
-        var success = false
-        context.dataStore.edit { prefs ->
-            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (currentCoins >= coinCost) {
-                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
-                val now = System.currentTimeMillis()
-                val currentUntil = prefs[PreferencesKeys.KEY_VIP_UNTIL] ?: 0L
-                val base = if (currentUntil > now) currentUntil else now
-                prefs[PreferencesKeys.KEY_VIP_UNTIL] = base + 24 * 3600 * 1000L
-                success = true
-            }
-        }
-        return success
-    }
-
-    /**
-     * Permanently unlocks VIP Crown tier (no ads, all themes, unlimited perks).
-     */
-    suspend fun activatePermanentVip(coinCost: Int): Boolean {
-        var success = false
-        context.dataStore.edit { prefs ->
-            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (currentCoins >= coinCost) {
-                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
-                prefs[PreferencesKeys.KEY_VIP_PERMANENT] = true
-                success = true
-            }
-        }
-        return success
-    }
-
-    /**
-     * Consumes 1 magic wand or returns true if VIP
-     */
-    suspend fun useMagicWand(isVip: Boolean = false): Boolean {
-        if (isVip) return true
-        var used = false
-        context.dataStore.edit { prefs ->
-            val wands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
-            if (wands > 0) {
-                prefs[PreferencesKeys.KEY_MAGIC_WANDS] = wands - 1
-                used = true
-            }
-        }
-        return used
-    }
-
-    suspend fun addMagicWands(count: Int) {
-        if (count <= 0) return
-        context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
-            prefs[PreferencesKeys.KEY_MAGIC_WANDS] = current + count
-        }
-    }
-
-    suspend fun buyMagicWands(count: Int, coinCost: Int): Boolean {
-        var success = false
-        context.dataStore.edit { prefs ->
-            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (currentCoins >= coinCost) {
-                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
-                val current = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
-                prefs[PreferencesKeys.KEY_MAGIC_WANDS] = current + count
-                success = true
-            }
-        }
-        return success
-    }
-
-    /**
-     * Consumes 1 AI analysis token or returns true if VIP
-     */
-    suspend fun useAiToken(isVip: Boolean = false): Boolean {
-        if (isVip) return true
-        var used = false
-        context.dataStore.edit { prefs ->
-            val tokens = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10
-            if (tokens > 0) {
-                prefs[PreferencesKeys.KEY_AI_TOKENS] = tokens - 1
-                used = true
-            }
-        }
-        return used
-    }
-
-    suspend fun addAiTokens(count: Int) {
-        if (count <= 0) return
-        context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10
-            prefs[PreferencesKeys.KEY_AI_TOKENS] = current + count
-        }
-    }
-
-    suspend fun buyAiTokens(count: Int, coinCost: Int): Boolean {
-        var success = false
-        context.dataStore.edit { prefs ->
-            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            if (currentCoins >= coinCost) {
-                prefs[PreferencesKeys.KEY_COINS] = currentCoins - coinCost
-                val current = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10
-                prefs[PreferencesKeys.KEY_AI_TOKENS] = current + count
-                success = true
-            }
-        }
-        return success
-    }
-
-    /**
-     * Increments general rewarded ad count
-     */
-    suspend fun incrementRewardedAdsWatched() {
-        context.dataStore.edit { prefs ->
-            val current = prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] ?: 0
-            prefs[PreferencesKeys.KEY_REWARDED_ADS_TOTAL] = current + 1
-        }
-    }
-
-    /**
-     * Daily Login Bonus calculation:
-     * Streak progresses Day 1 to Day 7 cycling continuously.
-     * Rewards:
-     * Day 1: 150 coins
-     * Day 2: 250 coins
-     * Day 3: 350 coins + 1 Magic Wand
-     * Day 4: 450 coins
-     * Day 5: 600 coins + 1 Ad-Free Token
-     * Day 6: 750 coins + 2 AI Tokens
-     * Day 7: 1,000 coins + 2 Magic Wands + 1 Ad-Free Token (Mega Vault)
-     */
-    data class DailyBonusInfo(
-        val isAvailableToday: Boolean,
-        val currentStreakDay: Int, // 1 to 7
-        val coinsReward: Int,
-        val extraBonusDescription: String? = null
-    )
-
-    fun calculateDailyBonusReward(day: Int): Pair<Int, String?> {
-        val cycleDay = ((day - 1) % 7) + 1
-        return when (cycleDay) {
-            1 -> Pair(150, null)
-            2 -> Pair(250, null)
-            3 -> Pair(350, "+1 Magic Wand")
-            4 -> Pair(450, null)
-            5 -> Pair(600, "+1 Ad-Free Token")
-            6 -> Pair(750, "+2 AI Hint Tokens")
-            7 -> Pair(1000, "+2 Magic Wands & 1 Ad-Free Token")
-            else -> Pair(150, null)
-        }
-    }
-
-    suspend fun getDailyBonusStatus(todayDateStr: String): DailyBonusInfo {
-        val prefs = context.dataStore.data.first()
-        val lastDate = prefs[PreferencesKeys.KEY_LAST_LOGIN_DATE] ?: ""
-        val currentStreak = prefs[PreferencesKeys.KEY_LOGIN_STREAK_DAYS] ?: 0
-
-        if (lastDate == todayDateStr) {
-            // Already claimed today
-            val (coins, extra) = calculateDailyBonusReward(if (currentStreak > 0) currentStreak else 1)
-            return DailyBonusInfo(
-                isAvailableToday = false,
-                currentStreakDay = if (currentStreak > 0) ((currentStreak - 1) % 7) + 1 else 1,
-                coinsReward = coins,
-                extraBonusDescription = extra
-            )
-        }
-
-        // Determine next streak day
-        val nextStreak = if (lastDate.isEmpty()) {
-            1
-        } else {
-            val isYesterday = isPreviousCalendarDay(lastDate, todayDateStr)
-            if (isYesterday) currentStreak + 1 else 1
-        }
-
-        val cycleDay = ((nextStreak - 1) % 7) + 1
-        val (coins, extra) = calculateDailyBonusReward(cycleDay)
-        return DailyBonusInfo(
-            isAvailableToday = true,
-            currentStreakDay = cycleDay,
-            coinsReward = coins,
-            extraBonusDescription = extra
-        )
-    }
-
-    suspend fun claimDailyLoginBonus(todayDateStr: String): Pair<Int, String?> {
-        var rewardedCoins = 0
-        var extraRewardDesc: String? = null
-
-        context.dataStore.edit { prefs ->
-            val lastDate = prefs[PreferencesKeys.KEY_LAST_LOGIN_DATE] ?: ""
-            if (lastDate == todayDateStr) {
-                return@edit // Already claimed today
-            }
-
-            val currentStreak = prefs[PreferencesKeys.KEY_LOGIN_STREAK_DAYS] ?: 0
-            val nextStreak = if (lastDate.isEmpty()) {
-                1
-            } else {
-                val isYesterday = isPreviousCalendarDay(lastDate, todayDateStr)
-                if (isYesterday) currentStreak + 1 else 1
-            }
-
-            val cycleDay = ((nextStreak - 1) % 7) + 1
-            val (coins, extra) = calculateDailyBonusReward(cycleDay)
-            rewardedCoins = coins
-            extraRewardDesc = extra
-
-            // Apply coins
-            val currentCoins = prefs[PreferencesKeys.KEY_COINS] ?: 500
-            prefs[PreferencesKeys.KEY_COINS] = currentCoins + coins
-
-            // Apply extra rewards based on day
-            when (cycleDay) {
-                3 -> {
-                    val wands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
-                    prefs[PreferencesKeys.KEY_MAGIC_WANDS] = wands + 1
-                }
-                5 -> {
-                    val tokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
-                    prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = tokens + 1
-                }
-                6 -> {
-                    val ai = prefs[PreferencesKeys.KEY_AI_TOKENS] ?: 10
-                    prefs[PreferencesKeys.KEY_AI_TOKENS] = ai + 2
-                }
-                7 -> {
-                    val wands = prefs[PreferencesKeys.KEY_MAGIC_WANDS] ?: 5
-                    prefs[PreferencesKeys.KEY_MAGIC_WANDS] = wands + 2
-                    val tokens = prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] ?: 3
-                    prefs[PreferencesKeys.KEY_AD_FREE_TOKENS] = tokens + 1
-                }
-            }
-
-            prefs[PreferencesKeys.KEY_LAST_LOGIN_DATE] = todayDateStr
-            prefs[PreferencesKeys.KEY_LOGIN_STREAK_DAYS] = nextStreak
-        }
-
-        return Pair(rewardedCoins, extraRewardDesc)
-    }
-
-    private fun isPreviousCalendarDay(prevDateStr: String, todayDateStr: String): Boolean {
-        return try {
-            val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-            val prev = format.parse(prevDateStr) ?: return false
-            val today = format.parse(todayDateStr) ?: return false
-            val diffMs = today.time - prev.time
-            val diffDays = diffMs / (1000 * 60 * 60 * 24)
-            diffDays == 1L
-        } catch (_: Exception) {
-            false
-        }
-    }
+    suspend fun getSnapshot(): UserSettings = userSettingsFlow.first()
 }

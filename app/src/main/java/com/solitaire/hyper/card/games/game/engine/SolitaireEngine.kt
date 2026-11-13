@@ -603,10 +603,32 @@ object SolitaireEngine {
     }
 
     /**
-     * Magic Wand booster: Automatically detects and executes an advantageous move,
-     * or reveals a buried face-down tableau card when the player is stuck!
+     * Auto-moves a card directly to the first legal Foundation pile on double-tap.
      */
-    fun magicWand(state: GameState): Pair<GameState, String>? {
+    fun autoMoveToFoundation(state: GameState, from: CardLocation): Pair<GameState, GameMove>? {
+        if (state.isGameWon) return null
+        val card = when (from) {
+            is CardLocation.Waste -> state.waste.lastOrNull()
+            is CardLocation.Tableau -> {
+                val col = state.tableau.getOrNull(from.columnIndex) ?: return null
+                if (from.cardIndex == col.lastIndex) col.lastOrNull() else null
+            }
+            else -> null
+        } ?: return null
+
+        for (fIdx in 0 until 4) {
+            if (canMoveToFoundation(card, state.foundations[fIdx])) {
+                return moveCards(state, from, CardLocation.Foundation(fIdx))
+            }
+        }
+        return null
+    }
+
+    /**
+     * Joker Helper: When stuck, the Joker makes the smartest available move,
+     * uncovers a hidden face-down card, or draws a playable card from stock!
+     */
+    fun jokerHelper(state: GameState): Pair<GameState, String>? {
         if (state.isGameWon) return null
 
         // Priority 1: Check if any top face-up card in tableau or waste can be moved to Foundation!
@@ -618,7 +640,7 @@ object SolitaireEngine {
                     if (canMoveToFoundation(topCard, state.foundations[fIdx])) {
                         val res = moveCards(state, CardLocation.Tableau(colIdx, col.lastIndex), CardLocation.Foundation(fIdx))
                         if (res != null) {
-                            return Pair(res.first, "🪄 Magic Wand: ${topCard.toDisplayString()} moved to Foundation!")
+                            return Pair(res.first, "🃏 Joker moved ${topCard.toDisplayString()} to Foundation!")
                         }
                     }
                 }
@@ -631,7 +653,7 @@ object SolitaireEngine {
                 if (canMoveToFoundation(wasteCard, state.foundations[fIdx])) {
                     val res = moveCards(state, CardLocation.Waste, CardLocation.Foundation(fIdx))
                     if (res != null) {
-                        return Pair(res.first, "🪄 Magic Wand: ${wasteCard.toDisplayString()} moved to Foundation!")
+                        return Pair(res.first, "🃏 Joker moved ${wasteCard.toDisplayString()} to Foundation!")
                     }
                 }
             }
@@ -649,7 +671,7 @@ object SolitaireEngine {
                     if (canMoveToTableau(movingCard, targetCol)) {
                         val res = moveCards(state, CardLocation.Tableau(colIdx, firstFaceUpIdx), CardLocation.Tableau(targetColIdx))
                         if (res != null) {
-                            return Pair(res.first, "🪄 Magic Wand: ${movingCard.toDisplayString()} moved & uncovered a card!")
+                            return Pair(res.first, "🃏 Joker moved ${movingCard.toDisplayString()} & revealed a buried card!")
                         }
                     }
                 }
@@ -664,13 +686,13 @@ object SolitaireEngine {
                 if (canMoveToTableau(wasteCard, targetCol)) {
                     val res = moveCards(state, CardLocation.Waste, CardLocation.Tableau(targetColIdx))
                     if (res != null) {
-                        return Pair(res.first, "🪄 Magic Wand: ${wasteCard.toDisplayString()} placed on board!")
+                        return Pair(res.first, "🃏 Joker placed ${wasteCard.toDisplayString()} onto Column ${targetColIdx + 1}!")
                     }
                 }
             }
         }
 
-        // Priority 4: If no direct legal move, magically unlock the deepest face-down card!
+        // Priority 4: If no direct legal move, magically reveal the deepest face-down card!
         val colWithFaceDown = state.tableau
             .mapIndexed { idx, col -> idx to col }
             .filter { (_, col) -> col.any { !it.isFaceUp } }
@@ -687,13 +709,15 @@ object SolitaireEngine {
                 newTableau[colIdx] = col
                 val newState = state.copy(
                     tableau = newTableau,
-                    score = state.score + 10,
+                    score = state.score + 15,
                     moveCount = state.moveCount + 1
                 )
-                return Pair(newState, "🪄 Magic Wand magically revealed ${flippedCard.toDisplayString()}!")
+                return Pair(newState, "🃏 Joker revealed hidden ${flippedCard.toDisplayString()}!")
             }
         }
 
         return null
     }
+
+    fun magicWand(state: GameState): Pair<GameState, String>? = jokerHelper(state)
 }

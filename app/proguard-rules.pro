@@ -56,3 +56,5 @@
 -keep class com.solitaire.hyper.card.games.data.db.** { *; }
 -keep class com.solitaire.hyper.card.games.game.** { *; }
 -keep class com.solitaire.hyper.card.games.ads.** { *; }
+-keep class com.solitaire.hyper.card.games.billing.** { *; }
+-keep class com.android.billingclient.api.** { *; }

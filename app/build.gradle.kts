@@ -16,8 +16,8 @@ android {
     applicationId = "com.solitaire.hyper.card.games"
     minSdk = 24
     targetSdk = 36
-    versionCode = 16
-    versionName = "16.0"
+    versionCode = 18
+    versionName = "18.0.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -76,9 +76,6 @@ android {
     includeInApk = false
     includeInBundle = true
   }
-  androidResources {
-    noCompress += listOf("bin", "dat", "pak")
-  }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
@@ -116,7 +113,9 @@ dependencies {
   // 100% Offline-First / Zero external SDKs / Zero data collection
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  // implementation(libs.okhttp)
+  implementation(libs.play.services.ads)
+  implementation(libs.user.messaging.platform)
+  implementation(libs.billing.ktx)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -136,12 +135,3 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   // "ksp"(libs.moshi.kotlin.codegen)
 }
-
-tasks.register<Zip>("createObb") {
-  archiveFileName.set("main.${android.defaultConfig.versionCode}.${android.defaultConfig.applicationId}.obb")
-  destinationDirectory.set(layout.buildDirectory.dir("outputs/obb"))
-  from("src/main/assets")
-}
-
-
-

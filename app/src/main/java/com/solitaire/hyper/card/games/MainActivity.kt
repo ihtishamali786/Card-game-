@@ -1,21 +1,22 @@
 package com.solitaire.hyper.card.games
 
 import android.app.Activity
-import android.content.pm.ActivityInfo
-import android.content.pm.PackageManager
-import android.Manifest
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,8 +24,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import com.solitaire.hyper.card.games.ads.AdManager
+import com.solitaire.hyper.card.games.ads.ConsentManager
+import com.solitaire.hyper.card.games.billing.BillingManager
 import com.solitaire.hyper.card.games.data.GameRepository
 import com.solitaire.hyper.card.games.data.preferences.UserPreferencesRepository
 import com.solitaire.hyper.card.games.game.model.GameMode
@@ -37,24 +46,12 @@ import com.solitaire.hyper.card.games.ui.game.GameViewModel
 import com.solitaire.hyper.card.games.ui.home.HomeScreen
 import com.solitaire.hyper.card.games.ui.settings.SettingsScreen
 import com.solitaire.hyper.card.games.ui.stats.StatisticsScreen
-import com.solitaire.hyper.card.games.ui.theme.SolitaireHyperTheme
-import com.solitaire.hyper.card.games.ads.AdManager
-import com.solitaire.hyper.card.games.ui.science.BioscienceSkillsScreen
-import com.solitaire.hyper.card.games.update.AppUpdateHelper
-import com.solitaire.hyper.card.games.update.UpdateStatus
-
-import androidx.activity.compose.BackHandler
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate100
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
+import com.solitaire.hyper.card.games.ui.theme.SolitaireHyperTheme
+import com.solitaire.hyper.card.games.update.AppUpdateHelper
+import com.solitaire.hyper.card.games.update.UpdateStatus
 
 enum class Screen {
     HOME,
@@ -63,13 +60,13 @@ enum class Screen {
     STATISTICS,
     CUSTOMIZATION,
     ACHIEVEMENTS,
-    SETTINGS,
-    BIOSCIENCE_SKILLS
+    SETTINGS
 }
 
 class MainActivity : ComponentActivity() {
 
     private val gameViewModel: GameViewModel by viewModels()
+    private lateinit var billingManager: BillingManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,6 +78,17 @@ class MainActivity : ComponentActivity() {
 
         val userPrefs = UserPreferencesRepository(applicationContext)
         val gameRepository = GameRepository(applicationContext)
+        billingManager = BillingManager(this) { isRemoved ->
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                userPrefs.setAdsRemoved(isRemoved)
+            }
+        }
+        billingManager.startConnection()
+
+        // Google UMP Consent message flow & AdMob initialization
+        ConsentManager.requestConsentAndInitAds(this) {
+            AdManager.initialize(applicationContext)
+        }
 
         setContent {
             SolitaireHyperTheme {
@@ -88,21 +96,19 @@ class MainActivity : ComponentActivity() {
                     SolitaireAppNavigation(
                         viewModel = gameViewModel,
                         userPrefs = userPrefs,
-                        repository = gameRepository
+                        repository = gameRepository,
+                        billingManager = billingManager
                     )
                 }
             }
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        com.solitaire.hyper.card.games.notifications.NotificationScheduler.recordUserActivity(this)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        com.solitaire.hyper.card.games.notifications.NotificationScheduler.recordUserActivity(this)
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::billingManager.isInitialized) {
+            billingManager.endConnection()
+        }
     }
 }
 
@@ -110,7 +116,8 @@ class MainActivity : ComponentActivity() {
 fun SolitaireAppNavigation(
     viewModel: GameViewModel,
     userPrefs: UserPreferencesRepository,
-    repository: GameRepository
+    repository: GameRepository,
+    billingManager: BillingManager
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -121,27 +128,6 @@ fun SolitaireAppNavigation(
     val userSettings by viewModel.userSettings.collectAsState()
     val hasSavedGame = !userSettings.savedGameJson.isNullOrBlank()
     val updateStatus by AppUpdateHelper.updateStatus.collectAsState()
-
-    // Request notification permission on Android 13+ (Tiramisu)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        val permissionLauncher = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
-        ) { _ -> }
-
-        LaunchedEffect(Unit) {
-            if (ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        // Purely local and offline-first
-    }
 
     // In-App Update Notice Dialog if new version is available
     val availableUpdate = updateStatus as? UpdateStatus.Available
@@ -178,13 +164,7 @@ fun SolitaireAppNavigation(
                 Button(
                     onClick = {
                         showAppExitDialog = false
-                        if (activity != null) {
-                            AdManager.showExitAd(activity, userSettings.isAdFreeActive()) {
-                                activity.finish()
-                            }
-                        } else {
-                            activity?.finish()
-                        }
+                        activity?.finish()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500)
                 ) {
@@ -226,10 +206,6 @@ fun SolitaireAppNavigation(
                     viewModel.startNewGame(mode = GameMode.DRAW_3)
                     navigateTo(Screen.GAME)
                 },
-                onPlayWinnable = {
-                    viewModel.startNewGame(mode = GameMode.DRAW_1, isWinnableDeal = true)
-                    navigateTo(Screen.GAME)
-                },
                 onDailyChallenge = {
                     navigateTo(Screen.DAILY_CHALLENGES)
                 },
@@ -238,12 +214,6 @@ fun SolitaireAppNavigation(
                 },
                 onCustomization = {
                     navigateTo(Screen.CUSTOMIZATION)
-                },
-                onAchievements = {
-                    navigateTo(Screen.ACHIEVEMENTS)
-                },
-                onBioscienceSkills = {
-                    navigateTo(Screen.BIOSCIENCE_SKILLS)
                 },
                 onSettings = {
                     navigateTo(Screen.SETTINGS)
@@ -296,12 +266,7 @@ fun SolitaireAppNavigation(
             )
             Screen.SETTINGS -> SettingsScreen(
                 userPrefs = userPrefs,
-                onBack = { navigateBackFromSubScreen() },
-                onOpenCustomization = { navigateTo(Screen.CUSTOMIZATION) }
-            )
-            Screen.BIOSCIENCE_SKILLS -> BioscienceSkillsScreen(
-                repository = repository,
-                userPrefs = userPrefs,
+                billingManager = billingManager,
                 onBack = { navigateBackFromSubScreen() }
             )
         }

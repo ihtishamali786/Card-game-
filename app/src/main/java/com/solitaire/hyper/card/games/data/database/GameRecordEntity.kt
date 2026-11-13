@@ -12,5 +12,7 @@ data class GameRecordEntity(
     val moves: Int,
     val timeSeconds: Long,
     val score: Int,
-    val dateMillis: Long = System.currentTimeMillis()
+    val dateMillis: Long = System.currentTimeMillis(),
+    val consecutiveWins: Int = 0,
+    val consecutiveLosses: Int = 0
 )

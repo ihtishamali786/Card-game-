@@ -4,61 +4,29 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 /**
- * Category classification for the 56 Table Themes.
- */
-enum class TableCategory(val displayName: String) {
-    CITIES("Cities (14)"),
-    COUNTRIES("Countries & Landscapes (14)"),
-    NATURE("Nature & Wilderness (10)"),
-    SPACE_FANTASY("Space & Fantasy (6)"),
-    ABSTRACT_TEXTURES("Abstract & Textures (8)"),
-    CLASSIC_FELTS("Classic Solid Felts (4)")
-}
-
-/**
- * Full-screen Background Theme.
+ * Zen Background Theme.
  */
 data class BackgroundTheme(
     val id: String,
     val name: String,
-    val category: TableCategory,
+    val category: String,
     val primaryColor: Color,
     val brush: Brush,
-    val subtitle: String,
-    val isPremium: Boolean = false,
-    val coinCost: Int = 0
+    val subtitle: String
 )
 
 /**
- * Patterns for Card Backs (25 distinct procedural designs).
+ * Procedural Card Back Theme.
  */
 enum class CardBackPattern {
-    GEOMETRIC_DIAMONDS,
-    MANDALA,
-    ARABESQUE,
-    LATTICE_WEAVE,
-    GRADIENT_BLUE,
-    CITY_SKYLINE,
-    FLOWER_BLOOM,
-    DRAGON,
-    GALAXY_SWIRL,
-    DARK_WOOD,
-    CARBON_FIBRE,
-    LEATHER_STITCH,
-    CIRCUIT_BOARD,
-    OCEAN_WAVES,
-    MOUNTAIN_SUNRISE,
-    SUNSET_PALMS,
-    PAISLEY,
-    TRIBAL_PATTERN,
-    ORNATE_CREST,
-    CHECKERBOARD,
-    STARRY_NIGHT,
-    MINIMALIST_MONOGRAM,
-    ANIMAL_SILHOUETTE,
-    VINTAGE_POSTAGE,
-    HOLOGRAPHIC_SHIMMER,
-    CUSTOM_PHOTO
+    ROYAL_SAPPHIRE,
+    IMPERIAL_CRIMSON,
+    ZEN_EMERALD,
+    MIDNIGHT_GOLD,
+    SAKURA_BLOSSOM,
+    CELESTIAL_STARS,
+    HERITAGE_WOOD,
+    JOKER_AMETHYST
 }
 
 data class CardBackTheme(
@@ -66,40 +34,16 @@ data class CardBackTheme(
     val name: String,
     val patternType: CardBackPattern,
     val baseColor: Color,
-    val accentColor: Color,
-    val isPremium: Boolean = false,
-    val coinCost: Int = 0
+    val accentColor: Color
 )
 
 /**
- * 25 Card Face styles.
+ * Card Face Styles (Standard, Modern Clean, Jumbo Easy-Read).
  */
 enum class CardFaceStyle {
-    CLASSIC_STANDARD,
-    MODERN_MINIMAL,
-    LARGE_INDEX,
-    FOUR_COLOUR_CLEAR,
-    VINTAGE_IVORY,
-    ROYAL_GOLD,
-    NEON_GLOW,
-    DARK_OBSIDIAN,
-    FROSTED_GLASS,
-    PAPER_CRAFT,
-    WATERCOLOUR,
-    PIXEL_RETRO,
-    COMIC_POP,
-    CARVED_WOOD,
-    WHITE_MARBLE,
-    CHROME_METALLIC,
-    CYBERPUNK,
-    OCEAN_BLUE,
-    FLORAL_GARDEN,
-    GALAXY,
-    LINE_ART,
-    CASINO_CLASSIC,
-    ARABESQUE,
-    MUGHAL_MINIATURE,
-    ART_DECO
+    STANDARD,
+    MODERN_CLEAN,
+    JUMBO_EASY_READ
 }
 
 data class CardFaceTheme(
@@ -107,234 +51,189 @@ data class CardFaceTheme(
     val name: String,
     val style: CardFaceStyle,
     val surfaceColor: Color,
-    val isDarkSurface: Boolean = false,
-    val description: String,
-    val isPremium: Boolean = false,
-    val coinCost: Int = 0
-)
-
-/**
- * 12 Suit Icon Styles.
- */
-enum class SuitIconStyle {
-    CLASSIC_FILLED,
-    OUTLINE,
-    ROUNDED_SOFT,
-    FLAT_GEOMETRIC,
-    THREE_D_EMBOSSED,
-    GOLD_FOIL,
-    NEON_LINE,
-    HAND_DRAWN,
-    PIXEL,
-    GRADIENT,
-    GLASS,
-    ORNATE
-}
-
-data class SuitStyleTheme(
-    val id: String,
-    val name: String,
-    val style: SuitIconStyle,
     val description: String
-)
-
-/**
- * 4 Suit Color Schemes.
- */
-data class SuitColorScheme(
-    val id: String,
-    val name: String,
-    val heartsColor: Color,
-    val diamondsColor: Color,
-    val clubsColor: Color,
-    val spadesColor: Color,
-    val description: String
-)
-
-/**
- * Preset Combination of styles for quick 1-tap immersion.
- */
-data class PresetCombo(
-    val id: String,
-    val name: String,
-    val description: String,
-    val cardFaceId: String,
-    val suitStyleId: String,
-    val suitSchemeId: String,
-    val cardBackId: String,
-    val backgroundId: String
 )
 
 object CustomizationRegistry {
 
-    // =========================================================================
-    // 1. SOLITAIRE HYPER CARD DECK (Sole Master Face Theme)
-    // =========================================================================
-    val cardFaces = listOf(
+    // 8 Curated Zen Backgrounds (Classic green, wood, night blue, sunset, and 4 nature scenes)
+    val BACKGROUNDS: List<BackgroundTheme> = listOf(
+        BackgroundTheme(
+            id = "BG_CLASSIC_GREEN",
+            name = "Classic Green",
+            category = "Classic",
+            primaryColor = Color(0xFF1B4D3E),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF1C5243), Color(0xFF13392E), Color(0xFF0C241D))
+            ),
+            subtitle = "Traditional felt with subtle texture"
+        ),
+        BackgroundTheme(
+            id = "BG_WOOD",
+            name = "Warm Mahogany",
+            category = "Wood",
+            primaryColor = Color(0xFF3E2723),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF4E342E), Color(0xFF3E2723), Color(0xFF271510))
+            ),
+            subtitle = "Rich polished timber surface"
+        ),
+        BackgroundTheme(
+            id = "BG_NIGHT_BLUE",
+            name = "Night Blue Zen",
+            category = "Zen",
+            primaryColor = Color(0xFF0F172A),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF1E293B), Color(0xFF0F172A), Color(0xFF020617))
+            ),
+            subtitle = "Deep calming midnight gradient"
+        ),
+        BackgroundTheme(
+            id = "BG_SUNSET",
+            name = "Golden Sunset",
+            category = "Atmospheric",
+            primaryColor = Color(0xFF7C2D12),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF9A3412), Color(0xFF7C2D12), Color(0xFF431407))
+            ),
+            subtitle = "Warm glowing amber twilight"
+        ),
+        BackgroundTheme(
+            id = "BG_FOREST",
+            name = "Tranquil Forest",
+            category = "Nature",
+            primaryColor = Color(0xFF14532D),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF166534), Color(0xFF14532D), Color(0xFF052E16))
+            ),
+            subtitle = "Lush pine forest canopy"
+        ),
+        BackgroundTheme(
+            id = "BG_OCEAN",
+            name = "Ocean Waves",
+            category = "Nature",
+            primaryColor = Color(0xFF0E7490),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF0891B2), Color(0xFF0E7490), Color(0xFF164E63))
+            ),
+            subtitle = "Soothing deep coastal aqua"
+        ),
+        BackgroundTheme(
+            id = "BG_AUTUMN",
+            name = "Autumn Leaves",
+            category = "Nature",
+            primaryColor = Color(0xFF92400E),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFFB45309), Color(0xFF92400E), Color(0xFF78350F))
+            ),
+            subtitle = "Warm cedar and golden maple"
+        ),
+        BackgroundTheme(
+            id = "BG_MOUNTAIN",
+            name = "Mountain Mist",
+            category = "Nature",
+            primaryColor = Color(0xFF334155),
+            brush = Brush.verticalGradient(
+                listOf(Color(0xFF475569), Color(0xFF334155), Color(0xFF1E293B))
+            ),
+            subtitle = "Serene alpine morning haze"
+        )
+    )
+
+    // 8 Elegant Card Backs
+    val CARD_BACKS: List<CardBackTheme> = listOf(
+        CardBackTheme(
+            id = "BACK_ROYAL_BLUE",
+            name = "Royal Sapphire",
+            patternType = CardBackPattern.ROYAL_SAPPHIRE,
+            baseColor = Color(0xFF1E3A8A),
+            accentColor = Color(0xFF60A5FA)
+        ),
+        CardBackTheme(
+            id = "BACK_CRIMSON",
+            name = "Imperial Crimson",
+            patternType = CardBackPattern.IMPERIAL_CRIMSON,
+            baseColor = Color(0xFF881337),
+            accentColor = Color(0xFFFB7185)
+        ),
+        CardBackTheme(
+            id = "BACK_EMERALD_ZEN",
+            name = "Zen Emerald",
+            patternType = CardBackPattern.ZEN_EMERALD,
+            baseColor = Color(0xFF064E3B),
+            accentColor = Color(0xFF34D399)
+        ),
+        CardBackTheme(
+            id = "BACK_MIDNIGHT_GOLD",
+            name = "Midnight & Gold",
+            patternType = CardBackPattern.MIDNIGHT_GOLD,
+            baseColor = Color(0xFF18181B),
+            accentColor = Color(0xFFFBBF24)
+        ),
+        CardBackTheme(
+            id = "BACK_SAKURA",
+            name = "Sakura Blossom",
+            patternType = CardBackPattern.SAKURA_BLOSSOM,
+            baseColor = Color(0xFF831843),
+            accentColor = Color(0xFFF472B6)
+        ),
+        CardBackTheme(
+            id = "BACK_CELESTIAL",
+            name = "Celestial Stars",
+            patternType = CardBackPattern.CELESTIAL_STARS,
+            baseColor = Color(0xFF312E81),
+            accentColor = Color(0xFFA5B4FC)
+        ),
+        CardBackTheme(
+            id = "BACK_RETRO_WOOD",
+            name = "Heritage Woodgrain",
+            patternType = CardBackPattern.HERITAGE_WOOD,
+            baseColor = Color(0xFF451A03),
+            accentColor = Color(0xFFD97706)
+        ),
+        CardBackTheme(
+            id = "BACK_JOKER_PURPLE",
+            name = "Joker Amethyst",
+            patternType = CardBackPattern.JOKER_AMETHYST,
+            baseColor = Color(0xFF581C87),
+            accentColor = Color(0xFFC084FC)
+        )
+    )
+
+    // 3 Card Face Styles
+    val CARD_FACES: List<CardFaceTheme> = listOf(
         CardFaceTheme(
-            id = "FACE_CLASSIC_STANDARD",
-            name = "Solitaire King Deck",
-            style = CardFaceStyle.CLASSIC_STANDARD,
+            id = "FACE_STANDARD",
+            name = "Classic Standard",
+            style = CardFaceStyle.STANDARD,
             surfaceColor = Color(0xFFFFFFFF),
-            isDarkSurface = false,
-            description = "Official Solitaire King Card Deck: Jumbo Easy-Read v2 with large centered suit and bold rank"
+            description = "Real casino cards with full pips and court figures"
+        ),
+        CardFaceTheme(
+            id = "FACE_MODERN",
+            name = "Modern Clean",
+            style = CardFaceStyle.MODERN_CLEAN,
+            surfaceColor = Color(0xFFF8FAFC),
+            description = "Real card layout with clean sans-serif numbers"
+        ),
+        CardFaceTheme(
+            id = "FACE_JUMBO",
+            name = "Jumbo Easy-Read",
+            style = CardFaceStyle.JUMBO_EASY_READ,
+            surfaceColor = Color(0xFFFFFFFF),
+            description = "Huge corner numbers and one big center suit"
         )
     )
 
-    // =========================================================================
-    // 2. SUIT ICON STYLE (Classic Standard Filled)
-    // =========================================================================
-    val suitStyles = listOf(
-        SuitStyleTheme("SUIT_CLASSIC_FILLED", "Classic Filled", SuitIconStyle.CLASSIC_FILLED, "Solid timeless silhouette standard pips")
-    )
-
-    // =========================================================================
-    // 3. SUIT COLOUR SCHEME (Standard Red & Black)
-    // =========================================================================
-    val suitColorSchemes = listOf(
-        SuitColorScheme(
-            "SCHEME_STANDARD",
-            "Standard (Red & Black)",
-            heartsColor = Color(0xFFE21C34),
-            diamondsColor = Color(0xFFE21C34),
-            clubsColor = Color(0xFF0E1018),
-            spadesColor = Color(0xFF0E1018),
-            description = "Traditional 2-colour deck: Hearts and Diamonds Red, Spades and Clubs Black."
-        )
-    )
-
-    // =========================================================================
-    // 4. THE 25 CARD BACK DESIGNS + MY PHOTO
-    // =========================================================================
-    val cardBacks = listOf(
-        CardBackTheme("BACK_GEOMETRIC_DIAMONDS", "Geometric Diamonds", CardBackPattern.GEOMETRIC_DIAMONDS, Color(0xFF1E3A8A), Color(0xFF60A5FA)),
-        CardBackTheme("BACK_MANDALA", "Mandala", CardBackPattern.MANDALA, Color(0xFF831843), Color(0xFFF472B6)),
-        CardBackTheme("BACK_ARABESQUE", "Arabesque Pattern", CardBackPattern.ARABESQUE, Color(0xFF14532D), Color(0xFF86EFAC)),
-        CardBackTheme("BACK_LATTICE_WEAVE", "Lattice Weave", CardBackPattern.LATTICE_WEAVE, Color(0xFF312E81), Color(0xFFA5B4FC)),
-        CardBackTheme("BACK_GRADIENT_BLUE", "Gradient Blue", CardBackPattern.GRADIENT_BLUE, Color(0xFF0369A1), Color(0xFF38BDF8)),
-        CardBackTheme("BACK_CITY_SKYLINE", "City Skyline", CardBackPattern.CITY_SKYLINE, Color(0xFF0F172A), Color(0xFFFBBF24)),
-        CardBackTheme("BACK_FLOWER_BLOOM", "Flower Bloom", CardBackPattern.FLOWER_BLOOM, Color(0xFF9D174D), Color(0xFFFBCFE8)),
-        CardBackTheme("BACK_DRAGON", "Dragon Sunburst", CardBackPattern.DRAGON, Color(0xFF7F1D1D), Color(0xFFFDE047)),
-        CardBackTheme("BACK_GALAXY_SWIRL", "Galaxy Swirl", CardBackPattern.GALAXY_SWIRL, Color(0xFF3B0764), Color(0xFFC084FC)),
-        CardBackTheme("BACK_DARK_WOOD", "Dark Wood Grain", CardBackPattern.DARK_WOOD, Color(0xFF451A03), Color(0xFFD97706)),
-        CardBackTheme("BACK_CARBON_FIBRE", "Carbon Fibre", CardBackPattern.CARBON_FIBRE, Color(0xFF18181B), Color(0xFF71717A)),
-        CardBackTheme("BACK_LEATHER_STITCH", "Leather with Stitching", CardBackPattern.LEATHER_STITCH, Color(0xFF78350F), Color(0xFFFCD34D)),
-        CardBackTheme("BACK_CIRCUIT_BOARD", "Circuit Board", CardBackPattern.CIRCUIT_BOARD, Color(0xFF064E3B), Color(0xFF34D399)),
-        CardBackTheme("BACK_OCEAN_WAVES", "Ocean Waves", CardBackPattern.OCEAN_WAVES, Color(0xFF0C4A6E), Color(0xFF7DD3FC)),
-        CardBackTheme("BACK_MOUNTAIN_SUNRISE", "Mountain Sunrise", CardBackPattern.MOUNTAIN_SUNRISE, Color(0xFF1E293B), Color(0xFFFB923C)),
-        CardBackTheme("BACK_SUNSET_PALMS", "Sunset Palms", CardBackPattern.SUNSET_PALMS, Color(0xFF881337), Color(0xFFFDE047)),
-        CardBackTheme("BACK_PAISLEY", "Paisley Royal", CardBackPattern.PAISLEY, Color(0xFF4C1D95), Color(0xFFDDD6FE)),
-        CardBackTheme("BACK_TRIBAL_PATTERN", "Tribal Pattern", CardBackPattern.TRIBAL_PATTERN, Color(0xFF7C2D12), Color(0xFFFED7AA)),
-        CardBackTheme("BACK_ORNATE_CREST", "Ornate Royal Crest", CardBackPattern.ORNATE_CREST, Color(0xFF1E1B4B), Color(0xFFFACC15)),
-        CardBackTheme("BACK_CHECKERBOARD", "Checkerboard", CardBackPattern.CHECKERBOARD, Color(0xFF111827), Color(0xFFE5E7EB)),
-        CardBackTheme("BACK_STARRY_NIGHT", "Starry Night", CardBackPattern.STARRY_NIGHT, Color(0xFF0F172A), Color(0xFFE2E8F0)),
-        CardBackTheme("BACK_MINIMALIST_MONOGRAM", "Minimalist Monogram", CardBackPattern.MINIMALIST_MONOGRAM, Color(0xFF0284C7), Color(0xFFBAE6FD)),
-        CardBackTheme("BACK_ANIMAL_SILHOUETTE", "Animal Silhouette (Lion/Eagle)", CardBackPattern.ANIMAL_SILHOUETTE, Color(0xFF1C1917), Color(0xFFE7E5E4)),
-        CardBackTheme("BACK_VINTAGE_POSTAGE", "Vintage Postage Stamp", CardBackPattern.VINTAGE_POSTAGE, Color(0xFF713F12), Color(0xFFFEF08A)),
-        CardBackTheme("BACK_HOLOGRAPHIC_SHIMMER", "Holographic Shimmer", CardBackPattern.HOLOGRAPHIC_SHIMMER, Color(0xFF2E1065), Color(0xFFF43F5E)),
-        // Custom photo card back
-        CardBackTheme("BACK_CUSTOM_PHOTO", "My Custom Photo", CardBackPattern.CUSTOM_PHOTO, Color(0xFF1E293B), Color(0xFF38BDF8))
-    )
-
-    // =========================================================================
-    // 5. THE 56 TABLE THEMES (All Categories)
-    // =========================================================================
-    val backgrounds = listOf(
-        // --- 1. CITIES (14) ---
-        BackgroundTheme("CITY_PARIS", "Paris Skyline", TableCategory.CITIES, Color(0xFF1E1B4B), Brush.verticalGradient(listOf(Color(0xFF312E81), Color(0xFF1E1B4B), Color(0xFF0F172A))), "Eiffel Tower twilight and illuminated Seine bridges"),
-        BackgroundTheme("CITY_DUBAI", "Dubai Skyline", TableCategory.CITIES, Color(0xFF1E293B), Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF0F172A), Color(0xFF78350F))), "Burj Khalifa spire gleaming above desert metropolis"),
-        BackgroundTheme("CITY_ISTANBUL", "Istanbul Bosphorus", TableCategory.CITIES, Color(0xFF134E4A), Brush.verticalGradient(listOf(Color(0xFF0D9488), Color(0xFF115E59), Color(0xFF042F2E))), "Historic minarets and glistening straits at dusk"),
-        BackgroundTheme("CITY_TOKYO", "Tokyo at Night", TableCategory.CITIES, Color(0xFF0F172A), Brush.verticalGradient(listOf(Color(0xFF701A75), Color(0xFF1E1B4B), Color(0xFF020617))), "Neon-drenched Shibuya crossings and electric billboards"),
-        BackgroundTheme("CITY_NEW_YORK", "New York Skyline", TableCategory.CITIES, Color(0xFF090D16), Brush.verticalGradient(listOf(Color(0xFF1E3A8A), Color(0xFF0F172A), Color(0xFF020617))), "Manhattan skyscrapers and yellow cab reflections"),
-        BackgroundTheme("CITY_LONDON", "London Tower Bridge", TableCategory.CITIES, Color(0xFF1E293B), Brush.verticalGradient(listOf(Color(0xFF334155), Color(0xFF1E293B), Color(0xFF0F172A))), "Thames mist framing the illuminated gothic twin towers"),
-        BackgroundTheme("CITY_ROME", "Rome Old Town", TableCategory.CITIES, Color(0xFF78350F), Brush.verticalGradient(listOf(Color(0xFF9A3412), Color(0xFF78350F), Color(0xFF451A03))), "Ancient cobblestone alleyways and warm Colosseum amber"),
-        BackgroundTheme("CITY_VENICE", "Venice Canals", TableCategory.CITIES, Color(0xFF0C4A6E), Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF075985), Color(0xFF082F49))), "Gondolas gliding along grand turquoise waterways"),
-        BackgroundTheme("CITY_SINGAPORE", "Singapore Marina Bay", TableCategory.CITIES, Color(0xFF14532D), Brush.verticalGradient(listOf(Color(0xFF059669), Color(0xFF047857), Color(0xFF022C22))), "Supertrees of the Bay and futuristic waterfront architecture"),
-        BackgroundTheme("CITY_SYDNEY", "Sydney Harbour", TableCategory.CITIES, Color(0xFF075985), Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF0369A1), Color(0xFF0C4A6E))), "White sails of the Opera House on deep Pacific blue"),
-        BackgroundTheme("CITY_CAIRO", "Cairo & Pyramids", TableCategory.CITIES, Color(0xFF713F12), Brush.verticalGradient(listOf(Color(0xFFB45309), Color(0xFF78350F), Color(0xFF451A03))), "Timeless Great Giza Pyramids under golden desert sunset"),
-        BackgroundTheme("CITY_LAHORE", "Lahore Fort Area", TableCategory.CITIES, Color(0xFF881337), Brush.verticalGradient(listOf(Color(0xFF9F1239), Color(0xFF4C0519), Color(0xFF1C1917))), "Imperial Mughal arches, sheesh mahal and Badshahi red sandstone"),
-        BackgroundTheme("CITY_JAIPUR", "Jaipur Pink City", TableCategory.CITIES, Color(0xFF9F1239), Brush.verticalGradient(listOf(Color(0xFFBE123C), Color(0xFF881337), Color(0xFF4C0519))), "Hawa Mahal facade in iconic terracotta terracotta rose"),
-        BackgroundTheme("CITY_HONG_KONG", "Hong Kong Harbour", TableCategory.CITIES, Color(0xFF1E1B4B), Brush.verticalGradient(listOf(Color(0xFF4338CA), Color(0xFF1E1B4B), Color(0xFF020617))), "Victoria Peak panorama over laser symphony across the bay"),
-
-        // --- 2. COUNTRIES & LANDSCAPES (14) ---
-        BackgroundTheme("LAND_HUNZA", "Hunza Valley (Pakistan)", TableCategory.COUNTRIES, Color(0xFF0F766E), Brush.verticalGradient(listOf(Color(0xFF14B8A6), Color(0xFF0F766E), Color(0xFF134E4A))), "Snow-capped Rakaposhi peak towering over terraced apricot orchards"),
-        BackgroundTheme("LAND_RAJASTHAN", "Rajasthan Desert (India)", TableCategory.COUNTRIES, Color(0xFFB45309), Brush.verticalGradient(listOf(Color(0xFFF59E0B), Color(0xFFD97706), Color(0xFF78350F))), "Endless wind-sculpted golden dunes under warm sunset skies"),
-        BackgroundTheme("LAND_JAPAN_CHERRY", "Japan Cherry Blossom", TableCategory.COUNTRIES, Color(0xFF831843), Brush.verticalGradient(listOf(Color(0xFFDB2777), Color(0xFF9D174D), Color(0xFF4C0519))), "Mount Fuji mirrored in quiet lakes under blooming sakura blossoms"),
-        BackgroundTheme("LAND_SWISS_ALPS", "Swiss Alps", TableCategory.COUNTRIES, Color(0xFF1E3A8A), Brush.verticalGradient(listOf(Color(0xFF3B82F6), Color(0xFF1D4ED8), Color(0xFF1E3A8A))), "Pristine glaciated peaks, alpine meadows and crystal air"),
-        BackgroundTheme("LAND_NORWAY_FJORD", "Norway Fjord", TableCategory.COUNTRIES, Color(0xFF064E3B), Brush.verticalGradient(listOf(Color(0xFF0D9488), Color(0xFF064E3B), Color(0xFF022C22))), "Towering granite cliffs plunging into emerald mirror waters"),
-        BackgroundTheme("LAND_ICELAND_AURORA", "Iceland Northern Lights", TableCategory.COUNTRIES, Color(0xFF064E3B), Brush.verticalGradient(listOf(Color(0xFF10B981), Color(0xFF0F172A), Color(0xFF020617))), "Vibrant celestial aurora dancing over black volcanic sand"),
-        BackgroundTheme("LAND_MALDIVES", "Maldives Water Villas", TableCategory.COUNTRIES, Color(0xFF0284C7), Brush.verticalGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7), Color(0xFF0369A1))), "Overwater luxury bungalows above crystal turquoise atolls"),
-        BackgroundTheme("LAND_CAPPADOCIA", "Cappadocia Balloons", TableCategory.COUNTRIES, Color(0xFF7C2D12), Brush.verticalGradient(listOf(Color(0xFFEA580C), Color(0xFFC2410C), Color(0xFF431407))), "Hundred colourful hot-air balloons rising above fairy chimneys"),
-        BackgroundTheme("LAND_SANTORINI", "Santorini (Greece)", TableCategory.COUNTRIES, Color(0xFF1D4ED8), Brush.verticalGradient(listOf(Color(0xFF2563EB), Color(0xFF1D4ED8), Color(0xFF0F172A))), "Whitewashed cliffside villas and iconic sapphire church domes"),
-        BackgroundTheme("LAND_SCOTLAND", "Scottish Highlands", TableCategory.COUNTRIES, Color(0xFF14532D), Brush.verticalGradient(listOf(Color(0xFF15803D), Color(0xFF166534), Color(0xFF14532D))), "Misty heather moorlands, ancient castles and quiet lochs"),
-        BackgroundTheme("LAND_CANADA_LAKE", "Canadian Mountain Lake", TableCategory.COUNTRIES, Color(0xFF0E7490), Brush.verticalGradient(listOf(Color(0xFF06B6D4), Color(0xFF0891B2), Color(0xFF164E63))), "Moraine Lake glacial blues embraced by the rugged Rockies"),
-        BackgroundTheme("LAND_AUSTRALIA", "Australian Outback", TableCategory.COUNTRIES, Color(0xFF9A3412), Brush.verticalGradient(listOf(Color(0xFFC2410C), Color(0xFF9A3412), Color(0xFF431407))), "Vibrant red ochre earth and ancient monoliths under southern stars"),
-        BackgroundTheme("LAND_RIO", "Rio de Janeiro", TableCategory.COUNTRIES, Color(0xFF047857), Brush.verticalGradient(listOf(Color(0xFF10B981), Color(0xFF047857), Color(0xFF064E3B))), "Sugarloaf mountain and lush rainforest meeting the ocean"),
-        BackgroundTheme("LAND_MOROCCO", "Moroccan Blue Streets", TableCategory.COUNTRIES, Color(0xFF1D4ED8), Brush.verticalGradient(listOf(Color(0xFF3B82F6), Color(0xFF1E40AF), Color(0xFF172554))), "Chefchaouen dreamscape painted in soothing cobalt blues"),
-
-        // --- 3. NATURE & WILDERNESS (10) ---
-        BackgroundTheme("NATURE_PINE_MIST", "Pine Forest in Mist", TableCategory.NATURE, Color(0xFF14532D), Brush.verticalGradient(listOf(Color(0xFF166534), Color(0xFF14532D), Color(0xFF052E16))), "Towering evergreen canopy shrouded in cool dawn fog"),
-        BackgroundTheme("NATURE_BEACH_SUNSET", "Tropical Beach Sunset", TableCategory.NATURE, Color(0xFF9A3412), Brush.verticalGradient(listOf(Color(0xFFF97316), Color(0xFFC2410C), Color(0xFF7C2D12))), "Gentle ocean breakers catching the last crimson sunlight"),
-        BackgroundTheme("NATURE_DESERT_DUNES", "Golden Desert Dunes", TableCategory.NATURE, Color(0xFFB45309), Brush.verticalGradient(listOf(Color(0xFFF59E0B), Color(0xFFB45309), Color(0xFF78350F))), "Serene ripple patterns carved by gentle desert winds"),
-        BackgroundTheme("NATURE_SNOW_PEAK", "Snowy Mountain Peak", TableCategory.NATURE, Color(0xFF1E293B), Brush.verticalGradient(listOf(Color(0xFF64748B), Color(0xFF334155), Color(0xFF0F172A))), "Jagged summit piercing above silent white sea of clouds"),
-        BackgroundTheme("NATURE_WATERFALL", "Waterfall in Jungle", TableCategory.NATURE, Color(0xFF065F46), Brush.verticalGradient(listOf(Color(0xFF10B981), Color(0xFF047857), Color(0xFF064E3B))), "Cascading crystalline torrent surrounded by exotic tropical flora"),
-        BackgroundTheme("NATURE_RAINY_WINDOW", "Rainy Window at Night", TableCategory.NATURE, Color(0xFF0F172A), Brush.verticalGradient(listOf(Color(0xFF1E293B), Color(0xFF0F172A), Color(0xFF020617))), "Soothing rain beads illuminated by cozy distant city lights"),
-        BackgroundTheme("NATURE_AUTUMN_LEAVES", "Autumn Leaves", TableCategory.NATURE, Color(0xFF9A3412), Brush.verticalGradient(listOf(Color(0xFFEA580C), Color(0xFF9A3412), Color(0xFF451A03))), "Canopy of golden birch and fiery maple foliage"),
-        BackgroundTheme("NATURE_SPRING_MEADOW", "Spring Meadow", TableCategory.NATURE, Color(0xFF15803D), Brush.verticalGradient(listOf(Color(0xFF22C55E), Color(0xFF15803D), Color(0xFF14532D))), "Lush rolling green hills dotted with blooming wildflowers"),
-        BackgroundTheme("NATURE_CALM_LAKE", "Calm Lake at Dawn", TableCategory.NATURE, Color(0xFF0369A1), Brush.verticalGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7), Color(0xFF0F172A))), "Glass-like reflection of morning mist on still mountain water"),
-        BackgroundTheme("NATURE_STARRY_NIGHT", "Starry Night Sky", TableCategory.NATURE, Color(0xFF0F172A), Brush.verticalGradient(listOf(Color(0xFF1E1B4B), Color(0xFF0F172A), Color(0xFF020617))), "Glittering Milky Way arching across an obsidian sky"),
-
-        // --- 4. SPACE & FANTASY (6) ---
-        BackgroundTheme("SPACE_GALAXY_NEBULA", "Galaxy Nebula", TableCategory.SPACE_FANTASY, Color(0xFF581C87), Brush.verticalGradient(listOf(Color(0xFF9333EA), Color(0xFF581C87), Color(0xFF0F172A))), "Cosmic dust cloud glowing with stellar nursery brilliance"),
-        BackgroundTheme("SPACE_EARTH", "Earth from Space", TableCategory.SPACE_FANTASY, Color(0xFF0C4A6E), Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF0C4A6E), Color(0xFF020617))), "The pale blue dot curved gracefully against infinite cosmos"),
-        BackgroundTheme("SPACE_MOON_SURFACE", "Moon Surface", TableCategory.SPACE_FANTASY, Color(0xFF18181B), Brush.verticalGradient(listOf(Color(0xFF52525B), Color(0xFF27272A), Color(0xFF09090B))), "Ancient impact craters and grey lunar regolith in stark contrast"),
-        BackgroundTheme("FANTASY_ENCHANTED_FOREST", "Enchanted Forest", TableCategory.SPACE_FANTASY, Color(0xFF064E3B), Brush.verticalGradient(listOf(Color(0xFF059669), Color(0xFF064E3B), Color(0xFF1E1B4B))), "Bioluminescent mushrooms and mystical fireflies"),
-        BackgroundTheme("FANTASY_FLOATING_ISLANDS", "Floating Islands", TableCategory.SPACE_FANTASY, Color(0xFF0369A1), Brush.verticalGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7), Color(0xFF1E1B4B))), "Gravity-defying mossy cliffs drifting above clouds"),
-        BackgroundTheme("FANTASY_CORAL_REEF", "Underwater Coral Reef", TableCategory.SPACE_FANTASY, Color(0xFF0E7490), Brush.verticalGradient(listOf(Color(0xFF06B6D4), Color(0xFF0891B2), Color(0xFF164E63))), "Sunbeams filtering through crystal ocean down to living corals"),
-
-        // --- 5. ABSTRACT & TEXTURES (8) ---
-        BackgroundTheme("TEX_NEON_GRID", "Neon Grid", TableCategory.ABSTRACT_TEXTURES, Color(0xFF0F172A), Brush.verticalGradient(listOf(Color(0xFF831843), Color(0xFF0F172A), Color(0xFF020617))), "Retro synthwave horizon wireframe in magenta and cyan"),
-        BackgroundTheme("TEX_GRADIENT_WAVES", "Soft Gradient Waves", TableCategory.ABSTRACT_TEXTURES, Color(0xFF312E81), Brush.verticalGradient(listOf(Color(0xFF6366F1), Color(0xFF3730A3), Color(0xFF1E1B4B))), "Silky fluid waves with peaceful iridescent sheen"),
-        BackgroundTheme("TEX_WATERCOLOUR", "Watercolour Wash", TableCategory.ABSTRACT_TEXTURES, Color(0xFF1E293B), Brush.verticalGradient(listOf(Color(0xFF0D9488), Color(0xFF1E293B), Color(0xFF312E81))), "Subtle hand-painted indigo and emerald pigments"),
-        BackgroundTheme("TEX_LOW_POLY", "Geometric Low-Poly", TableCategory.ABSTRACT_TEXTURES, Color(0xFF1E293B), Brush.verticalGradient(listOf(Color(0xFF475569), Color(0xFF1E293B), Color(0xFF0F172A))), "Faceted triangular crystal mesh with ambient occlusion"),
-        BackgroundTheme("TEX_CARBON_FIBRE", "Carbon Fibre", TableCategory.ABSTRACT_TEXTURES, Color(0xFF18181B), Brush.verticalGradient(listOf(Color(0xFF27272A), Color(0xFF18181B), Color(0xFF09090B))), "High-tech composite twill weave texture"),
-        BackgroundTheme("TEX_DARK_WOOD", "Dark Wood Table", TableCategory.ABSTRACT_TEXTURES, Color(0xFF451A03), Brush.verticalGradient(listOf(Color(0xFF78350F), Color(0xFF451A03), Color(0xFF1C1917))), "Polished mahogany grain suitable for intimate card sessions"),
-        BackgroundTheme("TEX_LEATHER_DESK", "Leather Desk", TableCategory.ABSTRACT_TEXTURES, Color(0xFF3F1D11), Brush.verticalGradient(listOf(Color(0xFF572C19), Color(0xFF3F1D11), Color(0xFF1C0D08))), "Executive saddle-stitched vintage leather pad"),
-        BackgroundTheme("TEX_MARBLE", "Marble Surface", TableCategory.ABSTRACT_TEXTURES, Color(0xFF1E293B), Brush.verticalGradient(listOf(Color(0xFF334155), Color(0xFF1E293B), Color(0xFF0F172A))), "Noble nero marquina dark marble with subtle quartz veins"),
-
-        // --- 6. CLASSIC SOLID FELTS (4) ---
-        BackgroundTheme("THEME_CASINO_GREEN", "Casino Green Felt", TableCategory.CLASSIC_FELTS, Color(0xFF0C5A35), Brush.verticalGradient(listOf(Color(0xFF146C43), Color(0xFF0C5A35), Color(0xFF06331C))), "Traditional tournament baize woven for authentic gameplay"),
-        BackgroundTheme("FELT_ROYAL_BLUE", "Royal Blue Felt", TableCategory.CLASSIC_FELTS, Color(0xFF1E3A8A), Brush.verticalGradient(listOf(Color(0xFF1D4ED8), Color(0xFF1E3A8A), Color(0xFF172554))), "Deep midnight navy felt preferred by European gaming salons"),
-        BackgroundTheme("FELT_BURGUNDY", "Burgundy Velvet", TableCategory.CLASSIC_FELTS, Color(0xFF7F1D1D), Brush.verticalGradient(listOf(Color(0xFF991B1B), Color(0xFF7F1D1D), Color(0xFF450A0A))), "Rich Bordeaux wine velvet with aristocratic warmth"),
-        BackgroundTheme("FELT_CHARCOAL_BLACK", "Charcoal Black Felt", TableCategory.CLASSIC_FELTS, Color(0xFF18181B), Brush.verticalGradient(listOf(Color(0xFF27272A), Color(0xFF18181B), Color(0xFF09090B))), "Modern ultra-dark matte table reducing eye fatigue"),
-
-        // Custom Photo Theme
-        BackgroundTheme("THEME_CUSTOM_PHOTO", "My Custom Background Photo", TableCategory.ABSTRACT_TEXTURES, Color(0xFF1E293B), Brush.verticalGradient(listOf(Color(0xFF334155), Color(0xFF0F172A))), "Personal gallery photo used as table wallpaper")
-    )
-
-    // Preset combos removed per user request
-    val presetCombos = emptyList<PresetCombo>()
-
-    // Helper lookups
     fun getBackground(id: String): BackgroundTheme {
-        if (id == "CLASSIC_FELT") return backgrounds.first { it.id == "THEME_CASINO_GREEN" }
-        return backgrounds.firstOrNull { it.id == id } ?: backgrounds.first { it.id == "THEME_CASINO_GREEN" }
+        return BACKGROUNDS.firstOrNull { it.id == id } ?: BACKGROUNDS[0]
     }
 
     fun getCardBack(id: String): CardBackTheme {
-        if (id == "BACK_CRIMSON_ANVIL") return cardBacks.first { it.id == "BACK_DRAGON" }
-        return cardBacks.firstOrNull { it.id == id } ?: cardBacks.first()
+        return CARD_BACKS.firstOrNull { it.id == id } ?: CARD_BACKS[0]
     }
 
-    fun getCardFace(id: String = ""): CardFaceTheme {
-        return cardFaces.first()
-    }
-
-    fun getSuitStyle(id: String): SuitStyleTheme {
-        return suitStyles.firstOrNull { it.id == id } ?: suitStyles.first()
-    }
-
-    fun getSuitColorScheme(id: String): SuitColorScheme {
-        return suitColorSchemes.firstOrNull { it.id == id } ?: suitColorSchemes.first()
+    fun getCardFace(id: String): CardFaceTheme {
+        return CARD_FACES.firstOrNull { it.id == id } ?: CARD_FACES[0]
     }
 }

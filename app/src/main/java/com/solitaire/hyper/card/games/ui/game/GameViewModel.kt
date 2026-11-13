@@ -84,11 +84,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _statusMessage = MutableStateFlow<String?>("Tap any face-up card to select")
     val statusMessage: StateFlow<String?> = _statusMessage.asStateFlow()
 
-    private val _aiAnalysis = MutableStateFlow<com.solitaire.hyper.card.games.ai.AiAnalysisResult?>(null)
-    val aiAnalysis: StateFlow<com.solitaire.hyper.card.games.ai.AiAnalysisResult?> = _aiAnalysis.asStateFlow()
-
-    private val _isAiAnalyzing = MutableStateFlow(false)
-    val isAiAnalyzing: StateFlow<Boolean> = _isAiAnalyzing.asStateFlow()
+    private val _showRateAppDialog = MutableStateFlow(false)
+    val showRateAppDialog: StateFlow<Boolean> = _showRateAppDialog.asStateFlow()
 
     private val _tutorialHint = MutableStateFlow<Hint?>(null)
     val tutorialHint: StateFlow<Hint?> = _tutorialHint.asStateFlow()
@@ -127,7 +124,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             userPrefs.userSettingsFlow.collectLatest { settings ->
                 _userSettings.value = settings
                 soundManager.soundEnabled = settings.soundEnabled
-                soundManager.vibrationEnabled = settings.vibrationEnabled
+                soundManager.vibrationEnabled = settings.hapticsEnabled
             }
         }
     }
@@ -136,8 +133,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         mode: GameMode = GameMode.fromString(_userSettings.value.defaultDrawMode),
         isDailyChallenge: Boolean = false,
         challengeDate: String? = null,
-        isWinnableDeal: Boolean = false,
-        isVegasScoring: Boolean = _userSettings.value.vegasScoring,
+        isWinnableDeal: Boolean = _userSettings.value.winnableDealsOnly,
         playSound: Boolean = true
     ) {
         val previousGame = _gameState.value
@@ -171,9 +167,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             seed = seed,
             isDailyChallenge = isDailyChallenge,
             challengeDate = challengeDate,
-            isWinnableDeal = isWinnableDeal || _userSettings.value.winnableDealsOnly,
-            isVegasScoring = isVegasScoring,
-            isEasyMode = _userSettings.value.easyGameMode
+            isWinnableDeal = isWinnableDeal,
+            isVegasScoring = false,
+            isEasyMode = isWinnableDeal
         )
 
         _gameState.value = freshState
@@ -580,20 +576,41 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun useMagicWand(onOutOfWands: (() -> Unit)? = null) {
+    val todayDateStr: String
+        get() = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+    fun jokersAvailable(): Int = _userSettings.value.totalAvailableJokers(todayDateStr)
+
+    fun dismissRateAppDialog() {
+        _showRateAppDialog.value = false
+    }
+
+    fun markAppRated() {
+        _showRateAppDialog.value = false
+        viewModelScope.launch {
+            userPrefs.setRatedApp()
+        }
+    }
+
+    /**
+     * Joker Helper: When stuck, the Joker makes the smartest available move,
+     * reveals a hidden card, or draws a playable stock card.
+     * Player gets 3 free per day; more by watching a rewarded video.
+     */
+    fun useJoker(onOutOfJokers: () -> Unit) {
         if (_gameState.value.isGameWon || _isAutoCompleting.value) return
-        val isVip = _userSettings.value.isVipActive()
-        if (!isVip && _userSettings.value.magicWands <= 0) {
-            onOutOfWands?.invoke()
-            _statusMessage.value = "Need Magic Wand! Get from store or watch video."
+        val available = jokersAvailable()
+        if (available <= 0) {
+            onOutOfJokers()
+            _statusMessage.value = "Out of Jokers today! Watch a video for +1 Joker."
             soundManager.playInvalidMove()
             return
         }
 
-        val result = SolitaireEngine.magicWand(_gameState.value)
+        val result = SolitaireEngine.jokerHelper(_gameState.value)
         if (result != null) {
-            if (!isVip) {
-                viewModelScope.launch { userPrefs.useMagicWand(isVip = false) }
+            viewModelScope.launch {
+                userPrefs.consumeJoker(todayDateStr)
             }
             _gameState.value = result.first
             _selectedLocation.value = null
@@ -608,38 +625,10 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun requestAiCoachAnalysis(onOutOfTokens: (() -> Unit)? = null) {
-        if (_gameState.value.isGameWon || _isAutoCompleting.value) return
-        val isVip = _userSettings.value.isVipActive()
-        if (!isVip && _userSettings.value.aiTokens <= 0) {
-            onOutOfTokens?.invoke()
-            _statusMessage.value = "Need AI Token! Get from store or watch video."
-            soundManager.playInvalidMove()
-            return
-        }
-
-        _isAiAnalyzing.value = true
+    fun addRewardJoker() {
         viewModelScope.launch {
-            if (!isVip) {
-                userPrefs.useAiToken(isVip = false)
-            }
-            val result = com.solitaire.hyper.card.games.ai.SolitaireAiEngine.analyzeGame(_gameState.value)
-            _aiAnalysis.value = result
-            _isAiAnalyzing.value = false
-            soundManager.playMagicWand()
-        }
-    }
-
-    fun dismissAiCoach() {
-        _aiAnalysis.value = null
-    }
-
-    fun applyAiRecommendedMove() {
-        val hint = SolitaireEngine.findHint(_gameState.value)
-        if (hint != null) {
-            _activeHint.value = hint
-            _statusMessage.value = "AI Recommended: ${hint.description}"
-            soundManager.playCardMove()
+            userPrefs.addExtraJoker(1)
+            _statusMessage.value = "🃏 Joker earned! Ready to use."
         }
     }
 
@@ -711,49 +700,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             repository.recordGameFinished(_gameState.value, isWin = true, usedHints = usedHints)
-            userPrefs.addCoins(200) // Award 200 coins on victory
-            userPrefs.saveGameJson(null) // Clear active game
-        }
-    }
-
-    fun awardDoubleWinCoins() {
-        viewModelScope.launch {
-            userPrefs.addCoins(400)
-        }
-    }
-
-    fun awardSpinWinCoins(coins: Int) {
-        viewModelScope.launch {
-            userPrefs.addCoins(coins)
-        }
-    }
-
-    fun proceedToNextLevel() {
-        viewModelScope.launch {
-            // Cycle through backgrounds dynamically to change visual stage on next level
-            val allThemes = com.solitaire.hyper.card.games.ui.customization.CustomizationRegistry.backgrounds
-            val currentBgId = _userSettings.value.backgroundId
-            val currentIndex = allThemes.indexOfFirst { it.id == currentBgId }
-            val nextBg = if (currentIndex >= 0) {
-                allThemes[(currentIndex + 1) % allThemes.size]
-            } else {
-                allThemes.first()
+            userPrefs.saveGame(null) // Clear active game
+            val winCount = userPrefs.incrementWinCountForRating()
+            if (winCount == 3 && !_userSettings.value.hasRatedApp) {
+                _showRateAppDialog.value = true
             }
-            userPrefs.updateBackground(nextBg.id)
-
-            // Also cycle card back for rich level identity
-            val allCardBacks = com.solitaire.hyper.card.games.ui.customization.CustomizationRegistry.cardBacks
-            val currentBackId = _userSettings.value.cardBackId
-            val backIndex = allCardBacks.indexOfFirst { it.id == currentBackId }
-            val nextBack = if (backIndex >= 0) {
-                allCardBacks[(backIndex + 1) % allCardBacks.size]
-            } else {
-                allCardBacks.first()
-            }
-            userPrefs.updateCardBack(nextBack.id)
-
-            // Start a new winnable level deal
-            startNewGame(mode = _gameState.value.gameMode, isWinnableDeal = true)
         }
     }
 
@@ -896,7 +847,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         if (_gameState.value.isGameWon) return
         viewModelScope.launch {
             val json = GameStateSerializer.serialize(_gameState.value)
-            userPrefs.saveGameJson(json)
+            userPrefs.saveGame(json)
         }
     }
 

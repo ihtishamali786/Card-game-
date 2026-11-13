@@ -1,7 +1,5 @@
 package com.solitaire.hyper.card.games.ui.components
 
-import android.graphics.BitmapFactory
-import android.net.Uri
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -10,7 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -20,14 +18,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -36,26 +31,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.solitaire.hyper.card.games.game.model.Card
-import com.solitaire.hyper.card.games.ui.customization.CardBackPattern
 import com.solitaire.hyper.card.games.ui.customization.CardBackTheme
-import com.solitaire.hyper.card.games.ui.customization.CardFaceStyle
 import com.solitaire.hyper.card.games.ui.customization.CardFaceTheme
 import com.solitaire.hyper.card.games.ui.customization.CustomizationRegistry
-import com.solitaire.hyper.card.games.ui.customization.SuitColorScheme
-import com.solitaire.hyper.card.games.ui.customization.SuitStyleTheme
 
+/**
+ * Material 3 Card Component with double-tap to foundation and smooth visual states.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun CardView(
     card: Card?,
     modifier: Modifier = Modifier,
-    cardBack: CardBackTheme = CustomizationRegistry.cardBacks.first(),
-    cardFace: CardFaceTheme = CustomizationRegistry.cardFaces.first(),
-    suitStyle: SuitStyleTheme = CustomizationRegistry.suitStyles.first(),
-    suitScheme: SuitColorScheme = CustomizationRegistry.suitColorSchemes.first(),
-    customCardBackUri: String? = null,
-    cardCornerRadius: String = "MEDIUM",
-    cardIndexSize: String = "STANDARD",
-    numeralsStyle: String = "WESTERN",
+    cardBack: CardBackTheme = CustomizationRegistry.CARD_BACKS.first(),
+    cardFace: CardFaceTheme = CustomizationRegistry.CARD_FACES.first(),
     isSelected: Boolean = false,
     isValidTarget: Boolean = false,
     isHinted: Boolean = false,
@@ -63,70 +52,57 @@ fun CardView(
     onClick: (() -> Unit)? = null,
     onDoubleClick: (() -> Unit)? = null
 ) {
-    val context = LocalContext.current
-    val infiniteTransition = rememberInfiniteTransition(label = "card_pulse")
+    val infiniteTransition = rememberInfiniteTransition(label = "card_glow")
     val pulseGlow by infiniteTransition.animateFloat(
-        initialValue = 0.45f,
+        initialValue = 0.5f,
         targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(500),
+            animation = tween(600),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_glow"
     )
 
-    val cornerRadiusDp = when (cardCornerRadius) {
-        "SHARP" -> 3.dp
-        "ROUND" -> 14.dp
-        else -> 8.dp
-    }
-    val shape = RoundedCornerShape(cornerRadiusDp)
+    val shape = RoundedCornerShape(8.dp)
 
     val borderModifier = when {
-        isSelected -> Modifier.border(3.dp, Color(0xFFFFC107), shape)
-        isValidTarget -> Modifier.border(3.dp, Color(0xFF00E5FF).copy(alpha = pulseGlow), shape)
+        isSelected -> Modifier.border(2.5.dp, Color(0xFFFBBF24), shape)
+        isValidTarget -> Modifier.border(2.5.dp, Color(0xFF38BDF8).copy(alpha = pulseGlow), shape)
         isHinted -> Modifier.border(2.5.dp, Color(0xFF34D399).copy(alpha = pulseGlow), shape)
-        card?.isFaceUp == true -> Modifier.border(0.75.dp, Color(0x22000000), shape)
-        else -> Modifier.border(1.dp, Color(0x333A4052), shape)
+        card?.isFaceUp == true -> Modifier.border(0.8.dp, Color.Black.copy(alpha = 0.15f), shape)
+        else -> Modifier.border(0.8.dp, Color.White.copy(alpha = 0.2f), shape)
     }
 
     val elevation: Dp = when {
-        isSelected -> 12.dp
-        isValidTarget -> 9.dp
-        card?.isFaceUp == true -> 4.5.dp
-        else -> 3.dp
+        isSelected -> 10.dp
+        isValidTarget -> 8.dp
+        card?.isFaceUp == true -> 3.dp
+        else -> 2.dp
     }
 
     val accessibilityDesc = when {
         card == null -> "Empty card slot"
-        !card.isFaceUp -> "Card face down"
-        else -> "${card.rank.display} of ${card.suit.name.lowercase().replaceFirstChar { it.uppercase() }}"
+        !card.isFaceUp -> "Face down card"
+        else -> "${card.rank.symbol} of ${card.suit.name.lowercase()}"
     }
 
-    // Decode custom card back photo bitmap if chosen
-    val customBitmap = remember(customCardBackUri) {
-        if (!customCardBackUri.isNullOrBlank() && cardBack.patternType == CardBackPattern.CUSTOM_PHOTO) {
-            try {
-                val inputStream = context.contentResolver.openInputStream(Uri.parse(customCardBackUri))
-                BitmapFactory.decodeStream(inputStream)
-            } catch (_: Exception) {
-                null
-            }
-        } else null
+    val clickableModifier = if (onClick != null || onDoubleClick != null) {
+        Modifier.combinedClickable(
+            onClick = { onClick?.invoke() },
+            onDoubleClick = { onDoubleClick?.invoke() }
+        )
+    } else {
+        Modifier
     }
 
     Surface(
         modifier = modifier
-            .testTag("card_${card?.id ?: "placeholder"}")
-            .semantics { contentDescription = accessibilityDesc }
-            .shadow(elevation, shape)
+            .shadow(elevation, shape, ambientColor = Color.Black.copy(alpha = 0.35f))
             .then(borderModifier)
             .clip(shape)
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(onClick = onClick)
-                } else Modifier
-            ),
+            .then(clickableModifier)
+            .semantics { contentDescription = accessibilityDesc }
+            .testTag(if (card != null) "card_${card.id}" else "card_slot_empty"),
         shape = shape,
         color = Color.Transparent
     ) {
@@ -134,49 +110,23 @@ fun CardView(
             if (card == null) {
                 CardSlotPlaceholder(isValidTarget = isValidTarget)
             } else if (!card.isFaceUp) {
-                // Procedural master Card Back
+                // Procedural Card Back
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     CardBackRenderer.renderCardBack(
                         drawScope = this,
-                        cardBack = cardBack,
-                        customPhotoBitmap = customBitmap
+                        cardBack = cardBack
                     )
                 }
             } else {
-                // Procedural master Card Face (Jumbo Easy-Read v2 layout)
-                val tokens = remember(cardFace.style) {
-                    CardFaceRenderer.getTokens(cardFace.style)
-                }
-                val isEffectiveLargePrint = largePrint || cardIndexSize == "EXTRA_LARGE" || cardFace.style == CardFaceStyle.LARGE_INDEX
+                // Procedural Card Face
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     CardFaceRenderer.renderCardFace(
                         drawScope = this,
                         card = card,
-                        tokens = tokens,
-                        scheme = suitScheme,
-                        suitStyle = suitStyle,
-                        isLargePrint = isEffectiveLargePrint,
-                        numeralsStyle = numeralsStyle
+                        cardFace = cardFace,
+                        isLargePrint = largePrint
                     )
                 }
-            }
-
-            // 3D Card Edge Specular Highlight & Bevel Lighting (Simulates physical 3D card model)
-            if (card != null) {
-                // Top-left subtle rim lighting
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = if (card.isFaceUp) 0.35f else 0.20f),
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = if (card.isFaceUp) 0.12f else 0.22f)
-                                )
-                            )
-                        )
-                )
             }
 
             // Selection indicator badge
@@ -185,7 +135,7 @@ fun CardView(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(2.dp)
-                        .background(Color(0xFFFFC107), CircleShape)
+                        .background(Color(0xFFFBBF24), CircleShape)
                         .padding(horizontal = 4.dp, vertical = 1.dp)
                 ) {
                     Text(
@@ -203,11 +153,11 @@ fun CardView(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 2.dp)
-                        .background(Color(0xFF00E5FF).copy(alpha = 0.9f), RoundedCornerShape(4.dp))
+                        .background(Color(0xFF38BDF8).copy(alpha = 0.9f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 4.dp, vertical = 1.dp)
                 ) {
                     Text(
-                        text = "DROP",
+                        text = "MOVE",
                         color = Color.Black,
                         fontSize = 8.sp,
                         fontWeight = FontWeight.ExtraBold
@@ -221,34 +171,31 @@ fun CardView(
 @Composable
 fun CardSlotPlaceholder(
     isValidTarget: Boolean = false,
-    label: String? = null,
-    iconSymbol: String? = null
+    iconSymbol: String? = null,
+    label: String? = null
 ) {
+    val shape = RoundedCornerShape(8.dp)
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0x14FFFFFF), RoundedCornerShape(8.dp))
+            .background(
+                if (isValidTarget) Color(0xFF38BDF8).copy(alpha = 0.15f)
+                else Color.Black.copy(alpha = 0.15f)
+            )
             .border(
-                1.2.dp,
-                if (isValidTarget) Color(0xFF00E5FF) else Color(0x35FFFFFF),
-                RoundedCornerShape(8.dp)
+                1.dp,
+                if (isValidTarget) Color(0xFF38BDF8).copy(alpha = 0.6f)
+                else Color.White.copy(alpha = 0.15f),
+                shape
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (!iconSymbol.isNullOrEmpty()) {
+        if (!iconSymbol.isNullOrBlank()) {
             Text(
                 text = iconSymbol,
-                color = Color(0x30FFFFFF),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        if (!label.isNullOrEmpty()) {
-            Text(
-                text = label,
-                color = if (isValidTarget) Color(0xFF00E5FF) else Color(0x55FFFFFF),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
+                color = if (isValidTarget) Color(0xFF38BDF8) else Color.White.copy(alpha = 0.25f),
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
             )
         }
     }

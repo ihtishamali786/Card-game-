@@ -1,8 +1,6 @@
 package com.solitaire.hyper.card.games.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -20,10 +18,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,7 +35,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -49,7 +45,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
@@ -67,10 +62,6 @@ import com.solitaire.hyper.card.games.ui.theme.SleekEmerald400
 import com.solitaire.hyper.card.games.ui.theme.SleekEmerald500
 import com.solitaire.hyper.card.games.ui.theme.SleekHeaderDark
 import com.solitaire.hyper.card.games.ui.theme.SleekSlate300
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.random.Random
 
 data class CascadeCard(
@@ -100,11 +91,6 @@ fun WinningCascadeCanvas(
     score: Int,
     timeSeconds: Long,
     moves: Int,
-    coinsEarned: Int = 200,
-    hasDoubledCoins: Boolean = false,
-    onWatchAdDouble: (() -> Unit)? = null,
-    onNextLevel: (() -> Unit)? = null,
-    onSpinWinCoins: ((Int) -> Unit)? = null,
     soundManager: SoundManager? = null,
     onPlayAgain: () -> Unit,
     onHome: () -> Unit,
@@ -114,16 +100,9 @@ fun WinningCascadeCanvas(
     val trails = remember { mutableStateListOf<TrailStamp>() }
     var bannerVisible by remember { mutableStateOf(false) }
 
-    // Spin-to-Win Wheel State
-    val spinScope = rememberCoroutineScope()
-    val wheelRotation = remember { Animatable(0f) }
-    var isSpinning by remember { mutableStateOf(false) }
-    var hasSpun by remember { mutableStateOf(false) }
-    var spunRewardCoins by remember { mutableStateOf<Int?>(null) }
-    val prizeSegments = remember { listOf(100, 250, 50, 500, 150, 300, 75, 400) }
-
     LaunchedEffect(Unit) {
-        // Build card deck to launch from Kings down to Aces
+        soundManager?.playVictory()
+
         val suits = listOf(Suit.SPADES, Suit.HEARTS, Suit.CLUBS, Suit.DIAMONDS)
         val ranks = Rank.values().reversed() // KING down to ACE
 
@@ -131,23 +110,20 @@ fun WinningCascadeCanvas(
         var launchIndex = 0
         val totalToLaunch = suits.size * ranks.size
 
-        // Physics loop
         while (true) {
             withFrameNanos { frameNanos ->
                 val nowMs = frameNanos / 1_000_000
 
-                // Periodically launch next card from one of the foundation origins
-                if (nowMs - lastLaunchTime > 300 && launchIndex < totalToLaunch) {
-                    val suitIdx = launchIndex % suits.size
-                    val rankIdx = (launchIndex / suits.size).coerceIn(0, ranks.size - 1)
-                    val suit = suits[suitIdx]
-                    val rank = ranks[rankIdx]
+                if (nowMs - lastLaunchTime > 260 && launchIndex < totalToLaunch) {
+                    val sIdx = launchIndex % suits.size
+                    val rIdx = launchIndex / suits.size
+                    val suit = suits[sIdx]
+                    val rank = ranks[rIdx]
 
-                    // Initial horizontal foundation slot position
-                    val startX = 60f + suitIdx * 180f
+                    val startX = 60f + (sIdx * 180f)
                     val startY = 80f
-                    val vx = (Random.nextFloat() * 12f - 6f).let { if (Math.abs(it) < 2f) 3.5f else it }
-                    val vy = -Random.nextFloat() * 6f - 3f
+                    val vx = (Random.nextFloat() * 10f - 5f).let { if (it in -1f..1f) 3.5f else it }
+                    val vy = -(Random.nextFloat() * 6f + 3f)
 
                     activeCards.add(
                         CascadeCard(
@@ -159,41 +135,42 @@ fun WinningCascadeCanvas(
                             vy = vy
                         )
                     )
-                    launchIndex++
+                    soundManager?.playCardMove()
                     lastLaunchTime = nowMs
+                    launchIndex++
 
-                    if (launchIndex >= 8) {
+                    if (launchIndex >= 8 && !bannerVisible) {
                         bannerVisible = true
                     }
                 }
 
-                // Update physics on all active cards
-                val gravity = 0.65f
-                val iterator = activeCards.iterator()
+                val gravity = 0.85f
+                val bounceDamping = 0.82f
+                val screenBottom = 1800f
+                val screenWidth = 1080f
+
+                val iterator = activeCards.listIterator()
                 while (iterator.hasNext()) {
-                    val c = iterator.next()
-                    // Stamp trail
-                    if (trails.size < 400) {
-                        trails.add(TrailStamp(c.suit, c.rank, c.x, c.y))
+                    val card = iterator.next()
+                    if (card.isDone) continue
+
+                    trails.add(TrailStamp(card.suit, card.rank, card.x, card.y))
+                    if (trails.size > 2200) {
+                        trails.removeRange(0, 50)
                     }
 
-                    c.x += c.vx
-                    c.vy += gravity
-                    c.y += c.vy
+                    card.x += card.vx
+                    card.vy += gravity
+                    card.y += card.vy
 
-                    // Floor bounce
-                    val floorY = 1600f
-                    if (c.y >= floorY) {
-                        c.y = floorY
-                        c.vy = -c.vy * 0.8f
-                        if (Math.abs(c.vy) < 2f) {
-                            c.isDone = true
-                        }
+                    if (card.y >= screenBottom) {
+                        card.y = screenBottom
+                        card.vy = -card.vy * bounceDamping
+                        soundManager?.playFoundationSnap()
                     }
 
-                    // Remove if moved past screen edges
-                    if (c.x < -150f || c.x > 1200f || c.isDone) {
-                        iterator.remove()
+                    if (card.x < -200f || card.x > screenWidth + 200f) {
+                        card.isDone = true
                     }
                 }
             }
@@ -203,357 +180,144 @@ fun WinningCascadeCanvas(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .testTag("winning_cascade_canvas")
+            .testTag("winning_cascade_container")
     ) {
-        // Canvas rendering the bouncing card cascade
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val cardW = 90f
-            val cardH = 130f
-            val corner = CornerRadius(10f, 10f)
+            val cardW = size.width * 0.18f
+            val cardH = cardW * 1.4f
+            val corner = CornerRadius(cardW * 0.1f, cardW * 0.1f)
 
-            // Draw trails
-            for (stamp in trails) {
+            trails.forEach { stamp ->
                 drawCascadeCard(stamp.rank, stamp.suit, stamp.x, stamp.y, cardW, cardH, corner)
             }
 
-            // Draw active moving cards
-            for (card in activeCards) {
-                drawCascadeCard(card.rank, card.suit, card.x, card.y, cardW, cardH, corner)
+            activeCards.forEach { card ->
+                if (!card.isDone) {
+                    drawCascadeCard(card.rank, card.suit, card.x, card.y, cardW, cardH, corner)
+                }
             }
         }
 
-        // Celebratory Confetti & Particle Shower Animation
-        ConfettiParticleAnimation(
-            modifier = Modifier.fillMaxSize(),
-            soundManager = soundManager,
-            enableTapBurst = true
-        )
-
-        // Overlay victory summary banner
         if (bannerVisible) {
-            Card(
+            Box(
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(24.dp)
-                    .testTag("victory_dialog_card"),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = SleekHeaderDark.copy(alpha = 0.95f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(20.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .testTag("victory_dialog_card"),
+                    colors = CardDefaults.cardColors(containerColor = SleekHeaderDark),
+                    shape = RoundedCornerShape(24.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 24.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, LuxuryGoldPrimary.copy(alpha = 0.65f))
                 ) {
-                    Text(
-                        text = "🎉 VICTORY!",
-                        color = SleekEmerald400,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Text(
-                        text = "You conquered this Solitaire deal!",
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-
-                    // Coin reward badge
-                    Surface(
-                        color = Color(0xFFEAB308).copy(alpha = 0.15f),
-                        shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEAB308).copy(alpha = 0.5f)),
-                        modifier = Modifier.padding(vertical = 6.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        // Golden Trophy Icon
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .background(
+                                    Brush.radialGradient(listOf(Color(0xFFFDE047), Color(0xFFD97706))),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text("🪙", fontSize = 16.sp)
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = if (hasDoubledCoins) "+600 Coins Earned! (3x Bonus)" else "+$coinsEarned Coins Earned!",
-                                color = Color(0xFFFDE047),
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.Bold
+                            Icon(
+                                imageVector = Icons.Default.EmojiEvents,
+                                contentDescription = null,
+                                tint = Color(0xFF1E1602),
+                                modifier = Modifier.size(38.dp)
                             )
                         }
-                    }
 
-                    // Stats row
-                    Row(
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("SCORE", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text("$score", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                        }
-                        Spacer(Modifier.width(20.dp))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("MOVES", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text("$moves", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                        }
-                        Spacer(Modifier.width(20.dp))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("TIME", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            val mins = timeSeconds / 60
-                            val secs = timeSeconds % 60
-                            Text(String.format("%02d:%02d", mins, secs), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                        }
-                    }
+                        Spacer(Modifier.height(14.dp))
 
-                    // ⭐ Spin-to-Win Bonus Lucky Wheel Mechanic
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFF131D19),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, LuxuryGoldPrimary.copy(alpha = 0.4f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        Text(
+                            text = "VICTORY!",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 2.sp,
+                            color = LuxuryGoldPrimary
+                        )
+
+                        Text(
+                            text = "Relax. Play. Win with the Joker.",
+                            fontSize = 13.sp,
+                            color = SleekSlate300,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // Stats Summary Box
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFF131D19),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceAround
                             ) {
-                                Text("🎡", fontSize = 16.sp)
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    "VICTORY LUCKY SPIN",
-                                    color = LuxuryGoldPrimary,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    letterSpacing = 1.sp
-                                )
-                            }
-
-                            Spacer(Modifier.height(8.dp))
-
-                            // Wheel graphic & needle pointer
-                            val textPaint = remember {
-                                android.graphics.Paint().apply {
-                                    color = android.graphics.Color.WHITE
-                                    textSize = 28f
-                                    typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
-                                    textAlign = android.graphics.Paint.Align.CENTER
-                                    setShadowLayer(4f, 0f, 1.5f, android.graphics.Color.BLACK)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("SCORE", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("$score", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                                 }
-                            }
-
-                            Box(
-                                modifier = Modifier.size(160.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Canvas(modifier = Modifier.size(150.dp)) {
-                                    val radius = size.minDimension / 2f
-                                    val center = Offset(size.width / 2f, size.height / 2f)
-                                    val sweep = 360f / prizeSegments.size
-                                    val currentRot = wheelRotation.value
-
-                                    val sliceColors = listOf(
-                                        Color(0xFFEAB308), Color(0xFF10B981), Color(0xFF3B82F6), Color(0xFFEC4899),
-                                        Color(0xFF8B5CF6), Color(0xFFF97316), Color(0xFF06B6D4), Color(0xFF84CC16)
-                                    )
-
-                                    for (i in prizeSegments.indices) {
-                                        val startAngle = currentRot + i * sweep
-                                        drawArc(
-                                            color = sliceColors[i % sliceColors.size],
-                                            startAngle = startAngle,
-                                            sweepAngle = sweep,
-                                            useCenter = true,
-                                            size = Size(radius * 2, radius * 2),
-                                            topLeft = Offset(center.x - radius, center.y - radius)
-                                        )
-                                        // Sector border line
-                                        val rad = Math.toRadians(startAngle.toDouble())
-                                        val endX = center.x + radius * cos(rad).toFloat()
-                                        val endY = center.y + radius * sin(rad).toFloat()
-                                        drawLine(
-                                            color = Color.White.copy(alpha = 0.6f),
-                                            start = center,
-                                            end = Offset(endX, endY),
-                                            strokeWidth = 1.5f
-                                        )
-
-                                        // Coin prize value text drawn boldly inside the sector
-                                        val midAngle = startAngle + sweep / 2f
-                                        rotate(degrees = midAngle, pivot = center) {
-                                            drawIntoCanvas { canvas ->
-                                                canvas.nativeCanvas.drawText(
-                                                    "${prizeSegments[i]}",
-                                                    center.x + radius * 0.62f,
-                                                    center.y + (textPaint.textSize * 0.35f),
-                                                    textPaint
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // Gold outer rim
-                                    drawCircle(
-                                        color = Color(0xFFFFD700),
-                                        radius = radius,
-                                        center = center,
-                                        style = Stroke(width = 3.dp.toPx())
-                                    )
-                                    // Center hub
-                                    drawCircle(
-                                        color = Color(0xFF1E293B),
-                                        radius = radius * 0.22f,
-                                        center = center
-                                    )
-                                    drawCircle(
-                                        color = Color(0xFFFFD700),
-                                        radius = radius * 0.22f,
-                                        center = center,
-                                        style = Stroke(width = 2.dp.toPx())
-                                    )
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("MOVES", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("$moves", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                                 }
-
-                                // Pointer needle at top pointing downward
-                                Text(
-                                    text = "▼",
-                                    color = Color(0xFFFFD700),
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier
-                                        .align(Alignment.TopCenter)
-                                        .padding(top = 0.dp)
-                                )
-                            }
-
-                            Spacer(Modifier.height(6.dp))
-
-                            if (spunRewardCoins != null) {
-                                Text(
-                                    text = "🎉 Won +$spunRewardCoins Bonus Coins!",
-                                    color = Color(0xFFFDE047),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            } else {
-                                Button(
-                                    onClick = {
-                                        if (!isSpinning && !hasSpun) {
-                                            isSpinning = true
-                                            spinScope.launch {
-                                                // Rhythmic ratchet ticking sound while wheel spins
-                                                val tickJob = launch {
-                                                    var delayMs = 55L
-                                                    while (isSpinning) {
-                                                        soundManager?.playSpinTick()
-                                                        delay(delayMs)
-                                                        delayMs = (delayMs * 1.075f).toLong().coerceAtMost(320L)
-                                                    }
-                                                }
-
-                                                val randomSector = Random.nextInt(prizeSegments.size)
-                                                val sectorAngle = 360f / prizeSegments.size
-                                                // Needle at top (270 degrees). Target sector should align to 270 deg.
-                                                val fullRotations = (5 + Random.nextInt(3)) * 360f
-                                                val targetAngle = fullRotations + (270f - (randomSector * sectorAngle + sectorAngle / 2f))
-
-                                                wheelRotation.animateTo(
-                                                    targetValue = targetAngle,
-                                                    animationSpec = tween(
-                                                        durationMillis = 3200,
-                                                        easing = FastOutSlowInEasing
-                                                    )
-                                                )
-                                                tickJob.cancel()
-                                                val wonCoins = prizeSegments[randomSector]
-                                                spunRewardCoins = wonCoins
-                                                hasSpun = true
-                                                isSpinning = false
-                                                soundManager?.playSpinReward()
-                                                onSpinWinCoins?.invoke(wonCoins)
-                                            }
-                                        }
-                                    },
-                                    enabled = !isSpinning && !hasSpun,
-                                    colors = ButtonDefaults.buttonColors(containerColor = LuxuryGoldPrimary),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier
-                                        .height(34.dp)
-                                        .testTag("spin_to_win_button")
-                                ) {
-                                    Text(
-                                        text = if (isSpinning) "Spinning..." else "SPIN TO WIN 🪙",
-                                        color = Color(0xFF1E1602),
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.sp
-                                    )
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("TIME", color = SleekSlate300, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    val mins = timeSeconds / 60
+                                    val secs = timeSeconds % 60
+                                    Text(String.format("%02d:%02d", mins, secs), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                                 }
                             }
                         }
-                    }
 
-                    if (!hasDoubledCoins && onWatchAdDouble != null) {
+                        Spacer(Modifier.height(20.dp))
+
                         Button(
-                            onClick = onWatchAdDouble,
+                            onClick = onPlayAgain,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(40.dp)
-                                .testTag("double_coins_button"),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
-                            shape = RoundedCornerShape(10.dp)
+                                .height(48.dp)
+                                .testTag("play_again_cascade_button"),
+                            colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("🎬 Watch Ad for +400 Coins", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
-                        }
-                        Spacer(Modifier.height(6.dp))
-                    }
-
-                    // ⭐ NEXT LEVEL OPTION (Transforms game look & deal)
-                    if (onNextLevel != null) {
-                        Button(
-                            onClick = onNextLevel,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp)
-                                .testTag("next_level_button"),
-                            colors = ButtonDefaults.buttonColors(containerColor = LuxuryGoldPrimary),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color(0xFF1E1602))
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                             Spacer(Modifier.width(8.dp))
-                            Text("NEXT LEVEL ›", color = Color(0xFF1E1602), fontWeight = FontWeight.Black, fontSize = 14.5.sp)
+                            Text("PLAY AGAIN", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
-                        Spacer(Modifier.height(6.dp))
-                    }
 
-                    Button(
-                        onClick = onPlayAgain,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .testTag("play_again_cascade_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
-                        Spacer(Modifier.width(8.dp))
-                        Text("PLAY AGAIN", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
+                        Spacer(Modifier.height(10.dp))
 
-                    Spacer(Modifier.height(6.dp))
-
-                    OutlinedButton(
-                        onClick = onHome,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(42.dp)
-                            .testTag("home_cascade_button"),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Icon(Icons.Default.Home, contentDescription = null, tint = SleekSlate300)
-                        Spacer(Modifier.width(8.dp))
-                        Text("MAIN MENU", color = SleekSlate300, fontWeight = FontWeight.Bold)
+                        OutlinedButton(
+                            onClick = onHome,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                                .testTag("home_cascade_button"),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Home, contentDescription = null, tint = SleekSlate300)
+                            Spacer(Modifier.width(8.dp))
+                            Text("MAIN MENU", color = SleekSlate300, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -573,14 +337,12 @@ private fun DrawScope.drawCascadeCard(
     val r = width * 0.12f
     val cardCorner = CornerRadius(r, r)
 
-    // Card white background
     drawRoundRect(
         color = Color(0xFFFFFFFF),
         topLeft = Offset(x, y),
         size = Size(width, height),
         cornerRadius = cardCorner
     )
-    // Card outer border
     val edgeW = (width * 0.022f).coerceAtLeast(1f)
     drawRoundRect(
         color = Color(0xFF3A4052),
@@ -594,18 +356,10 @@ private fun DrawScope.drawCascadeCard(
     val suitColor = if (isRed) Color(0xFFE21C34) else Color(0xFF0E1018)
     val paintColor = if (isRed) android.graphics.Color.rgb(226, 28, 52) else android.graphics.Color.rgb(14, 16, 24)
 
-    // Center big suit icon (58% width, centered at 55% height)
     val suitSize = width * 0.58f
     val suitCenter = Offset(x + width * 0.50f, y + height * 0.55f)
-    val suitPath = when (suit) {
-        Suit.SPADES -> CardFaceRenderer.createSpadePath(suitCenter.x, suitCenter.y, suitSize)
-        Suit.HEARTS -> CardFaceRenderer.createHeartPath(suitCenter.x, suitCenter.y, suitSize)
-        Suit.DIAMONDS -> CardFaceRenderer.createDiamondPath(suitCenter.x, suitCenter.y, suitSize)
-        Suit.CLUBS -> CardFaceRenderer.createClubPath(suitCenter.x, suitCenter.y, suitSize)
-    }
-    drawPath(path = suitPath, color = suitColor)
+    CardFaceRenderer.drawSuit(this, suit, suitColor, suitCenter.x, suitCenter.y, suitSize * 0.45f)
 
-    // Top-left bold rank only (center at 21% width, 12% height)
     val rankSizePx = if (rank == Rank.TEN) width * 0.31f else width * 0.38f
     val paint = android.graphics.Paint().apply {
         color = paintColor
@@ -626,7 +380,6 @@ private fun DrawScope.drawCascadeCard(
     nativeCanvas.drawText(rank.display, 0f, -baselineOffset, paint)
     nativeCanvas.restore()
 
-    // Bottom-right bold rank only (rotated 180°, center at 79% width, 88% height)
     nativeCanvas.save()
     nativeCanvas.translate(x + width * 0.79f, y + height * 0.88f)
     nativeCanvas.rotate(180f)

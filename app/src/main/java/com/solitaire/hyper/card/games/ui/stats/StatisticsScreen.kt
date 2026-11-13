@@ -36,6 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -178,35 +179,11 @@ fun StatisticsScreen(
                     }
                 }
 
-                // Streaks Section
-                Text(
-                    text = "Win Streaks & Consistency",
-                    color = SleekSlate100,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                // Consecutive Streaks Tracker (Room DB)
+                ConsecutiveStreaksBoard(stats = stats)
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    StreakMetricCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Whatshot,
-                        iconTint = Color(0xFFFF9800),
-                        label = "Current Streak",
-                        value = "${stats.currentStreak} Wins",
-                        subtitle = if (stats.currentStreak > 0) "Active run!" else "Streak reset"
-                    )
-                    StreakMetricCard(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.EmojiEvents,
-                        iconTint = Color(0xFFFFD700),
-                        label = "Best Streak",
-                        value = "${stats.bestStreak} Wins",
-                        subtitle = "All-time personal record"
-                    )
-                }
+                // 30-Day Winning Streak Trend (Native 60fps Compose Canvas)
+                NativeStreakTrendCard(stats = stats)
 
                 // Detailed Records
                 Text(
@@ -402,6 +379,37 @@ private fun RecentMatchItem(match: GameRecordEntity) {
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
+                        if (isWin && match.consecutiveWins > 1) {
+                            Spacer(Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF166534).copy(alpha = 0.5f),
+                                border = BorderStroke(1.dp, SleekEmerald400.copy(alpha = 0.4f))
+                            ) {
+                                Text(
+                                    text = "🔥 ${match.consecutiveWins}W streak",
+                                    color = SleekEmerald400,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        } else if (!isWin && match.consecutiveLosses > 1) {
+                            Spacer(Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFF1E293B),
+                                border = BorderStroke(1.dp, Color(0xFF38BDF8).copy(alpha = 0.35f))
+                            ) {
+                                Text(
+                                    text = "🧊 ${match.consecutiveLosses}L streak",
+                                    color = Color(0xFF38BDF8),
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
                     }
                     Text(
                         text = formattedDate,

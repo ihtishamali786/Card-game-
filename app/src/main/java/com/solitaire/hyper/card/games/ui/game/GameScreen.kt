@@ -29,12 +29,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
@@ -44,7 +45,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SmartToy
@@ -54,9 +54,9 @@ import android.widget.Toast
 import com.solitaire.hyper.card.games.BuildConfig
 import com.solitaire.hyper.card.games.update.AppUpdateHelper
 import com.solitaire.hyper.card.games.update.UpdateStatus
-import com.solitaire.hyper.card.games.ui.components.AiCoachDialog
-import com.solitaire.hyper.card.games.ui.shop.ShopDialog
+import com.solitaire.hyper.card.games.ui.components.RateAppDialog
 import com.solitaire.hyper.card.games.ui.components.TutorialDemoOverlay
+import com.solitaire.hyper.card.games.ui.components.ZenFloatingLights
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.geometry.Offset
@@ -146,14 +146,13 @@ fun GameScreen(
     val showWinDialog by viewModel.showWinDialog.collectAsState()
     val isGamePaused by viewModel.isGamePaused.collectAsState()
 
-    var showShopDialog by remember { mutableStateOf(false) }
+    var showOutOfJokersDialog by remember { mutableStateOf(false) }
 
     var showExitConfirm by remember { mutableStateOf(false) }
     var showRestartConfirm by remember { mutableStateOf(false) }
     var showPlayDialog by remember { mutableStateOf(false) }
     var showMenuDialog by remember { mutableStateOf(false) }
     var showRulesDialog by remember { mutableStateOf(false) }
-    var hasDoubledCoins by remember { mutableStateOf(false) }
 
 
     val currentBackground = CustomizationRegistry.getBackground(userSettings.backgroundId)
@@ -211,17 +210,13 @@ fun GameScreen(
             .navigationBarsPadding()
             .onGloballyPositioned { rootLayoutCoordinates = it }
     ) {
-        if (userSettings.backgroundDim > 0f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = userSettings.backgroundDim))
-            )
+        if (userSettings.floatingLights && !userSettings.reduceMotion) {
+            ZenFloatingLights(enabled = true)
         }
         val availableWidth = maxWidth
         val colSpacing = 4.dp
         val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
-        val cardHeight = cardWidth * 1.444f
+        val cardHeight = cardWidth * 1.4f
         val density = androidx.compose.ui.platform.LocalDensity.current
         Column(
             modifier = Modifier
@@ -247,7 +242,7 @@ fun GameScreen(
                 val availableWidth = maxWidth
                 val colSpacing = 4.dp
                 val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
-                val cardHeight = cardWidth * 1.444f
+                val cardHeight = cardWidth * 1.4f
 
                 PortraitTopCardRow(
                     gameState = gameState,
@@ -315,7 +310,7 @@ fun GameScreen(
                 val availableWidth = maxWidth
                 val colSpacing = 4.dp
                 val cardWidth = ((availableWidth - (colSpacing * 8)) / 7).coerceIn(36.dp, 56.dp)
-                val cardHeight = cardWidth * 1.444f
+                val cardHeight = cardWidth * 1.4f
 
                 TableauArea(
                     gameState = gameState,
@@ -347,12 +342,13 @@ fun GameScreen(
 
             Spacer(modifier = Modifier.height(2.dp))
 
-            // 5. Floating Bottom Navigation Bar: Settings, Magic Wand, Play, Hint, Undo & Solitaire emblem
+            // 5. Floating Bottom Navigation Bar: Settings, Joker Helper, Play, Hint, Undo
             CompactGameBottomBar(
                 gameState = gameState,
                 isAutoCompleting = isAutoCompleting,
+                jokersCount = viewModel.jokersAvailable(),
                 onSettings = onOpenSettings,
-                onMagicWand = { viewModel.useMagicWand(onOutOfWands = { showShopDialog = true }) },
+                onJoker = { viewModel.useJoker(onOutOfJokers = { showOutOfJokersDialog = true }) },
                 onPlay = { showPlayDialog = true },
                 onHint = { viewModel.requestHint() },
                 onUndo = { viewModel.undo() },
@@ -379,40 +375,11 @@ fun GameScreen(
                 score = gameState.score,
                 timeSeconds = gameState.elapsedTimeSeconds,
                 moves = gameState.moveCount,
-                coinsEarned = 200,
-                hasDoubledCoins = hasDoubledCoins,
                 soundManager = viewModel.soundManager,
-                onSpinWinCoins = { coins ->
-                    viewModel.awardSpinWinCoins(coins)
-                },
-                onNextLevel = {
-                    viewModel.dismissWinDialog()
-                    hasDoubledCoins = false
-                    if (activity != null) {
-                        AdManager.onGameCompleted(activity, isAdFree = userSettings.isAdFreeActive()) {
-                            viewModel.proceedToNextLevel()
-                        }
-                    } else {
-                        viewModel.proceedToNextLevel()
-                    }
-                },
-                onWatchAdDouble = {
-                    if (activity != null) {
-                        AdManager.showRewardedAd(
-                            activity = activity,
-                            onRewardEarned = {
-                                viewModel.awardDoubleWinCoins()
-                                hasDoubledCoins = true
-                            },
-                            onDismissOrFailed = {}
-                        )
-                    }
-                },
                 onPlayAgain = {
                     viewModel.dismissWinDialog()
-                    hasDoubledCoins = false
                     if (activity != null) {
-                        AdManager.onGameCompleted(activity, isAdFree = userSettings.isAdFreeActive()) {
+                        AdManager.onGameCompleted(activity, userSettings.isAdsRemoved) {
                             viewModel.startNewGame(mode = gameState.gameMode)
                         }
                     } else {
@@ -421,9 +388,8 @@ fun GameScreen(
                 },
                 onHome = {
                     viewModel.dismissWinDialog()
-                    hasDoubledCoins = false
                     if (activity != null) {
-                        AdManager.onGameCompleted(activity, isAdFree = userSettings.isAdFreeActive()) {
+                        AdManager.onGameCompleted(activity, userSettings.isAdsRemoved) {
                             onNavigateBack()
                         }
                     } else {
@@ -432,7 +398,6 @@ fun GameScreen(
                 },
                 onDismiss = {
                     viewModel.dismissWinDialog()
-                    hasDoubledCoins = false
                 }
             )
         }
@@ -505,7 +470,6 @@ fun GameScreen(
         if (showPlayDialog) {
             var selectedMode by remember { mutableStateOf(gameState.gameMode) }
             var isWinnableChecked by remember { mutableStateOf(gameState.isWinnableDeal) }
-            var isVegasChecked by remember { mutableStateOf(gameState.isVegasScoring) }
 
             AlertDialog(
                 onDismissRequest = { showPlayDialog = false },
@@ -599,34 +563,6 @@ fun GameScreen(
                             }
                         }
 
-                        // Vegas Scoring Toggle Card
-                        Surface(
-                            onClick = { isVegasChecked = !isVegasChecked },
-                            color = if (isVegasChecked) Color(0xFF2C1E3D) else Color.White.copy(alpha = 0.05f),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, if (isVegasChecked) Color(0xFFC084FC) else Color.White.copy(alpha = 0.15f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "🎰 Vegas Mode",
-                                    color = if (isVegasChecked) Color(0xFFC084FC) else SleekSlate200,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    if (isVegasChecked) "ON ✓" else "OFF",
-                                    color = if (isVegasChecked) Color(0xFFC084FC) else SleekSlate400,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
                         Spacer(Modifier.height(4.dp))
 
                         Button(
@@ -634,8 +570,7 @@ fun GameScreen(
                                 showPlayDialog = false
                                 viewModel.startNewGame(
                                     mode = selectedMode,
-                                    isWinnableDeal = isWinnableChecked,
-                                    isVegasScoring = isVegasChecked
+                                    isWinnableDeal = isWinnableChecked
                                 )
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500),
@@ -698,7 +633,7 @@ fun GameScreen(
                             showMenuDialog = false
                             showRestartConfirm = true
                         }
-                        GameMenuRow(icon = Icons.Default.MenuBook, title = "Rules & How to Play") {
+                        GameMenuRow(icon = Icons.AutoMirrored.Filled.MenuBook, title = "Rules & How to Play") {
                             showMenuDialog = false
                             showRulesDialog = true
                         }
@@ -718,10 +653,6 @@ fun GameScreen(
                             showMenuDialog = false
                             onOpenAchievements()
                         }
-                        GameMenuRow(icon = Icons.Default.ShoppingCart, title = "🪙 Shop & VIP Store") {
-                            showMenuDialog = false
-                            showShopDialog = true
-                        }
                         GameMenuRow(icon = Icons.Default.Palette, title = "Themes & Customization") {
                             showMenuDialog = false
                             onOpenThemes()
@@ -739,7 +670,7 @@ fun GameScreen(
                             showMenuDialog = false
                             onOpenSettings()
                         }
-                        GameMenuRow(icon = Icons.Default.ExitToApp, title = "Exit Game", isDestructive = true) {
+                        GameMenuRow(icon = Icons.AutoMirrored.Filled.ExitToApp, title = "Exit Game", isDestructive = true) {
                             showMenuDialog = false
                             showExitConfirm = true
                         }
@@ -754,12 +685,53 @@ fun GameScreen(
             )
         }
 
-        // In-App Store & VIP Dialog
-        if (showShopDialog) {
-            ShopDialog(
-                userSettings = userSettings,
-                userPrefs = viewModel.userPrefs,
-                onDismiss = { showShopDialog = false }
+        // Out of Jokers Dialog (Earn extra Jokers with Rewarded Ad)
+        if (showOutOfJokersDialog) {
+            AlertDialog(
+                onDismissRequest = { showOutOfJokersDialog = false },
+                title = {
+                    Text("Out of Free Jokers Today", fontWeight = FontWeight.Bold, color = SleekSlate100)
+                },
+                text = {
+                    Text(
+                        "You get 3 free Jokers every day. Watch a quick video to receive 1 more Joker helper right now!",
+                        color = SleekSlate300,
+                        fontSize = 14.sp
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showOutOfJokersDialog = false
+                            if (activity != null) {
+                                AdManager.showRewardedAd(
+                                    activity = activity,
+                                    onRewardEarned = {
+                                        viewModel.addRewardJoker()
+                                    }
+                                )
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = SleekEmerald500)
+                    ) {
+                        Text("Watch Video (+1 Joker)", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showOutOfJokersDialog = false }) {
+                        Text("Not Now", color = SleekSlate300)
+                    }
+                }
+            )
+        }
+
+        // Rating Prompt (Shown once after 3 wins)
+        val showRateDialog by viewModel.showRateAppDialog.collectAsState()
+        if (showRateDialog) {
+            RateAppDialog(
+                onRated = { viewModel.markAppRated() },
+                onLater = { viewModel.dismissRateAppDialog() },
+                onNever = { viewModel.markAppRated() }
             )
         }
 
@@ -1393,7 +1365,7 @@ fun TableauColumnView(
             // Dynamic compression so cards always stay inside bounds
             // Master spec: face-down about 13% of height, face-up about 30% (32% in Large Print)
             val baseDownStep = cardHeight * 0.13f
-            val baseUpStep = if (largePrint) cardHeight * 0.32f else cardHeight * 0.30f
+            val baseUpStep = if (largePrint) cardHeight * 0.35f else cardHeight * 0.33f
             val nominalTotalH = cardHeight + (baseDownStep * faceDownCount) + (baseUpStep * maxOf(0, faceUpCount - 1))
 
             val compression = if (nominalTotalH > maxAvailH && nominalTotalH > cardHeight) {
@@ -1515,8 +1487,9 @@ fun TableauColumnView(
 fun CompactGameBottomBar(
     gameState: GameState,
     isAutoCompleting: Boolean,
+    jokersCount: Int = 3,
     onSettings: () -> Unit,
-    onMagicWand: () -> Unit,
+    onJoker: () -> Unit,
     onPlay: () -> Unit,
     onHint: () -> Unit,
     onUndo: () -> Unit,
@@ -1600,15 +1573,15 @@ fun CompactGameBottomBar(
                     onClick = onPlay
                 )
 
-                // Magic Wand - 5D Cosmic Amethyst Gem
+                // Joker Helper - 5D Cosmic Amethyst Gem
                 FiveDimensionalGameButton(
                     icon = Icons.Default.AutoAwesome,
-                    label = "Magic",
+                    label = "Joker ($jokersCount)",
                     gradient = listOf(Color(0xFFFF4081), Color(0xFFE040FB), Color(0xFF9C27B0), Color(0xFF6A1B9A), Color(0xFF311B92)),
                     borderColor = Color(0xFFF48FB1),
                     labelColor = Color(0xFFF8BBD0),
-                    testTag = "bottom_magic",
-                    onClick = onMagicWand
+                    testTag = "bottom_joker",
+                    onClick = onJoker
                 )
 
                 // Settings - 5D Electric Sapphire Gem

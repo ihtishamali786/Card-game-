@@ -1,16 +1,47 @@
 package com.solitaire.hyper.card.games.ads
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
 
 /**
- * 100% Ad-Free Banner placeholder.
- * Zero external Ad SDKs, zero data transmission, zero tracking.
+ * Standard AdMob Banner component.
+ * Automatically hidden if the player has purchased "Remove Ads".
  */
 @Composable
 fun BannerAdView(
     modifier: Modifier = Modifier,
-    isAdFree: Boolean = true
+    isAdsRemoved: Boolean = false
 ) {
-    // 100% Ad-Free experience
+    if (isAdsRemoved) {
+        return
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .testTag("home_banner_ad"),
+        contentAlignment = Alignment.Center
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxWidth(),
+            factory = { context ->
+                AdView(context).apply {
+                    setAdSize(AdSize.BANNER)
+                    adUnitId = AdManager.BANNER_AD_UNIT_ID
+                    loadAd(AdRequest.Builder().build())
+                }
+            }
+        )
+    }
 }

@@ -6,60 +6,41 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import java.util.Calendar
 
+/**
+ * Manages the single optional daily reminder at the user-selected time.
+ */
 object NotificationScheduler {
     private const val TAG = "NotificationScheduler"
-    const val PREFS_NAME = "solitaire_notification_prefs"
-    const val KEY_LAST_PLAY_TIMESTAMP = "key_last_play_timestamp"
-    const val KEY_NEXT_ALARM_TIMESTAMP = "key_next_alarm_timestamp"
-    private const val KEY_MESSAGE_INDEX = "key_message_index"
-    private const val REQUEST_CODE_ALARM = 8801
+    private const val REQUEST_CODE_DAILY_REMINDER = 9901
 
-    // 1 hour in milliseconds
-    const val ONE_HOUR_MS = 60 * 60 * 1000L
-
-    /**
-     * Records that the user was active in the game right now.
-     * Reschedules the next hourly reminder to trigger 1 hour after this moment.
-     */
-    fun recordUserActivity(context: Context) {
-        try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val now = System.currentTimeMillis()
-            val lastRecorded = prefs.getLong(KEY_LAST_PLAY_TIMESTAMP, 0L)
-            prefs.edit().putLong(KEY_LAST_PLAY_TIMESTAMP, now).apply()
-
-            // Throttle alarm scheduling to at most once every 5 minutes to avoid Binder IPC churn
-            if (now - lastRecorded < 5 * 60 * 1000L) {
-                return
-            }
-            scheduleNextHourlyAlarm(context, delayMs = ONE_HOUR_MS)
-            Log.d(TAG, "User activity recorded. Next hourly alarm set for 1 hour from now.")
-        } catch (e: Exception) {
-            Log.w(TAG, "Error recording user activity: ${e.message}")
-        }
-    }
-
-    /**
-     * Schedules the next hourly alarm.
-     * Operates completely offline and online via Android AlarmManager.
-     */
-    fun scheduleNextHourlyAlarm(context: Context, delayMs: Long = ONE_HOUR_MS) {
+    fun scheduleDailyReminder(context: Context, hour: Int, minute: Int) {
         try {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
             val intent = Intent(context, GameReminderReceiver::class.java)
 
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
-                REQUEST_CODE_ALARM,
+                REQUEST_CODE_DAILY_REMINDER,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-            val triggerAtMillis = System.currentTimeMillis() + delayMs
+            val calendar = Calendar.getInstance().apply {
+                timeInMillis = System.currentTimeMillis()
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
 
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit().putLong(KEY_NEXT_ALARM_TIMESTAMP, triggerAtMillis).apply()
+                // If scheduled time has already passed today, set for tomorrow
+                if (timeInMillis <= System.currentTimeMillis()) {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
+            }
+
+            val triggerAtMillis = calendar.timeInMillis
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 alarmManager.setAndAllowWhileIdle(
@@ -74,38 +55,27 @@ object NotificationScheduler {
                     pendingIntent
                 )
             }
-            Log.d(TAG, "Successfully scheduled hourly notification in ${delayMs / 1000}s (Offline & Online capable)")
+            Log.d(TAG, "Daily reminder scheduled for ${calendar.time}")
         } catch (e: Exception) {
-            Log.w(TAG, "Error scheduling hourly alarm: ${e.message}")
+            Log.w(TAG, "Error scheduling daily reminder: ${e.message}")
         }
     }
 
-    fun getNextMessageIndex(context: Context, totalCount: Int): Int {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val currentIndex = prefs.getInt(KEY_MESSAGE_INDEX, 0)
-        val nextIndex = (currentIndex + 1) % totalCount
-        prefs.edit().putInt(KEY_MESSAGE_INDEX, nextIndex).apply()
-        return currentIndex
-    }
-
-    fun getRemainingTimeMs(context: Context): Long {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val nextAlarm = prefs.getLong(KEY_NEXT_ALARM_TIMESTAMP, 0L)
-        val remaining = nextAlarm - System.currentTimeMillis()
-        return if (remaining > 0) remaining else 0L
-    }
-
-    fun formatRemainingTime(remainingMs: Long): String {
-        if (remainingMs <= 0) return "Ready"
-        val totalSecs = (remainingMs + 999) / 1000
-        val mins = totalSecs / 60
-        val secs = totalSecs % 60
-        return if (mins >= 60) {
-            val hours = mins / 60
-            val remMins = mins % 60
-            String.format(java.util.Locale.US, "%dh %02dm", hours, remMins)
-        } else {
-            String.format(java.util.Locale.US, "%02d:%02d", mins, secs)
+    fun cancelDailyReminder(context: Context) {
+        try {
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+            val intent = Intent(context, GameReminderReceiver::class.java)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                REQUEST_CODE_DAILY_REMINDER,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            alarmManager.cancel(pendingIntent)
+            pendingIntent.cancel()
+            Log.d(TAG, "Daily reminder cancelled completely")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error cancelling daily reminder: ${e.message}")
         }
     }
 }

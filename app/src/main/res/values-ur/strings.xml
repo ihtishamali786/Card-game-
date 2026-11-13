@@ -1,5 +1,6 @@
 <resources>
-    <string name="app_name">سولیٹیئر ہائپر کارڈ گیمز</string>
+    <string name="app_name">سولیٹیئر جوکر: کلونڈائک زَین</string>
+    <string name="app_tagline">آرام کریں۔ کھیلیں، جوکر کے ساتھ جیتیں۔</string>
     <string name="play">کھیلیں</string>
     <string name="continue_game">جاری رکھیں</string>
     <string name="new_game">نیا کھیل</string>
@@ -11,6 +12,7 @@
     <string name="achievements">کامیابیاں</string>
     <string name="undo">واپس</string>
     <string name="hint">اشارہ</string>
+    <string name="joker">جوکر</string>
     <string name="auto_complete">خودکار مکمل</string>
     <string name="score">اسکور</string>
     <string name="time">وقت</string>
@@ -26,4 +28,8 @@
     <string name="privacy_policy">پرائیویسی پالیسی</string>
     <string name="terms_and_conditions">شرائط و ضوابط</string>
     <string name="about">ہمارے بارے میں</string>
+    <string name="easy_deals">آسان / جیتنے والے سودے</string>
+    <string name="daily_reminder">روزانہ یاد دہانی</string>
+    <string name="remove_ads">اشتہارات ہٹائیں</string>
+    <string name="restore_purchases">خریداری بحال کریں</string>
 </resources>
